@@ -27,20 +27,8 @@ if(MATHOPTSOLVERSCMAKE_USE_CLP OR MATHOPTSOLVERSCMAKE_USE_CBC)
             libquadmath.a)
     endif()
     if(APPLE)
-        ExternalProject_Add(CoinUtils
-            URL https://github.com/coin-or/CoinUtils/releases/download/releases%2F2.11.9/CoinUtils-releases.2.11.9-x86_64-macos106-clang140.tar.gz
-            URL_HASH SHA256=3d0bdaf7bb748bfbec059fc8ff6ff17d2354c334710db3cd532af6a9c942f762
-            CONFIGURE_COMMAND ""
-            BUILD_COMMAND ""
-            INSTALL_COMMAND ""
-            TEST_COMMAND "")
-        target_include_directories(MathOptSolversCMake_coinutils INTERFACE
-            "${CMAKE_CURRENT_BINARY_DIR}/CoinUtils-prefix/src/CoinUtils/include")
-        target_link_directories(MathOptSolversCMake_coinutils INTERFACE
-            "${CMAKE_CURRENT_BINARY_DIR}/CoinUtils-prefix/src/CoinUtils/lib")
-        target_link_libraries(MathOptSolversCMake_coinutils INTERFACE
-            libCoinUtils.dylib)
-        install(FILES "${CMAKE_CURRENT_BINARY_DIR}/CoinUtils-prefix/src/CoinUtils/lib/libCoinUtils.dylib" DESTINATION lib)
+        target_link_options(MathOptSolversCMake_coinutils INTERFACE
+            -lCoinUtils)
     endif()
     if(WIN32)
         ExternalProject_Add(CoinUtils
@@ -78,22 +66,8 @@ if(MATHOPTSOLVERSCMAKE_USE_CLP OR MATHOPTSOLVERSCMAKE_USE_CBC)
             libOsiCommonTests.a)
     endif()
     if(APPLE)
-        ExternalProject_Add(Osi
-            URL https://github.com/coin-or/Osi/releases/download/releases%2F0.108.8/Osi-releases.0.108.8-x86_64-macos106-clang140.tar.gz
-            URL_HASH SHA256=4ddc1ee5cd5088aeb7795bfebc66beec8d7a0a3baec3dd3e8bbbdff17f93cd3f
-            CONFIGURE_COMMAND ""
-            BUILD_COMMAND ""
-            INSTALL_COMMAND ""
-            TEST_COMMAND "")
-        target_include_directories(MathOptSolversCMake_osi INTERFACE
-            "${CMAKE_CURRENT_BINARY_DIR}/Osi-prefix/src/Osi/include")
-        target_link_directories(MathOptSolversCMake_osi INTERFACE
-            "${CMAKE_CURRENT_BINARY_DIR}/Osi-prefix/src/Osi/lib")
-        target_link_libraries(MathOptSolversCMake_osi INTERFACE
-            libOsi.dylib
-            libOsiCommonTests.dylib)
-        install(FILES "${CMAKE_CURRENT_BINARY_DIR}/Osi-prefix/src/Osi/lib/libOsi.dylib" DESTINATION lib)
-        install(FILES "${CMAKE_CURRENT_BINARY_DIR}/Osi-prefix/src/Osi/lib/libOsiCommonTests.dylib" DESTINATION lib)
+        target_link_options(MathOptSolversCMake_osi INTERFACE
+            -lOsi -lOsiCommonTests)
     endif()
     if(WIN32)
         ExternalProject_Add(Osi
@@ -134,22 +108,8 @@ if(MATHOPTSOLVERSCMAKE_USE_CLP OR MATHOPTSOLVERSCMAKE_USE_CBC)
             libOsiClp.a)
     endif()
     if(APPLE)
-        ExternalProject_Add(Clp
-            URL https://github.com/coin-or/Clp/releases/download/releases%2F1.17.8/Clp-releases.1.17.8-x86_64-macos106-clang140.tar.gz
-            URL_HASH SHA256=fe9ce251cd3e0324d64f0e3956d722c73b7568685c25eb7559c327818b39b86b
-            CONFIGURE_COMMAND ""
-            BUILD_COMMAND ""
-            INSTALL_COMMAND ""
-            TEST_COMMAND "")
-        target_include_directories(MathOptSolversCMake_clp INTERFACE
-            "${CMAKE_CURRENT_BINARY_DIR}/Clp-prefix/src/Clp/include")
-        target_link_directories(MathOptSolversCMake_clp INTERFACE
-            "${CMAKE_CURRENT_BINARY_DIR}/Clp-prefix/src/Clp/lib")
-        target_link_libraries(MathOptSolversCMake_clp INTERFACE
-            libClp.dylib
-            libOsiClp.dylib)
-        install(FILES "${CMAKE_CURRENT_BINARY_DIR}/Clp-prefix/src/Clp/lib/libClp.dylib" DESTINATION lib)
-        install(FILES "${CMAKE_CURRENT_BINARY_DIR}/Clp-prefix/src/Clp/lib/libOsiClp.dylib" DESTINATION lib)
+        target_link_options(MathOptSolversCMake_clp INTERFACE
+            -lClp -lOsiClp)
     endif()
     if(WIN32)
         ExternalProject_Add(Clp
@@ -194,24 +154,8 @@ if(MATHOPTSOLVERSCMAKE_USE_CBC)
             libnauty.a)
     endif()
     if(APPLE)
-        ExternalProject_Add(Cbc
-            URL https://github.com/coin-or/Cbc/releases/download/releases%2F2.10.10/Cbc-releases.2.10.10-x86_64-macos106-clang140.tar.gz
-            URL_HASH SHA256=2b864f174ceabad2c6f2096180d737d36d33e7a0553211265557af187329cb94
-            CONFIGURE_COMMAND ""
-            BUILD_COMMAND ""
-            INSTALL_COMMAND ""
-            TEST_COMMAND "")
-        target_include_directories(MathOptSolversCMake_cbc INTERFACE
-            "${CMAKE_CURRENT_BINARY_DIR}/Cbc-prefix/src/Cbc/include")
-        target_link_directories(MathOptSolversCMake_cbc INTERFACE
-            "${CMAKE_CURRENT_BINARY_DIR}/Cbc-prefix/src/Cbc/lib")
-        target_link_libraries(MathOptSolversCMake_cbc INTERFACE
-            libCbc.dylib
-            libOsiCbc.dylib
-            libCgl.dylib)
-        install(FILES "${CMAKE_CURRENT_BINARY_DIR}/Cbc-prefix/src/Cbc/lib/libCbc.dylib" DESTINATION lib)
-        install(FILES "${CMAKE_CURRENT_BINARY_DIR}/Cbc-prefix/src/Cbc/lib/libOsiCbc.dylib" DESTINATION lib)
-        install(FILES "${CMAKE_CURRENT_BINARY_DIR}/Cbc-prefix/src/Cbc/lib/libCgl.dylib" DESTINATION lib)
+        target_link_options(MathOptSolversCMake_cbc INTERFACE
+            -lCbc -lOsiCbc -lCgl)
     endif()
     if(WIN32)
         ExternalProject_Add(Cbc
