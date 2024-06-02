@@ -26,6 +26,15 @@ if(MATHOPTSOLVERSCMAKE_USE_CLP OR MATHOPTSOLVERSCMAKE_USE_CBC)
             libgfortran.a
             libquadmath.a)
     endif()
+    if(APPLE)
+        target_include_directories(MathOptSolversCMake_coinutils INTERFACE
+            "${MATHOPTSOLVERSCMAKE_HOMEBREW_PREFIX}/Cellar/coinutils/include")
+        target_link_directories(MathOptSolversCMake_coinutils INTERFACE
+            "${MATHOPTSOLVERSCMAKE_HOMEBREW_PREFIX}/Cellar/coinutils/lib")
+        target_link_libraries(MathOptSolversCMake_coinutils INTERFACE
+            libCoinUtils.dylib)
+        install(FILES "${CMAKE_CURRENT_BINARY_DIR}/CoinUtils-prefix/src/CoinUtils/lib/libCoinUtils.dylib" DESTINATION lib)
+    endif()
     if(WIN32)
         ExternalProject_Add(CoinUtils
             URL https://github.com/coin-or/CoinUtils/releases/download/releases%2F2.11.9/CoinUtils-releases.2.11.9-w64-msvc16-md.zip
@@ -62,22 +71,13 @@ if(MATHOPTSOLVERSCMAKE_USE_CLP OR MATHOPTSOLVERSCMAKE_USE_CBC)
             libOsiCommonTests.a)
     endif()
     if(APPLE)
-        ExternalProject_Add(Osi
-            URL https://github.com/coin-or/Osi/releases/download/releases%2F0.108.8/Osi-releases.0.108.8-x86_64-macos106-clang140.tar.gz
-            URL_HASH SHA256=4ddc1ee5cd5088aeb7795bfebc66beec8d7a0a3baec3dd3e8bbbdff17f93cd3f
-            CONFIGURE_COMMAND ""
-            BUILD_COMMAND ""
-            INSTALL_COMMAND ""
-            TEST_COMMAND "")
         target_include_directories(MathOptSolversCMake_osi INTERFACE
-            "${CMAKE_CURRENT_BINARY_DIR}/Osi-prefix/src/Osi/include")
+            "${MATHOPTSOLVERSCMAKE_HOMEBREW_PREFIX}/Cellar/osi/include")
         target_link_directories(MathOptSolversCMake_osi INTERFACE
-            "${CMAKE_CURRENT_BINARY_DIR}/Osi-prefix/src/Osi/lib")
+            "${MATHOPTSOLVERSCMAKE_HOMEBREW_PREFIX}/Cellar/osi/lib")
         target_link_libraries(MathOptSolversCMake_osi INTERFACE
             libOsi.dylib
             libOsiCommonTests.dylib)
-        install(FILES "${CMAKE_CURRENT_BINARY_DIR}/Osi-prefix/src/Osi/lib/libOsi.dylib" DESTINATION lib)
-        install(FILES "${CMAKE_CURRENT_BINARY_DIR}/Osi-prefix/src/Osi/lib/libOsiCommonTests.dylib" DESTINATION lib)
     endif()
     if(WIN32)
         ExternalProject_Add(Osi
@@ -116,14 +116,12 @@ if(MATHOPTSOLVERSCMAKE_USE_CLP OR MATHOPTSOLVERSCMAKE_USE_CBC)
         target_link_libraries(MathOptSolversCMake_clp INTERFACE
             libClp.a
             libOsiClp.a)
-        target_link_libraries(MathOptSolversCMake_clp INTERFACE
-            MathOptSolversCMake_osi)
     endif()
     if(APPLE)
         target_include_directories(MathOptSolversCMake_clp INTERFACE
-            "/opt/homebrew/include")
+            "${MATHOPTSOLVERSCMAKE_HOMEBREW_PREFIX}/Cellar/clp/include")
         target_link_directories(MathOptSolversCMake_clp INTERFACE
-            "/opt/homebrew/lib")
+            "${MATHOPTSOLVERSCMAKE_HOMEBREW_PREFIX}/Cellar/clp/lib")
         target_link_libraries(MathOptSolversCMake_clp INTERFACE
             libClp.dylib
             libOsiClp.dylib)
@@ -143,10 +141,10 @@ if(MATHOPTSOLVERSCMAKE_USE_CLP OR MATHOPTSOLVERSCMAKE_USE_CBC)
         target_link_libraries(MathOptSolversCMake_clp INTERFACE
             libClp.lib
             libOsiClp.lib)
-        target_link_libraries(MathOptSolversCMake_clp INTERFACE
-            MathOptSolversCMake_osi)
     endif()
     add_dependencies(MathOptSolversCMake_clp Clp)
+    target_link_libraries(MathOptSolversCMake_clp INTERFACE
+        MathOptSolversCMake_osi)
     add_library(MathOptSolversCMake::clp ALIAS MathOptSolversCMake_clp)
 endif()
 
@@ -172,9 +170,9 @@ if(MATHOPTSOLVERSCMAKE_USE_CBC)
     endif()
     if(APPLE)
         target_include_directories(MathOptSolversCMake_cbc INTERFACE
-            "/opt/homebrew/include")
+            "${MATHOPTSOLVERSCMAKE_HOMEBREW_PREFIX}/Cellar/cbc/include")
         target_link_directories(MathOptSolversCMake_cbc INTERFACE
-            "/opt/homebrew/lib")
+            "${MATHOPTSOLVERSCMAKE_HOMEBREW_PREFIX}/Cellar/lib")
         target_link_libraries(MathOptSolversCMake_cbc INTERFACE
             libCbc.dylib
             libOsiCbc.dylib
