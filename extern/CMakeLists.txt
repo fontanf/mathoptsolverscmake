@@ -1,7 +1,12 @@
 # Enable ExternalProject.
 include(ExternalProject)
 
-execute_process(COMMAND brew --prefix OUTPUT_VARIABLE HOMEBREW_PREFIX)
+if(APPLE)
+    execute_process(COMMAND brew --prefix
+        OUTPUT_VARIABLE HOMEBREW_PREFIX
+        OUTPUT_STRIP_TRAILING_WHITESPACE)
+    message(HOMEBREW_PREFIX="${HOMEBREW_PREFIX}")
+endif()
 
 # COIN-OR CLP/CBC
 
