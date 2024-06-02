@@ -121,9 +121,9 @@ if(MATHOPTSOLVERSCMAKE_USE_CLP OR MATHOPTSOLVERSCMAKE_USE_CBC)
     endif()
     if(APPLE)
         target_include_directories(MathOptSolversCMake_clp INTERFACE
-            "/opt/homebrew/opt/clp/include")
+            "/opt/homebrew/include")
         target_link_directories(MathOptSolversCMake_clp INTERFACE
-            "/opt/homebrew/opt/clp/lib")
+            "/opt/homebrew/lib")
         target_link_libraries(MathOptSolversCMake_clp INTERFACE
             libClp.dylib
             libOsiClp.dylib)
@@ -172,9 +172,9 @@ if(MATHOPTSOLVERSCMAKE_USE_CBC)
     endif()
     if(APPLE)
         target_include_directories(MathOptSolversCMake_cbc INTERFACE
-            "/opt/homebrew/opt/cbc/include")
+            "/opt/homebrew/include")
         target_link_directories(MathOptSolversCMake_cbc INTERFACE
-            "/opt/homebrew/opt/cbc/lib")
+            "/opt/homebrew/lib")
         target_link_libraries(MathOptSolversCMake_cbc INTERFACE
             libCbc.dylib
             libOsiCbc.dylib
