@@ -41,6 +41,7 @@ if(MATHOPTSOLVERSCMAKE_USE_CLP OR MATHOPTSOLVERSCMAKE_USE_CBC)
         target_link_libraries(MathOptSolversCMake_coinutils INTERFACE
             libCoinUtils.lib)
     endif()
+    add_dependencies(MathOptSolversCMake_coinutils CoinUtils)
     add_library(MathOptSolversCMake::coinutils ALIAS MathOptSolversCMake_coinutils)
 
     add_library(MathOptSolversCMake_osi INTERFACE)
@@ -94,6 +95,7 @@ if(MATHOPTSOLVERSCMAKE_USE_CLP OR MATHOPTSOLVERSCMAKE_USE_CBC)
             libOsi.lib
             libOsiCommonTests.lib)
     endif()
+    add_dependencies(MathOptSolversCMake_osi Osi)
     target_link_libraries(MathOptSolversCMake_osi INTERFACE
         MathOptSolversCMake_coinutils)
     add_library(MathOptSolversCMake::osi ALIAS MathOptSolversCMake_osi)
@@ -144,6 +146,7 @@ if(MATHOPTSOLVERSCMAKE_USE_CLP OR MATHOPTSOLVERSCMAKE_USE_CBC)
         target_link_libraries(MathOptSolversCMake_clp INTERFACE
             MathOptSolversCMake_osi)
     endif()
+    add_dependencies(MathOptSolversCMake_clp Clp)
     add_library(MathOptSolversCMake::clp ALIAS MathOptSolversCMake_clp)
 endif()
 
@@ -194,6 +197,7 @@ if(MATHOPTSOLVERSCMAKE_USE_CBC)
             libOsiCbc.lib
             libCgl.lib)
     endif()
+    add_dependencies(MathOptSolversCMake_cbc Cbc)
     target_link_libraries(MathOptSolversCMake_cbc INTERFACE
         MathOptSolversCMake_clp)
     add_library(MathOptSolversCMake::cbc ALIAS MathOptSolversCMake_cbc)
