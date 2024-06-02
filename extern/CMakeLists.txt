@@ -28,10 +28,10 @@ if(MATHOPTSOLVERSCMAKE_USE_CLP OR MATHOPTSOLVERSCMAKE_USE_CBC)
     endif()
     if(APPLE)
         target_include_directories(MathOptSolversCMake_coinutils INTERFACE
-            "/usr/local/include/coinutils"
-            "/usr/local/include/coinutils/coin")
+            "${MATHOPTSOLVERSCMAKE_HOMEBREW_PREFIX}/include/coinutils"
+            "${MATHOPTSOLVERSCMAKE_HOMEBREW_PREFIX}/include/coinutils/coin")
         target_link_directories(MathOptSolversCMake_coinutils INTERFACE
-            "/usr/local/lib")
+            "${MATHOPTSOLVERSCMAKE_HOMEBREW_PREFIX}/lib")
         target_link_libraries(MathOptSolversCMake_coinutils INTERFACE
             libCoinUtils.dylib)
         install(FILES "${CMAKE_CURRENT_BINARY_DIR}/CoinUtils-prefix/src/CoinUtils/lib/libCoinUtils.dylib" DESTINATION lib)
@@ -73,10 +73,10 @@ if(MATHOPTSOLVERSCMAKE_USE_CLP OR MATHOPTSOLVERSCMAKE_USE_CBC)
     endif()
     if(APPLE)
         target_include_directories(MathOptSolversCMake_osi INTERFACE
-            "/usr/local/include/osi"
-            "/usr/local/include/osi/coin")
+            "${MATHOPTSOLVERSCMAKE_HOMEBREW_PREFIX}/include/osi"
+            "${MATHOPTSOLVERSCMAKE_HOMEBREW_PREFIX}/include/osi/coin")
         target_link_directories(MathOptSolversCMake_osi INTERFACE
-            "/usr/local/lib")
+            "${MATHOPTSOLVERSCMAKE_HOMEBREW_PREFIX}/lib")
         target_link_libraries(MathOptSolversCMake_osi INTERFACE
             libOsi.dylib
             libOsiCommonTests.dylib)
@@ -121,10 +121,10 @@ if(MATHOPTSOLVERSCMAKE_USE_CLP OR MATHOPTSOLVERSCMAKE_USE_CBC)
     endif()
     if(APPLE)
         target_include_directories(MathOptSolversCMake_clp INTERFACE
-            "/usr/local/include/clp"
-            "/usr/local/include/clp/coin")
+            "${MATHOPTSOLVERSCMAKE_HOMEBREW_PREFIX}/include/clp"
+            "${MATHOPTSOLVERSCMAKE_HOMEBREW_PREFIX}/include/clp/coin")
         target_link_directories(MathOptSolversCMake_clp INTERFACE
-            "/usr/local/lib")
+            "${MATHOPTSOLVERSCMAKE_HOMEBREW_PREFIX}/lib")
         target_link_libraries(MathOptSolversCMake_clp INTERFACE
             libClp.dylib
             libOsiClp.dylib)
@@ -173,10 +173,10 @@ if(MATHOPTSOLVERSCMAKE_USE_CBC)
     endif()
     if(APPLE)
         target_include_directories(MathOptSolversCMake_cbc INTERFACE
-            "/usr/local/include/cbc"
-            "/usr/local/include/cbc/coin")
+            "${MATHOPTSOLVERSCMAKE_HOMEBREW_PREFIX}/include/cbc"
+            "${MATHOPTSOLVERSCMAKE_HOMEBREW_PREFIX}/include/cbc/coin")
         target_link_directories(MathOptSolversCMake_cbc INTERFACE
-            "/usr/local/lib")
+            "${MATHOPTSOLVERSCMAKE_HOMEBREW_PREFIX}/lib")
         target_link_libraries(MathOptSolversCMake_cbc INTERFACE
             libCbc.dylib
             libOsiCbc.dylib
