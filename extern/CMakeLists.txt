@@ -26,10 +26,6 @@ if(MATHOPTSOLVERSCMAKE_USE_CLP OR MATHOPTSOLVERSCMAKE_USE_CBC)
             libgfortran.a
             libquadmath.a)
     endif()
-    if(APPLE)
-        target_link_options(MathOptSolversCMake_coinutils INTERFACE
-            -lCoinUtils)
-    endif()
     if(WIN32)
         ExternalProject_Add(CoinUtils
             URL https://github.com/coin-or/CoinUtils/releases/download/releases%2F2.11.9/CoinUtils-releases.2.11.9-w64-msvc16-md.zip
@@ -45,7 +41,6 @@ if(MATHOPTSOLVERSCMAKE_USE_CLP OR MATHOPTSOLVERSCMAKE_USE_CBC)
         target_link_libraries(MathOptSolversCMake_coinutils INTERFACE
             libCoinUtils.lib)
     endif()
-    add_dependencies(MathOptSolversCMake_coinutils CoinUtils)
     add_library(MathOptSolversCMake::coinutils ALIAS MathOptSolversCMake_coinutils)
 
     add_library(MathOptSolversCMake_osi INTERFACE)
@@ -66,8 +61,22 @@ if(MATHOPTSOLVERSCMAKE_USE_CLP OR MATHOPTSOLVERSCMAKE_USE_CBC)
             libOsiCommonTests.a)
     endif()
     if(APPLE)
-        target_link_options(MathOptSolversCMake_osi INTERFACE
-            -lOsi -lOsiCommonTests)
+        ExternalProject_Add(Osi
+            URL https://github.com/coin-or/Osi/releases/download/releases%2F0.108.8/Osi-releases.0.108.8-x86_64-macos106-clang140.tar.gz
+            URL_HASH SHA256=4ddc1ee5cd5088aeb7795bfebc66beec8d7a0a3baec3dd3e8bbbdff17f93cd3f
+            CONFIGURE_COMMAND ""
+            BUILD_COMMAND ""
+            INSTALL_COMMAND ""
+            TEST_COMMAND "")
+        target_include_directories(MathOptSolversCMake_osi INTERFACE
+            "${CMAKE_CURRENT_BINARY_DIR}/Osi-prefix/src/Osi/include")
+        target_link_directories(MathOptSolversCMake_osi INTERFACE
+            "${CMAKE_CURRENT_BINARY_DIR}/Osi-prefix/src/Osi/lib")
+        target_link_libraries(MathOptSolversCMake_osi INTERFACE
+            libOsi.dylib
+            libOsiCommonTests.dylib)
+        install(FILES "${CMAKE_CURRENT_BINARY_DIR}/Osi-prefix/src/Osi/lib/libOsi.dylib" DESTINATION lib)
+        install(FILES "${CMAKE_CURRENT_BINARY_DIR}/Osi-prefix/src/Osi/lib/libOsiCommonTests.dylib" DESTINATION lib)
     endif()
     if(WIN32)
         ExternalProject_Add(Osi
@@ -85,7 +94,6 @@ if(MATHOPTSOLVERSCMAKE_USE_CLP OR MATHOPTSOLVERSCMAKE_USE_CBC)
             libOsi.lib
             libOsiCommonTests.lib)
     endif()
-    add_dependencies(MathOptSolversCMake_osi Osi)
     target_link_libraries(MathOptSolversCMake_osi INTERFACE
         MathOptSolversCMake_coinutils)
     add_library(MathOptSolversCMake::osi ALIAS MathOptSolversCMake_osi)
@@ -106,10 +114,17 @@ if(MATHOPTSOLVERSCMAKE_USE_CLP OR MATHOPTSOLVERSCMAKE_USE_CBC)
         target_link_libraries(MathOptSolversCMake_clp INTERFACE
             libClp.a
             libOsiClp.a)
+        target_link_libraries(MathOptSolversCMake_clp INTERFACE
+            MathOptSolversCMake_osi)
     endif()
     if(APPLE)
-        target_link_options(MathOptSolversCMake_clp INTERFACE
-            -lClp -lOsiClp)
+        target_include_directories(MathOptSolversCMake_clp INTERFACE
+            "/opt/homebrew/opt/clp/include")
+        target_link_directories(MathOptSolversCMake_clp INTERFACE
+            "/opt/homebrew/opt/clp/lib")
+        target_link_libraries(MathOptSolversCMake_clp INTERFACE
+            libClp.dylib
+            libOsiClp.dylib)
     endif()
     if(WIN32)
         ExternalProject_Add(Clp
@@ -126,10 +141,9 @@ if(MATHOPTSOLVERSCMAKE_USE_CLP OR MATHOPTSOLVERSCMAKE_USE_CBC)
         target_link_libraries(MathOptSolversCMake_clp INTERFACE
             libClp.lib
             libOsiClp.lib)
+        target_link_libraries(MathOptSolversCMake_clp INTERFACE
+            MathOptSolversCMake_osi)
     endif()
-    add_dependencies(MathOptSolversCMake_clp Clp)
-    target_link_libraries(MathOptSolversCMake_clp INTERFACE
-        MathOptSolversCMake_osi)
     add_library(MathOptSolversCMake::clp ALIAS MathOptSolversCMake_clp)
 endif()
 
@@ -154,8 +168,14 @@ if(MATHOPTSOLVERSCMAKE_USE_CBC)
             libnauty.a)
     endif()
     if(APPLE)
-        target_link_options(MathOptSolversCMake_cbc INTERFACE
-            -lCbc -lOsiCbc -lCgl)
+        target_include_directories(MathOptSolversCMake_cbc INTERFACE
+            "/opt/homebrew/opt/cbc/include")
+        target_link_directories(MathOptSolversCMake_cbc INTERFACE
+            "/opt/homebrew/opt/cbc/lib")
+        target_link_libraries(MathOptSolversCMake_cbc INTERFACE
+            libCbc.dylib
+            libOsiCbc.dylib
+            libCgl.dylib)
     endif()
     if(WIN32)
         ExternalProject_Add(Cbc
@@ -174,7 +194,6 @@ if(MATHOPTSOLVERSCMAKE_USE_CBC)
             libOsiCbc.lib
             libCgl.lib)
     endif()
-    add_dependencies(MathOptSolversCMake_cbc Cbc)
     target_link_libraries(MathOptSolversCMake_cbc INTERFACE
         MathOptSolversCMake_clp)
     add_library(MathOptSolversCMake::cbc ALIAS MathOptSolversCMake_cbc)
@@ -198,6 +217,8 @@ if(MATHOPTSOLVERSCMAKE_USE_XPRESS)
     if(WIN32)
         # TODO
     endif()
+    target_link_libraries(MathOptSolversCMake_xpress INTERFACE
+        MathOptSolversCMake_concert)
     add_library(MathOptSolversCMake::xpress ALIAS MathOptSolversCMake_xpress)
 endif()
 
