@@ -223,8 +223,6 @@ if(MATHOPTSOLVERSCMAKE_USE_XPRESS)
     if(WIN32)
         # TODO
     endif()
-    target_link_libraries(MathOptSolversCMake_xpress INTERFACE
-        MathOptSolversCMake_concert)
     add_library(MathOptSolversCMake::xpress ALIAS MathOptSolversCMake_xpress)
 endif()
 
