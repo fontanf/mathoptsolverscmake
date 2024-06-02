@@ -28,7 +28,8 @@ if(MATHOPTSOLVERSCMAKE_USE_CLP OR MATHOPTSOLVERSCMAKE_USE_CBC)
     endif()
     if(APPLE)
         target_include_directories(MathOptSolversCMake_coinutils INTERFACE
-            "/usr/local/include/coinutils")
+            "/usr/local/include/coinutils"
+            "/usr/local/include/coinutils/coin")
         target_link_directories(MathOptSolversCMake_coinutils INTERFACE
             "/usr/local/lib")
         target_link_libraries(MathOptSolversCMake_coinutils INTERFACE
@@ -72,7 +73,8 @@ if(MATHOPTSOLVERSCMAKE_USE_CLP OR MATHOPTSOLVERSCMAKE_USE_CBC)
     endif()
     if(APPLE)
         target_include_directories(MathOptSolversCMake_osi INTERFACE
-            "/usr/local/include/osi")
+            "/usr/local/include/osi"
+            "/usr/local/include/osi/coin")
         target_link_directories(MathOptSolversCMake_osi INTERFACE
             "/usr/local/lib")
         target_link_libraries(MathOptSolversCMake_osi INTERFACE
@@ -119,7 +121,8 @@ if(MATHOPTSOLVERSCMAKE_USE_CLP OR MATHOPTSOLVERSCMAKE_USE_CBC)
     endif()
     if(APPLE)
         target_include_directories(MathOptSolversCMake_clp INTERFACE
-            "/usr/local/include/clp")
+            "/usr/local/include/clp"
+            "/usr/local/include/clp/coin")
         target_link_directories(MathOptSolversCMake_clp INTERFACE
             "/usr/local/lib")
         target_link_libraries(MathOptSolversCMake_clp INTERFACE
@@ -170,7 +173,8 @@ if(MATHOPTSOLVERSCMAKE_USE_CBC)
     endif()
     if(APPLE)
         target_include_directories(MathOptSolversCMake_cbc INTERFACE
-            "/usr/local/include/cbc")
+            "/usr/local/include/cbc"
+            "/usr/local/include/cbc/coin")
         target_link_directories(MathOptSolversCMake_cbc INTERFACE
             "/usr/local/lib")
         target_link_libraries(MathOptSolversCMake_cbc INTERFACE
