@@ -4,10 +4,10 @@
 # Build COIN-OR Clp from sources for different architectures #
 ##############################################################
 
-clp_version = 1.17.10
-archs       = (arm64 x86_64)
-libs        = (Clp ClpSolver CoinUtils Osi OsiClp OsiCommonTests)
-build_dir   = build
+clp_version=1.17.10
+archs=(arm64 x86_64)
+libs=(Clp ClpSolver CoinUtils Osi OsiClp OsiCommonTests)
+build_dir=build
 
 # Create the build dir
 mkdir -p ${build_dir}
