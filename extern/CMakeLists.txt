@@ -34,14 +34,14 @@ if(MATHOPTSOLVERSCMAKE_USE_CLP OR MATHOPTSOLVERSCMAKE_USE_CBC)
             libquadmath.a)
     endif()
     if(APPLE)
-        target_include_directories(MathOptSolversCMake_coinutils INTERFACE
-            "${HOMEBREW_PREFIX}/include/coinutils"
-            "${HOMEBREW_PREFIX}/include/coinutils/coin")
-        target_link_directories(MathOptSolversCMake_coinutils INTERFACE
-            "${HOMEBREW_PREFIX}/lib")
-        target_link_libraries(MathOptSolversCMake_coinutils INTERFACE
-            libCoinUtils.dylib)
-        install(FILES "${CMAKE_CURRENT_BINARY_DIR}/CoinUtils-prefix/src/CoinUtils/lib/libCoinUtils.dylib" DESTINATION lib)
+#        target_include_directories(MathOptSolversCMake_coinutils INTERFACE
+#            "${HOMEBREW_PREFIX}/include/coinutils"
+#            "${HOMEBREW_PREFIX}/include/coinutils/coin")
+#        target_link_directories(MathOptSolversCMake_coinutils INTERFACE
+#            "${HOMEBREW_PREFIX}/lib")
+#        target_link_libraries(MathOptSolversCMake_coinutils INTERFACE
+#            libCoinUtils.dylib)
+#        install(FILES "${CMAKE_CURRENT_BINARY_DIR}/CoinUtils-prefix/src/CoinUtils/lib/libCoinUtils.dylib" DESTINATION lib)
     endif()
     if(WIN32)
         ExternalProject_Add(CoinUtils
@@ -79,14 +79,14 @@ if(MATHOPTSOLVERSCMAKE_USE_CLP OR MATHOPTSOLVERSCMAKE_USE_CBC)
             libOsiCommonTests.a)
     endif()
     if(APPLE)
-        target_include_directories(MathOptSolversCMake_osi INTERFACE
-            "${HOMEBREW_PREFIX}/include/osi"
-            "${HOMEBREW_PREFIX}/include/osi/coin")
-        target_link_directories(MathOptSolversCMake_osi INTERFACE
-            "${HOMEBREW_PREFIX}/lib")
-        target_link_libraries(MathOptSolversCMake_osi INTERFACE
-            libOsi.dylib
-            libOsiCommonTests.dylib)
+#        target_include_directories(MathOptSolversCMake_osi INTERFACE
+#            "${HOMEBREW_PREFIX}/include/osi"
+#            "${HOMEBREW_PREFIX}/include/osi/coin")
+#        target_link_directories(MathOptSolversCMake_osi INTERFACE
+#            "${HOMEBREW_PREFIX}/lib")
+#        target_link_libraries(MathOptSolversCMake_osi INTERFACE
+#            libOsi.dylib
+#            libOsiCommonTests.dylib)
     endif()
     if(WIN32)
         ExternalProject_Add(Osi
@@ -127,14 +127,24 @@ if(MATHOPTSOLVERSCMAKE_USE_CLP OR MATHOPTSOLVERSCMAKE_USE_CBC)
             libOsiClp.a)
     endif()
     if(APPLE)
+        ExternalProject_Add(Clp
+            URL /path/to/clp.tar.gz
+            URL_HASH SHA256=5fea93a2b05fae9173c15efd1934b924c1ed9fc9f85647c84237550995e21700
+            CONFIGURE_COMMAND ""
+            BUILD_COMMAND ""
+            INSTALL_COMMAND ""
+            TEST_COMMAND "")
         target_include_directories(MathOptSolversCMake_clp INTERFACE
-            "${HOMEBREW_PREFIX}/include/clp"
-            "${HOMEBREW_PREFIX}/include/clp/coin")
+            "${CMAKE_CURRENT_BINARY_DIR}/Clp-prefix/src/Clp/include")
         target_link_directories(MathOptSolversCMake_clp INTERFACE
-            "${HOMEBREW_PREFIX}/lib")
+            "${CMAKE_CURRENT_BINARY_DIR}/Clp-prefix/src/Clp/lib")
         target_link_libraries(MathOptSolversCMake_clp INTERFACE
-            libClp.dylib
-            libOsiClp.dylib)
+            libCoinUtils.a
+            libOsi.a
+            libOsiCommonTests.a
+            libOsiClp.a
+            libClp.a
+            libOsiClp.a)
     endif()
     if(WIN32)
         ExternalProject_Add(Clp
