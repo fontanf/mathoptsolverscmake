@@ -20,7 +20,7 @@ jobs:
       run: ./scripts/clp_mac_build.sh
       shell: bash
 
-    - uses: actions/upload-artifact@v3
+    - uses: actions/upload-artifact@v4
       with:
         name: clp-build-artifact
         path: ${{ github.workspace }}/build/dist/universal
