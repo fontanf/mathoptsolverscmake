@@ -34,14 +34,19 @@ if(MATHOPTSOLVERSCMAKE_USE_CLP OR MATHOPTSOLVERSCMAKE_USE_CBC)
             libquadmath.a)
     endif()
     if(APPLE)
-#        target_include_directories(MathOptSolversCMake_coinutils INTERFACE
-#            "${HOMEBREW_PREFIX}/include/coinutils"
-#            "${HOMEBREW_PREFIX}/include/coinutils/coin")
-#        target_link_directories(MathOptSolversCMake_coinutils INTERFACE
-#            "${HOMEBREW_PREFIX}/lib")
-#        target_link_libraries(MathOptSolversCMake_coinutils INTERFACE
-#            libCoinUtils.dylib)
-#        install(FILES "${CMAKE_CURRENT_BINARY_DIR}/CoinUtils-prefix/src/CoinUtils/lib/libCoinUtils.dylib" DESTINATION lib)
+        ExternalProject_Add(CoinUtils
+                URL ${CMAKE_CURRENT_SOURCE_DIR}/../lib/CoinUtils-release.2.11.12-universal-macos.tar.gz
+                URL_HASH SHA256=3e0c375cad55cd584f2fa8e93d6a158a0db70a9166377d82a644e7ae60e28deb
+                CONFIGURE_COMMAND ""
+                BUILD_COMMAND ""
+                INSTALL_COMMAND ""
+                TEST_COMMAND "")
+        target_include_directories(MathOptSolversCMake_coinutils INTERFACE
+                "${CMAKE_CURRENT_BINARY_DIR}/Clp-prefix/src/Clp/include")
+        target_link_directories(MathOptSolversCMake_coinutils INTERFACE
+                "${CMAKE_CURRENT_BINARY_DIR}/Clp-prefix/src/Clp/lib")
+        target_link_libraries(MathOptSolversCMake_coinutils INTERFACE
+                libCoinUtils.a)
     endif()
     if(WIN32)
         ExternalProject_Add(CoinUtils
@@ -79,14 +84,20 @@ if(MATHOPTSOLVERSCMAKE_USE_CLP OR MATHOPTSOLVERSCMAKE_USE_CBC)
             libOsiCommonTests.a)
     endif()
     if(APPLE)
-#        target_include_directories(MathOptSolversCMake_osi INTERFACE
-#            "${HOMEBREW_PREFIX}/include/osi"
-#            "${HOMEBREW_PREFIX}/include/osi/coin")
-#        target_link_directories(MathOptSolversCMake_osi INTERFACE
-#            "${HOMEBREW_PREFIX}/lib")
-#        target_link_libraries(MathOptSolversCMake_osi INTERFACE
-#            libOsi.dylib
-#            libOsiCommonTests.dylib)
+        ExternalProject_Add(Osi
+                URL ${CMAKE_CURRENT_SOURCE_DIR}/../lib/Osi-release.0.108.11-universal-macos.tar.gz
+                URL_HASH SHA256=dae112ea82324fce0c2b65e315792f4aeb65d6777cfd8a453af87a951ab61f0d
+                CONFIGURE_COMMAND ""
+                BUILD_COMMAND ""
+                INSTALL_COMMAND ""
+                TEST_COMMAND "")
+        target_include_directories(MathOptSolversCMake_osi INTERFACE
+                "${CMAKE_CURRENT_BINARY_DIR}/Clp-prefix/src/Clp/include")
+        target_link_directories(MathOptSolversCMake_osi INTERFACE
+                "${CMAKE_CURRENT_BINARY_DIR}/Clp-prefix/src/Clp/lib")
+        target_link_libraries(MathOptSolversCMake_osi INTERFACE
+                libOsi.a
+                libOsiCommonTests.a)
     endif()
     if(WIN32)
         ExternalProject_Add(Osi
@@ -128,8 +139,8 @@ if(MATHOPTSOLVERSCMAKE_USE_CLP OR MATHOPTSOLVERSCMAKE_USE_CBC)
     endif()
     if(APPLE)
         ExternalProject_Add(Clp
-            URL /path/to/clp.tar.gz
-            URL_HASH SHA256=5fea93a2b05fae9173c15efd1934b924c1ed9fc9f85647c84237550995e21700
+            URL ${CMAKE_CURRENT_SOURCE_DIR}/../lib/Clp-release.1.17.10-universal-macos.tar.gz
+            URL_HASH SHA256=26074dff206764235ca5ee1b6aedae2261e556464a613ffe8048ee3025af41f7
             CONFIGURE_COMMAND ""
             BUILD_COMMAND ""
             INSTALL_COMMAND ""
@@ -139,10 +150,6 @@ if(MATHOPTSOLVERSCMAKE_USE_CLP OR MATHOPTSOLVERSCMAKE_USE_CBC)
         target_link_directories(MathOptSolversCMake_clp INTERFACE
             "${CMAKE_CURRENT_BINARY_DIR}/Clp-prefix/src/Clp/lib")
         target_link_libraries(MathOptSolversCMake_clp INTERFACE
-            libCoinUtils.a
-            libOsi.a
-            libOsiCommonTests.a
-            libOsiClp.a
             libClp.a
             libOsiClp.a)
     endif()
@@ -189,15 +196,21 @@ if(MATHOPTSOLVERSCMAKE_USE_CBC)
             libnauty.a)
     endif()
     if(APPLE)
+        ExternalProject_Add(Cbc
+            URL ${CMAKE_CURRENT_SOURCE_DIR}/../lib/Cbc-release.2.10.12-universal-macos.tar.gz
+            URL_HASH SHA256=edc4997670087f0c9ae551027d0a27b048bcb978ced614200c4fc2f70025ee7c
+            CONFIGURE_COMMAND ""
+            BUILD_COMMAND ""
+            INSTALL_COMMAND ""
+            TEST_COMMAND "")
         target_include_directories(MathOptSolversCMake_cbc INTERFACE
-            "${HOMEBREW_PREFIX}/include/cbc"
-            "${HOMEBREW_PREFIX}/include/cbc/coin")
+            "${CMAKE_CURRENT_BINARY_DIR}/Clp-prefix/src/Clp/include")
         target_link_directories(MathOptSolversCMake_cbc INTERFACE
-            "${HOMEBREW_PREFIX}/lib")
+            "${CMAKE_CURRENT_BINARY_DIR}/Clp-prefix/src/Clp/lib")
         target_link_libraries(MathOptSolversCMake_cbc INTERFACE
-            libCbc.dylib
-            libOsiCbc.dylib
-            libCgl.dylib)
+            libCbc.a
+            libOsiCbc.a
+            libCgl.a)
     endif()
     if(WIN32)
         ExternalProject_Add(Cbc

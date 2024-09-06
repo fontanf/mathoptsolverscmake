@@ -1,0 +1,38 @@
+name: Build Coin static libs for MacOS
+
+on:
+  workflow_dispatch:
+  
+jobs:
+  build:
+    runs-on: macos-12
+    steps:
+
+    - name: Install Bash 4+
+      run: |
+        brew update
+        brew install bash
+        echo "/usr/local/bin" >> $GITHUB_PATH
+
+    - uses: actions/checkout@v4
+
+    - name: Build CoinUtils
+      run: ./scripts/coinutils_mac_build.sh
+      shell: bash
+
+    - name: Build Osi
+      run: ./scripts/osi_mac_build.sh
+      shell: bash
+
+    - name: Build Clp
+      run: ./scripts/clp_mac_build.sh
+      shell: bash
+
+    - name: Build Cbc
+      run: ./scripts/cbc_mac_build.sh
+      shell: bash
+
+    - uses: actions/upload-artifact@v4
+      with:
+        name: mac-build-artifact
+        path: ${{ github.workspace }}/lib
