@@ -29,7 +29,7 @@ if(MATHOPTSOLVERSCMAKE_USE_CLP OR MATHOPTSOLVERSCMAKE_USE_CBC)
     if(APPLE)
         ExternalProject_Add(CoinUtils
                 URL https://github.com/fontanf/coinor-builds/releases/download/v0.1/CoinUtils-release.2.11.12-universal-macos.tar.gz
-                URL_HASH SHA256=3e0c375cad55cd584f2fa8e93d6a158a0db70a9166377d82a644e7ae60e28deb
+                URL_HASH SHA256=8cd0b09e2eed185b5b37f81ef66554e0d41f29e9b5ea87b128538ce158fa6bfa
                 CONFIGURE_COMMAND ""
                 BUILD_COMMAND ""
                 INSTALL_COMMAND ""
@@ -79,7 +79,7 @@ if(MATHOPTSOLVERSCMAKE_USE_CLP OR MATHOPTSOLVERSCMAKE_USE_CBC)
     if(APPLE)
         ExternalProject_Add(Osi
                 URL https://github.com/fontanf/coinor-builds/releases/download/v0.1/Osi-release.0.108.11-universal-macos.tar.gz
-                URL_HASH SHA256=dae112ea82324fce0c2b65e315792f4aeb65d6777cfd8a453af87a951ab61f0d
+                URL_HASH SHA256=fc6b7b93106e0d4d0d8eea1b2fb9f9db3c345580444409655133fc984391682b
                 CONFIGURE_COMMAND ""
                 BUILD_COMMAND ""
                 INSTALL_COMMAND ""
@@ -133,7 +133,7 @@ if(MATHOPTSOLVERSCMAKE_USE_CLP OR MATHOPTSOLVERSCMAKE_USE_CBC)
     if(APPLE)
         ExternalProject_Add(Clp
             URL https://github.com/fontanf/coinor-builds/releases/download/v0.1/Clp-release.1.17.10-universal-macos.tar.gz
-            URL_HASH SHA256=26074dff206764235ca5ee1b6aedae2261e556464a613ffe8048ee3025af41f7
+            URL_HASH SHA256=1179ae58b6d0fe827ff8933f72eed2a674273968d12e8125a93f5b03f9e8757b
             CONFIGURE_COMMAND ""
             BUILD_COMMAND ""
             INSTALL_COMMAND ""
@@ -191,7 +191,7 @@ if(MATHOPTSOLVERSCMAKE_USE_CBC)
     if(APPLE)
         ExternalProject_Add(Cbc
             URL https://github.com/fontanf/coinor-builds/releases/download/v0.1/Cbc-release.2.10.12-universal-macos.tar.gz
-            URL_HASH SHA256=edc4997670087f0c9ae551027d0a27b048bcb978ced614200c4fc2f70025ee7c
+            URL_HASH SHA256=501199f4d14f33555dedd6d233d7c51a097088edcef15b74d8304469e32ecade
             CONFIGURE_COMMAND ""
             BUILD_COMMAND ""
             INSTALL_COMMAND ""
