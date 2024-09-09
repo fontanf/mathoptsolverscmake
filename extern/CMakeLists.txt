@@ -35,9 +35,9 @@ if(MATHOPTSOLVERSCMAKE_USE_CLP OR MATHOPTSOLVERSCMAKE_USE_CBC)
                 INSTALL_COMMAND ""
                 TEST_COMMAND "")
         target_include_directories(MathOptSolversCMake_coinutils INTERFACE
-                "${CMAKE_CURRENT_BINARY_DIR}/Clp-prefix/src/Clp/include")
+            "${CMAKE_CURRENT_BINARY_DIR}/CoinUtils-prefix/src/CoinUtils/include")
         target_link_directories(MathOptSolversCMake_coinutils INTERFACE
-                "${CMAKE_CURRENT_BINARY_DIR}/Clp-prefix/src/Clp/lib")
+            "${CMAKE_CURRENT_BINARY_DIR}/CoinUtils-prefix/src/CoinUtils/lib")
         target_link_libraries(MathOptSolversCMake_coinutils INTERFACE
                 libCoinUtils.a)
     endif()
@@ -85,9 +85,9 @@ if(MATHOPTSOLVERSCMAKE_USE_CLP OR MATHOPTSOLVERSCMAKE_USE_CBC)
                 INSTALL_COMMAND ""
                 TEST_COMMAND "")
         target_include_directories(MathOptSolversCMake_osi INTERFACE
-                "${CMAKE_CURRENT_BINARY_DIR}/Clp-prefix/src/Clp/include")
+                "${CMAKE_CURRENT_BINARY_DIR}/Osi-prefix/src/Osi/include")
         target_link_directories(MathOptSolversCMake_osi INTERFACE
-                "${CMAKE_CURRENT_BINARY_DIR}/Clp-prefix/src/Clp/lib")
+                "${CMAKE_CURRENT_BINARY_DIR}/Osi-prefix/src/Osi/lib")
         target_link_libraries(MathOptSolversCMake_osi INTERFACE
                 libOsi.a
                 libOsiCommonTests.a)
@@ -197,9 +197,9 @@ if(MATHOPTSOLVERSCMAKE_USE_CBC)
             INSTALL_COMMAND ""
             TEST_COMMAND "")
         target_include_directories(MathOptSolversCMake_cbc INTERFACE
-            "${CMAKE_CURRENT_BINARY_DIR}/Clp-prefix/src/Clp/include")
+            "${CMAKE_CURRENT_BINARY_DIR}/Cbc-prefix/src/Cbc/include")
         target_link_directories(MathOptSolversCMake_cbc INTERFACE
-            "${CMAKE_CURRENT_BINARY_DIR}/Clp-prefix/src/Clp/lib")
+            "${CMAKE_CURRENT_BINARY_DIR}/Cbc-prefix/src/Cbc/lib")
         target_link_libraries(MathOptSolversCMake_cbc INTERFACE
             libCbc.a
             libOsiCbc.a
