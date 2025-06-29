@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.15.0)
 
 project(MathOptSolversCMake LANGUAGES CXX)
 
+# Solver options.
 option(MATHOPTSOLVERSCMAKE_USE_CLP "Use CLP" OFF)
 option(MATHOPTSOLVERSCMAKE_USE_CBC "Use CBC" OFF)
 option(MATHOPTSOLVERSCMAKE_USE_XPRESS "Use XPRESS" OFF)
