@@ -5,6 +5,7 @@ project(MathOptSolversCMake LANGUAGES CXX)
 # Solver options.
 option(MATHOPTSOLVERSCMAKE_USE_CLP "Use CLP" OFF)
 option(MATHOPTSOLVERSCMAKE_USE_CBC "Use CBC" OFF)
+option(MATHOPTSOLVERSCMAKE_USE_HIGHS "Use Highs" OFF)
 option(MATHOPTSOLVERSCMAKE_USE_XPRESS "Use XPRESS" OFF)
 option(MATHOPTSOLVERSCMAKE_USE_CPLEX "Use CPLEX" OFF)
 option(MATHOPTSOLVERSCMAKE_USE_GUROBI "Use GUROBI" OFF)
@@ -20,3 +21,4 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # Add sub-directories.
 add_subdirectory(extern)
+add_subdirectory(src)
