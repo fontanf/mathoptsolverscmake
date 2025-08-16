@@ -319,6 +319,16 @@ if(MATHOPTSOLVERSCMAKE_USE_CBC)
     add_library(MathOptSolversCMake::cbc ALIAS MathOptSolversCMake_cbc)
 endif()
 
+# Highs
+if(MATHOPTSOLVERSCMAKE_USE_HIGHS)
+    set(BUILD_SHARED_LIBS OFF)
+    FetchContent_Declare(
+        highs
+        URL https://github.com/ERGO-Code/HiGHS/archive/refs/tags/v1.7.2.zip
+        EXCLUDE_FROM_ALL)
+    FetchContent_MakeAvailable(highs)
+endif()
+
 # FICO Xpress
 
 if(MATHOPTSOLVERSCMAKE_USE_XPRESS)
