@@ -12,12 +12,24 @@ void mathoptsolverscmake::cbc::load(
         OsiCbcSolverInterface& cbc_model,
         const MilpModel& model)
 {
-    cbc_model.loadProblem(
+    std::vector<int> constraints_lengths(model.number_of_constraints(), 0);
+    for (int constraint_id = 0;
+            constraint_id < model.number_of_constraints() - 1;
+            ++constraint_id) {
+        constraints_lengths[constraint_id] = model.constraints_starts[constraint_id + 1] - model.constraints_starts[constraint_id];
+    }
+    constraints_lengths[model.number_of_constraints() - 1] = model.number_of_elements() - model.constraints_starts[model.number_of_constraints() - 1];
+    CoinPackedMatrix matrix(
+            false,
             model.number_of_variables(),
             model.number_of_constraints(),
-            model.constraints_starts.data(),
-            model.elements_variables.data(),
+            model.number_of_elements(),
             model.elements_coefficients.data(),
+            model.elements_variables.data(),
+            model.constraints_starts.data(),
+            constraints_lengths.data());
+    cbc_model.loadProblem(
+            matrix,
             model.variables_lower_bounds.data(),
             model.variables_upper_bounds.data(),
             model.objective_coefficients.data(),
