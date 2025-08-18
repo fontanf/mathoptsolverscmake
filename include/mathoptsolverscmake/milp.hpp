@@ -1,6 +1,7 @@
 #pragma once
 
 #include <vector>
+#include <limits>
 
 #ifdef HIGHS_FOUND
 #include "Highs.h"
