@@ -8,8 +8,8 @@ using namespace mathoptsolverscmake;
 
 #ifdef CBC_FOUND
 
-void mathoptsolverscmake::cbc::load(
-        OsiCbcSolverInterface& cbc_model,
+void mathoptsolverscmake::load(
+        CbcModel& cbc_model,
         const MilpModel& model)
 {
     std::vector<int> constraints_lengths(model.number_of_constraints(), 0);
@@ -28,7 +28,7 @@ void mathoptsolverscmake::cbc::load(
             model.elements_variables.data(),
             model.constraints_starts.data(),
             constraints_lengths.data());
-    cbc_model.loadProblem(
+    cbc_model.solver()->loadProblem(
             matrix,
             model.variables_lower_bounds.data(),
             model.variables_upper_bounds.data(),
@@ -51,14 +51,63 @@ void mathoptsolverscmake::cbc::load(
         if (model.variables_types[variable_id] != VariableType::Continuous)
             integer_variables.push_back(variable_id);
     }
-    cbc_model.setInteger(integer_variables.data(), integer_variables.size());
+    cbc_model.solver()->setInteger(integer_variables.data(), integer_variables.size());
+}
+
+void mathoptsolverscmake::reduce_printout(
+        CbcModel& cbc_model)
+{
+    cbc_model.setLogLevel(0);
+    cbc_model.messageHandler()->setLogLevel(0);
+    cbc_model.solver()->setHintParam(OsiDoReducePrint, true, OsiHintTry);
+}
+
+void mathoptsolverscmake::set_time_limit(
+        CbcModel& cbc_model,
+        double time_limit)
+{
+    cbc_model.setMaximumSeconds(time_limit);
+}
+
+void mathoptsolverscmake::solve(
+        CbcModel& cbc_model)
+{
+    cbc_model.branchAndBound();
+}
+
+double mathoptsolverscmake::get_solution_value(
+        const CbcModel& cbc_model)
+{
+    if (cbc_model.bestSolution() == nullptr)
+        return cbc_model.getObjSense() * std::numeric_limits<double>::infinity();
+    return cbc_model.getObjValue();
+}
+
+std::vector<double> mathoptsolverscmake::get_solution(
+        const CbcModel& cbc_model)
+{
+    return std::vector<double>(
+            cbc_model.bestSolution(),
+            cbc_model.bestSolution() + cbc_model.getNumCols());
+}
+
+double mathoptsolverscmake::get_bound(
+        const CbcModel& cbc_model)
+{
+    return cbc_model.getBestPossibleObjValue();
+}
+
+int mathoptsolverscmake::get_number_of_nodes(
+        const CbcModel& cbc_model)
+{
+    return cbc_model.getNodeCount();
 }
 
 #endif
 
 #ifdef HIGHS_FOUND
 
-void mathoptsolverscmake::highs::load(
+void mathoptsolverscmake::load(
         Highs& highs_model,
         const MilpModel& model)
 {
@@ -113,11 +162,55 @@ void mathoptsolverscmake::highs::load(
             variables_types.data());
 }
 
+void mathoptsolverscmake::reduce_printout(
+        Highs& highs_model)
+{
+    HighsStatus return_status = highs_model.setOptionValue(
+            "log_to_console",
+            false);
+}
+
+void mathoptsolverscmake::set_time_limit(
+        Highs& highs_model,
+        double time_limit)
+{
+    HighsStatus highs_status = highs_model.setOptionValue(
+            "time_limit",
+            time_limit);
+}
+
+void mathoptsolverscmake::set_log_file(
+        Highs& highs_model,
+        const std::string& log_file)
+{
+    HighsStatus return_status = highs_model.setOptionValue(
+            "log_file",
+            log_file);
+}
+
+void mathoptsolverscmake::solve(
+        Highs& highs_model)
+{
+    HighsStatus return_status = highs_model.run();
+}
+
+std::vector<double> mathoptsolverscmake::get_solution(
+        const Highs& highs_model)
+{
+    return highs_model.getSolution().col_value;
+}
+
+double mathoptsolverscmake::get_bound(
+        const Highs& highs_model)
+{
+    return highs_model.getInfo().mip_dual_bound;
+}
+
 #endif
 
 #ifdef XPRESS_FOUND
 
-void mathoptsolverscmake::xpress::load(
+void mathoptsolverscmake::load(
         XPRSprob& xpress_model,
         const MilpModel& model)
 {
@@ -136,7 +229,7 @@ void mathoptsolverscmake::xpress::load(
             model.variables_upper_bounds.data());
     if (status) {
         throw std::runtime_error(
-                "knapsackwithconflictssolver::xpress_milp: "
+                "mathoptsolverscmake::load: "
                 "error loading variables; "
                 "status: " + std::to_string(status) + ".");
     }
@@ -172,7 +265,7 @@ void mathoptsolverscmake::xpress::load(
             model.elements_coefficients.data());
     if (status) {
         throw std::runtime_error(
-                "knapsackwithconflictssolver::xpress_milp: "
+                "mathoptsolverscmake::load: "
                 "error loading constraints; "
                 "status: " + std::to_string(status) + ".");
     }
@@ -210,11 +303,87 @@ void mathoptsolverscmake::xpress::load(
             variables_types.data());
     if (status) {
         throw std::runtime_error(
-                "knapsackwithconflictssolver::xpress_milp: "
+                "mathoptsolverscmake::load: "
                 "error setting variable types; "
                 "status: " + std::to_string(status) + ".");
     }
 
+}
+
+void mathoptsolverscmake::set_time_limit(
+        XPRSprob& xpress_model,
+        double time_limit)
+{
+    XPRSsetdblcontrol(xpress_model, XPRS_TIMELIMIT, time_limit);
+}
+
+void mathoptsolverscmake::set_log_file(
+        XPRSprob& xpress_model,
+        const std::string& log_file)
+{
+    XPRSsetlogfile(xpress_model, log_file.c_str());
+}
+
+void mathoptsolverscmake::write_mps(
+        const XPRSprob& xpress_model,
+        const std::string& mps_file)
+{
+    XPRSwriteprob(xpress_model, mps_file.c_str(), "ot");
+}
+
+void mathoptsolverscmake::solve(
+        XPRSprob& xpress_model)
+{
+    int status = XPRSmipoptimize(xpress_model, "");
+    if (status) {
+        throw std::runtime_error(
+                "mathoptsolverscmake::solve: "
+                "error solving model; "
+                "status: " + std::to_string(status) + ".");
+    }
+}
+
+double mathoptsolverscmake::get_solution_value(
+        const XPRSprob& xpress_model)
+{
+    double objective_value = 0;
+    XPRSgetdblattrib(xpress_model, XPRS_MIPOBJVAL, &objective_value);
+    return objective_value;
+}
+
+std::vector<double> mathoptsolverscmake::get_solution(
+        const XPRSprob& xpress_model)
+{
+    int number_of_variables = 0;
+    XPRSgetintattrib(xpress_model, XPRS_ORIGINALCOLS, &number_of_variables);
+    std::vector<double> solution(number_of_variables);
+    int status = XPRSgetmipsol(
+            xpress_model,
+            solution.data(),
+            NULL);
+    if (status) {
+        throw std::runtime_error(
+                "mathoptsolverscmake::get_solution: "
+                "error retrieving solution; "
+                "status: " + std::to_string(status) + ".");
+    }
+    return solution;
+}
+
+double mathoptsolverscmake::get_bound(
+        const XPRSprob& xpress_model)
+{
+    double bound = 0.0;
+    XPRSgetdblattrib(xpress_model, XPRS_BESTBOUND, &bound);
+    return bound;
+}
+
+int get_number_of_nodes(
+        const XPRSprob& xpress_model)
+{
+    int number_of_nodes = 0;
+    XPRSgetintattrib(xpress_model, XPRS_NODES, &number_of_nodes);
+    return number_of_nodes;
 }
 
 #endif

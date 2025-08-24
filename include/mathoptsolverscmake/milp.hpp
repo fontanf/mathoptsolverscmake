@@ -18,6 +18,57 @@
 namespace mathoptsolverscmake
 {
 
+enum class SolverName
+{
+    Cbc,
+    Highs,
+    Xpress,
+};
+
+inline std::istream& operator>>(
+        std::istream& in,
+        SolverName& solver_name)
+{
+    std::string token;
+    in >> token;
+    if (token == "cbc"
+            || token == "Cbc"
+            || token == "CBC") {
+        solver_name = SolverName::Cbc;
+    } else if (token == "highs"
+            || token == "Highs"
+            || token == "HiGHS"
+            || token == "HIGHS") {
+        solver_name = SolverName::Highs;
+    } else if (token == "xpress"
+            || token == "Xpress"
+            || token == "XPRESS") {
+        solver_name = SolverName::Xpress;
+    } else  {
+        in.setstate(std::ios_base::failbit);
+    }
+    return in;
+}
+
+inline std::ostream& operator<<(
+        std::ostream& os,
+        SolverName solver_name)
+{
+    switch (solver_name) {
+    case SolverName::Cbc: {
+        os << "Cbc";
+        break;
+    } case SolverName::Highs: {
+        os << "HiGHS";
+        break;
+    } case SolverName::Xpress: {
+        os << "XPRESS";
+        break;
+    }
+    }
+    return os;
+}
+
 enum class ObjectiveDirection
 {
     Minimize,
@@ -69,40 +120,94 @@ struct MilpModel
 
 #ifdef CBC_FOUND
 
-namespace cbc
-{
-
 void load(
-        OsiCbcSolverInterface& cbc_model,
+        CbcModel& cbc_model,
         const MilpModel& model);
 
-}
+void reduce_printout(
+        CbcModel& cbc_model);
+
+void set_time_limit(
+        CbcModel& cbc_model,
+        double time_limit);
+
+void solve(
+        CbcModel& cbc_model);
+
+double get_solution_value(
+        const CbcModel& cbc_model);
+
+std::vector<double> get_solution(
+        const CbcModel& cbc_model);
+
+double get_bound(
+        const CbcModel& cbc_model);
+
+int get_number_of_nodes(
+        const CbcModel& cbc_model);
 
 #endif
 
 #ifdef HIGHS_FOUND
 
-namespace highs
-{
-
 void load(
         Highs& highs_model,
         const MilpModel& model);
 
-}
+void reduce_printout(
+        Highs& highs_model);
+
+void set_time_limit(
+        Highs& highs_model,
+        double time_limit);
+
+void set_log_file(
+        Highs& highs_model,
+        const std::string& log_file);
+
+void solve(
+        Highs& highs_model);
+
+std::vector<double> get_solution(
+        const Highs& highs_model);
+
+double get_bound(
+        const Highs& highs_model);
 
 #endif
 
 #ifdef XPRESS_FOUND
 
-namespace xpress
-{
-
 void load(
         XPRSprob& xpress_model,
         const MilpModel& model);
 
-}
+void set_time_limit(
+        XPRSprob& xpress_model,
+        double time_limit);
+
+void set_log_file(
+        XPRSprob& xpress_model,
+        const std::string& log_file);
+
+void write_mps(
+        const XPRSprob& xpress_model,
+        const std::string& mps_file);
+
+void solve(
+        XPRSprob& xpress_model);
+
+double get_solution_value(
+        const XPRSprob& xpress_model);
+
+std::vector<double> get_solution(
+        const XPRSprob& xpress_model);
+
+double get_bound(
+        const XPRSprob& xpress_model);
+
+int get_number_of_nodes(
+        const XPRSprob& xpress_model);
 
 #endif
 
