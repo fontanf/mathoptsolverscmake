@@ -2,6 +2,7 @@
 
 #include <vector>
 #include <limits>
+#include <istream>
 
 #ifdef HIGHS_FOUND
 #include "Highs.h"
