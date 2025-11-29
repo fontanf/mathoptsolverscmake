@@ -1,10 +1,372 @@
 #include "mathoptsolverscmake/milp.hpp"
 
+#include <cmath>
 #include <cstddef>
 #include <stdexcept>
 #include <numeric>
+#include <iomanip>
+#include <iostream>
+#include <sstream>
 
 using namespace mathoptsolverscmake;
+
+std::istream& mathoptsolverscmake::operator>>(
+        std::istream& in,
+        ObjectiveDirection& objective_direction)
+{
+    std::string token;
+    std::getline(in, token);
+    if (token == "min"
+            || token == "Min"
+            || token == "minimize"
+            || token == "Minimize") {
+        objective_direction = ObjectiveDirection::Minimize;
+    } else if (token == "max"
+            || token == "Max"
+            || token == "maximize"
+            || token == "Maximize") {
+        objective_direction = ObjectiveDirection::Maximize;
+    } else  {
+        //throw std::invalid_argument(
+        //        FUNC_SIGNATURE + ": "
+        //        "invalid input; "
+        //        "in: " + token + ".");
+        in.setstate(std::ios_base::failbit);
+    }
+    return in;
+}
+
+std::ostream& mathoptsolverscmake::operator<<(
+        std::ostream& os,
+        ObjectiveDirection objective_direction)
+{
+    switch (objective_direction) {
+    case ObjectiveDirection::Minimize: {
+        os << "Minimize";
+        break;
+    } case ObjectiveDirection::Maximize: {
+        os << "Maximize";
+        break;
+    }
+    }
+    return os;
+}
+
+std::istream& mathoptsolverscmake::operator>>(
+        std::istream& in,
+        VariableType& variable_type)
+{
+    std::string token;
+    std::getline(in, token);
+    if (token == "continuous"
+            || token == "Continous"
+            || token == "c"
+            || token == "C") {
+        variable_type = VariableType::Continuous;
+    } else if (token == "binary"
+            || token == "Binary"
+            || token == "b"
+            || token == "B") {
+        variable_type = VariableType::Binary;
+    } else if (token == "integer"
+            || token == "Integer"
+            || token == "i"
+            || token == "I") {
+        variable_type = VariableType::Integer;
+    } else  {
+        //throw std::invalid_argument(
+        //        FUNC_SIGNATURE + ": "
+        //        "invalid input; "
+        //        "in: " + token + ".");
+        in.setstate(std::ios_base::failbit);
+    }
+    return in;
+}
+
+std::ostream& mathoptsolverscmake::operator<<(
+        std::ostream& os,
+        VariableType variable_type)
+{
+    switch (variable_type) {
+    case VariableType::Continuous: {
+        os << "Continuous";
+        break;
+    } case VariableType::Binary: {
+        os << "Binary";
+        break;
+    } case VariableType::Integer: {
+        os << "Integer";
+        break;
+    }
+    }
+    return os;
+}
+
+std::string MilpModel::variable_name(int variable_id) const
+{
+    if (this->variables_names.empty())
+        return "x" + std::to_string(variable_id);
+    return this->variables_names[variable_id];
+}
+
+std::string MilpModel::constraint_name(int constraint_id) const
+{
+    if (this->constraints_names.empty())
+        return "c" + std::to_string(constraint_id);
+    return this->constraints_names[constraint_id];
+}
+
+int MilpModel::constraint_end(int constraint_id) const
+{
+    return (constraint_id == this->number_of_constraints() - 1)?
+        this->number_of_elements():
+        this->constraints_starts[constraint_id + 1];
+}
+
+std::ostream& MilpModel::format_constraint(
+        std::ostream& os,
+        int constraint_id) const
+{
+    os << this->constraint_name(constraint_id) << ": "
+        << this->constraints_lower_bounds[constraint_id] << " <=";
+
+    bool first = true;
+    for (int element_id = this->constraints_starts[constraint_id];
+            element_id < this->constraint_end(constraint_id);
+            ++element_id) {
+
+        double variable_id = this->elements_variables[element_id];
+        double coefficient = this->elements_coefficients[element_id];
+
+        if (first) {
+            // Print constraint lower bound.
+            if (coefficient == 1) {
+                os << " " << this->variable_name(variable_id);
+            } else if (coefficient == -1) {
+                os << " -" << this->variable_name(variable_id);
+            } else {
+                os << " " << coefficient << " " << this->variable_name(variable_id);
+            }
+            first = false;
+        } else {
+            if (coefficient == 1) {
+                os << " +" << " " << this->variable_name(variable_id);
+            } else if (coefficient == -1) {
+                os << " -" << " " << this->variable_name(variable_id);
+            } else if (coefficient > 0) {
+                os << " + " << coefficient << " " << this->variable_name(variable_id);
+            } else {
+                os << " - " << -coefficient << " " << this->variable_name(variable_id);
+            }
+        }
+    }
+    os << " <= " << this->constraints_upper_bounds[constraint_id] << std::endl;
+    return os;
+}
+
+std::ostream& MilpModel::format(
+        std::ostream& os,
+        int verbosity_level) const
+{
+    if (verbosity_level == 0)
+        return os;
+
+    if (verbosity_level >= 1) {
+        os
+            << "Number of variables:    " << this->number_of_variables() << std::endl
+            << "Number of constraints:  " << this->number_of_constraints() << std::endl
+            << "Number of elements:     " << this->number_of_elements() << std::endl
+            << "Objective:              " << this->objective_direction << std::endl
+            ;
+    }
+
+    if (verbosity_level == 2) {
+        // Print variables.
+        os << std::right << std::endl
+            << std::setw(12) << "Variable"
+            << std::setw(24) << "Name"
+            << std::setw(12) << "Lower"
+            << std::setw(12) << "Upper"
+            << std::setw(12) << "Type"
+            << std::endl
+            << std::setw(12) << "--------"
+            << std::setw(24) << "----"
+            << std::setw(12) << "-----"
+            << std::setw(12) << "-----"
+            << std::setw(12) << "----"
+            << std::endl;
+        for (int variable_id = 0;
+                variable_id < this->number_of_variables();
+                ++variable_id) {
+            os
+                << std::setw(12) << variable_id
+                << std::setw(24) << this->variable_name(variable_id)
+                << std::setw(12) << this->variables_lower_bounds[variable_id]
+                << std::setw(12) << this->variables_upper_bounds[variable_id]
+                << std::setw(12) << this->variables_types[variable_id]
+                << std::endl;
+        }
+        os << std::endl;
+
+        // Print objective.
+        os << "obj:";
+        bool first = true;
+        for (int variable_id = 0;
+                variable_id < this->number_of_variables();
+                ++variable_id) {
+            double coefficient = this->objective_coefficients[variable_id];
+            if (coefficient == 0)
+                continue;
+            if (first) {
+                if (coefficient == 1) {
+                    os << " " << this->variable_name(variable_id);
+                } else if (coefficient == -1) {
+                    os << " -" << this->variable_name(variable_id);
+                } else if (coefficient > 0) {
+                    os << " " << coefficient << " " << this->variable_name(variable_id);
+                } else {
+                    os << " -" << -coefficient << " " << this->variable_name(variable_id);
+                }
+                first = false;
+            } else {
+                if (coefficient == 0) {
+                } else if (coefficient == 1) {
+                    os << " + " << this->variable_name(variable_id);
+                } else if (coefficient == -1) {
+                    os << " - " << this->variable_name(variable_id);
+                } else if (coefficient > 0) {
+                    os << " + " << coefficient << " " << this->variable_name(variable_id);
+                } else {
+                    os << " - " << -coefficient << " " << this->variable_name(variable_id);
+                }
+            }
+        }
+        os << std::endl;
+
+        // Print matrix.
+        for (int constraint_id = 0;
+                constraint_id < this->number_of_constraints();
+                ++constraint_id) {
+            this->format_constraint(os, constraint_id);
+        }
+    }
+    return os;
+}
+
+double MilpModel::evaluate_objective(
+        const std::vector<double>& solution) const
+{
+    double value = 0.0;
+    for (int variable_id = 0;
+            variable_id < this->number_of_variables();
+            ++variable_id) {
+        double coefficient = this->objective_coefficients[variable_id];
+        value += solution[variable_id] * coefficient;
+    }
+    return value;
+}
+
+double MilpModel::evaluate_constraint(
+        const std::vector<double>& solution,
+        int constraint_id) const
+{
+    double value = 0.0;
+    for (int element_id = this->constraints_starts[constraint_id];
+            element_id < this->constraint_end(constraint_id);
+            ++element_id) {
+        double variable_id = this->elements_variables[element_id];
+        double coefficient = this->elements_coefficients[element_id];
+        value += solution[variable_id] * coefficient;
+    }
+    return value;
+}
+
+bool MilpModel::check_solution(
+        const std::vector<double>& solution,
+        double feasiblity_tolerance,
+        double integrality_tolerance) const
+{
+    bool feasible = true;
+
+    // Check solution size.
+    if (solution.size() != this->number_of_variables()) {
+        std::stringstream ss;
+        ss << "wrong solution size; "
+            << "solution.size(): " << solution.size() << "; "
+            << "number_of_variables(): " << this->number_of_variables() << ".";
+        std::cout << ss.str() << std::endl;
+        feasible = false;
+        return feasible;
+    }
+
+    // Check variable bounds and integrity.
+    for (int variable_id = 0;
+            variable_id < this->number_of_variables();
+            ++variable_id) {
+        double value = solution[variable_id];
+        if (value < this->variables_lower_bounds[variable_id] - feasiblity_tolerance) {
+            std::stringstream ss;
+            ss << "violated variable lower bound; "
+                << "variable_id: " << variable_id << "; "
+                << "name: " << this->variable_name(variable_id) << "; "
+                << "lower_bound: " << this->variables_lower_bounds[variable_id] << "; "
+                << "value: " << value << ".";
+            std::cout << ss.str() << std::endl;
+            feasible = false;
+        }
+        if (value > this->variables_upper_bounds[variable_id] + feasiblity_tolerance) {
+            std::stringstream ss;
+            ss << "violated variable upper bound; "
+                << "variable_id: " << variable_id << "; "
+                << "name: " << this->variable_name(variable_id) << "; "
+                << "upper_bound: " << this->variables_upper_bounds[variable_id] << "; "
+                << "value: " << value << ".";
+            std::cout << ss.str() << std::endl;
+            feasible = false;
+        }
+        double fractionality = std::abs(value - std::round(value));
+        if (this->variables_types[variable_id] != VariableType::Continuous
+                && fractionality > integrality_tolerance) {
+            std::stringstream ss;
+            ss << "violated variable integrality; "
+                << "variable_id: " << variable_id << "; "
+                << "name: " << this->variable_name(variable_id) << "; "
+                << "type: " << this->variables_types[variable_id] << "; "
+                << "value: " << value << ".";
+            std::cout << ss.str() << std::endl;
+            feasible = false;
+        }
+    }
+
+    for (int constraint_id = 0;
+            constraint_id < this->number_of_constraints();
+            ++constraint_id) {
+        double value = this->evaluate_constraint(solution, constraint_id);
+        if (value < this->constraints_lower_bounds[constraint_id] - feasiblity_tolerance) {
+            std::stringstream ss;
+            this->format_constraint(ss, constraint_id);
+            ss << "violated constraint lower bound; "
+                << "constraint_id: " << constraint_id << "; "
+                << "name: " << this->constraint_name(constraint_id) << "; "
+                << "lower_bound: " << this->constraints_lower_bounds[constraint_id] << "; "
+                << "value: " << value << ".";
+            std::cout << ss.str() << std::endl;
+            feasible = false;
+        }
+        if (value > this->constraints_upper_bounds[constraint_id] + feasiblity_tolerance) {
+            std::stringstream ss;
+            this->format_constraint(ss, constraint_id);
+            ss << "violated constraint upper bound; "
+                << "constraint_id: " << constraint_id << "; "
+                << "name: " << this->constraint_name(constraint_id) << "; "
+                << "upper_bound: " << this->constraints_upper_bounds[constraint_id] << "; "
+                << "value: " << value << ".";
+            std::cout << ss.str() << std::endl;
+            feasible = false;
+        }
+    }
+    return feasible;
+}
 
 #ifdef CBC_FOUND
 
@@ -86,6 +448,8 @@ double mathoptsolverscmake::get_solution_value(
 std::vector<double> mathoptsolverscmake::get_solution(
         const CbcModel& cbc_model)
 {
+    if (cbc_model.bestSolution() == nullptr)
+        return {};
     return std::vector<double>(
             cbc_model.bestSolution(),
             cbc_model.bestSolution() + cbc_model.getNumCols());

@@ -76,12 +76,28 @@ enum class ObjectiveDirection
     Maximize,
 };
 
+std::istream& operator>>(
+        std::istream& in,
+        ObjectiveDirection& objective_direction);
+
+std::ostream& operator<<(
+        std::ostream& os,
+        ObjectiveDirection objective_direction);
+
 enum class VariableType
 {
     Continuous,
     Binary,
     Integer,
 };
+
+std::istream& operator>>(
+        std::istream& in,
+        VariableType& variable_type);
+
+std::ostream& operator<<(
+        std::ostream& os,
+        VariableType variable_type);
 
 struct MilpModel
 {
@@ -100,21 +116,63 @@ struct MilpModel
         elements_coefficients(number_of_elements)
     { }
 
+    /** Get the number of variables. */
     int number_of_variables() const { return variables_lower_bounds.size(); }
+
+    /** Get the number of constraints. */
     int number_of_constraints() const { return constraints_lower_bounds.size(); }
+
+    /** Get the number of elements. */
     int number_of_elements() const { return elements_variables.size(); }
+
+    /** Get the name of a variable. */
+    std::string variable_name(int variable_id) const;
+
+    /** Get the name of a constraint. */
+    std::string constraint_name(int constraint_id) const;
+
+    /** Get the end element of a constraint. */
+    int constraint_end(int constraint_id) const;
+
+    /** Format a single constraint. */
+    std::ostream& format_constraint(
+            std::ostream& os,
+            int constraint_id) const;
+
+    /** Format the model. */
+    std::ostream& format(
+            std::ostream& os,
+            int verbosity_level = 1) const;
+
+    /** Get the objective value of a given solution. */
+    double evaluate_objective(
+            const std::vector<double>& solution) const;
+
+    /** Get the value of a constraint in a given solution. */
+    double evaluate_constraint(
+            const std::vector<double>& solution,
+            int constraint_id) const;
+
+    /** Check if a solution is feasible. */
+    bool check_solution(
+            const std::vector<double>& solution,
+            double feasiblity_tolerance = 0.0,
+            double integrality_tolerance = 0.0) const;
+
 
     ObjectiveDirection objective_direction;
 
     std::vector<double> variables_lower_bounds;
     std::vector<double> variables_upper_bounds;
     std::vector<VariableType> variables_types;
+    std::vector<std::string> variables_names;
 
     std::vector<double> objective_coefficients;
 
     std::vector<double> constraints_lower_bounds;
     std::vector<double> constraints_upper_bounds;
     std::vector<int> constraints_starts;
+    std::vector<std::string> constraints_names;
     std::vector<int> elements_variables;
     std::vector<double> elements_coefficients;
 };
