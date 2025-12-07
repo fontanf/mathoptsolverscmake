@@ -12,6 +12,50 @@ using namespace mathoptsolverscmake;
 
 std::istream& mathoptsolverscmake::operator>>(
         std::istream& in,
+        SolverName& solver_name)
+{
+    std::string token;
+    in >> token;
+    if (token == "cbc"
+            || token == "Cbc"
+            || token == "CBC") {
+        solver_name = SolverName::Cbc;
+    } else if (token == "highs"
+            || token == "Highs"
+            || token == "HiGHS"
+            || token == "HIGHS") {
+        solver_name = SolverName::Highs;
+    } else if (token == "xpress"
+            || token == "Xpress"
+            || token == "XPRESS") {
+        solver_name = SolverName::Xpress;
+    } else  {
+        in.setstate(std::ios_base::failbit);
+    }
+    return in;
+}
+
+std::ostream& mathoptsolverscmake::operator<<(
+        std::ostream& os,
+        SolverName solver_name)
+{
+    switch (solver_name) {
+    case SolverName::Cbc: {
+        os << "Cbc";
+        break;
+    } case SolverName::Highs: {
+        os << "HiGHS";
+        break;
+    } case SolverName::Xpress: {
+        os << "XPRESS";
+        break;
+    }
+    }
+    return os;
+}
+
+std::istream& mathoptsolverscmake::operator>>(
+        std::istream& in,
         ObjectiveDirection& objective_direction)
 {
     std::string token;
@@ -102,6 +146,92 @@ std::ostream& mathoptsolverscmake::operator<<(
     return os;
 }
 
+std::ostream& mathoptsolverscmake::operator<<(
+        std::ostream& os,
+        ConstraintSense constraint_sense)
+{
+    switch (constraint_sense) {
+    case ConstraintSense::LessThanOrEqualTo: {
+        os << "L";
+        break;
+    } case ConstraintSense::GreaterThanOrEqualTo: {
+        os << "G";
+        break;
+    } case ConstraintSense::Equality: {
+        os << "E";
+        break;
+    } case ConstraintSense::Range: {
+        os << "R";
+        break;
+    } case ConstraintSense::Free: {
+        os << "F";
+        break;
+    }
+    }
+    return os;
+}
+
+std::ostream& mathoptsolverscmake::operator<<(
+        std::ostream& os,
+        ConstraintClass constraint_class)
+{
+    switch (constraint_class) {
+    case ConstraintClass::Empty: {
+        os << "Empty";
+        break;
+    } case ConstraintClass::Free: {
+        os << "Free";
+        break;
+    } case ConstraintClass::Singleton: {
+        os << "Singleton";
+        break;
+    } case ConstraintClass::Aggregation: {
+        os << "Aggregation";
+        break;
+    } case ConstraintClass::Precedence: {
+        os << "Precedence";
+        break;
+    } case ConstraintClass::VariableBound: {
+        os << "Variable bound";
+        break;
+    } case ConstraintClass::SetPartitioning: {
+        os << "Set partitioning";
+        break;
+    } case ConstraintClass::SetPacking: {
+        os << "Set packing";
+        break;
+    } case ConstraintClass::SetCovering: {
+        os << "Set covering";
+        break;
+    } case ConstraintClass::Cardinality: {
+        os << "Cardinality";
+        break;
+    } case ConstraintClass::InvariantKnapsack: {
+        os << "Invariant knapsack";
+        break;
+    } case ConstraintClass::EquationKnapsack: {
+        os << "Equation knapsack";
+        break;
+    } case ConstraintClass::Binpacking: {
+        os << "Bin packing";
+        break;
+    } case ConstraintClass::Knapsack: {
+        os << "Knapsack";
+        break;
+    } case ConstraintClass::IntegerKnapsack: {
+        os << "Integer knapsack";
+        break;
+    } case ConstraintClass::MixedBinary: {
+        os << "Mixed binary";
+        break;
+    } case ConstraintClass::GeneralLinear: {
+        os << "General linear";
+        break;
+    }
+    }
+    return os;
+}
+
 std::string MilpModel::variable_name(int variable_id) const
 {
     if (this->variables_names.empty())
@@ -121,6 +251,176 @@ int MilpModel::constraint_end(int constraint_id) const
     return (constraint_id == this->number_of_constraints() - 1)?
         this->number_of_elements():
         this->constraints_starts[constraint_id + 1];
+}
+
+int MilpModel::number_of_variables(int constraint_id) const
+{
+    return this->constraint_end(constraint_id) - this->constraints_starts[constraint_id] - 1;
+}
+
+int MilpModel::number_of_variables(
+        int constraint_id,
+        VariableType variable_type) const
+{
+    int res = 0;
+    for (int element_id = this->constraints_starts[constraint_id];
+            element_id < this->constraint_end(constraint_id);
+            ++element_id) {
+        int variable_id = this->elements_variables[element_id];
+        if (variable_type == this->variables_types[variable_id])
+            res++;
+    }
+    return res;
+}
+
+ConstraintSense MilpModel::constraint_sense(int constraint_id) const
+{
+    if (this->constraints_lower_bounds[constraint_id]
+            == -std::numeric_limits<double>::infinity()
+            && this->constraints_upper_bounds[constraint_id]
+            == std::numeric_limits<double>::infinity()) {
+        return ConstraintSense::Free;
+    }
+
+    if (this->constraints_lower_bounds[constraint_id]
+            == -std::numeric_limits<double>::infinity()) {
+        return ConstraintSense::LessThanOrEqualTo;
+    }
+
+    if (this->constraints_upper_bounds[constraint_id]
+            == std::numeric_limits<double>::infinity()) {
+        return ConstraintSense::GreaterThanOrEqualTo;
+    }
+
+    if (this->constraints_lower_bounds[constraint_id]
+            == this->constraints_upper_bounds[constraint_id]) {
+        return ConstraintSense::Equality;
+    }
+
+    return ConstraintSense::Range;
+}
+
+ConstraintClass MilpModel::constraint_class(int constraint_id) const
+{
+    int number_of_variables = this->number_of_variables(constraint_id);
+    ConstraintSense constraint_sense = this->constraint_sense(constraint_id);
+    double lower_bound = this->constraints_lower_bounds[constraint_id];
+    double upper_bound = this->constraints_upper_bounds[constraint_id];
+
+    if (number_of_variables == 0)
+        return ConstraintClass::Empty;
+
+    if (constraint_sense == ConstraintSense::Free)
+        return ConstraintClass::Free;
+
+    if (number_of_variables == 1)
+        return ConstraintClass::Singleton;
+
+    if (constraint_sense == ConstraintSense::Equality
+            && number_of_variables) {
+        return ConstraintClass::Aggregation;
+    }
+
+    if (number_of_variables == 2
+            && constraint_sense != ConstraintSense::Range) {
+        int constraint_start = this->constraints_starts[constraint_id];
+        int variable_1_id = this->elements_variables[constraint_start];
+        int variable_2_id = this->elements_variables[constraint_start + 1];
+        if (this->variables_types.empty()
+                || (this->variables_types[variable_1_id] == this->variables_types[variable_2_id])) {
+            return ConstraintClass::Precedence;
+        }
+    }
+
+    if (number_of_variables == 2
+            && constraint_sense != ConstraintSense::Range
+            && !this->variables_types.empty()) {
+        int constraint_start = this->constraints_starts[constraint_id];
+        int variable_1_id = this->elements_variables[constraint_start];
+        int variable_2_id = this->elements_variables[constraint_start + 1];
+        if (this->variables_types[variable_1_id] == VariableType::Binary
+                || this->variables_types[variable_2_id] == VariableType::Binary) {
+            return ConstraintClass::VariableBound;
+        }
+    }
+
+    int number_of_binary_variables = this->number_of_variables(constraint_id, VariableType::Binary);
+    bool all_coefficient_one = true;
+    for (int element_id = this->constraints_starts[constraint_id];
+            element_id < this->constraint_end(constraint_id);
+            ++element_id) {
+        double coefficient = this->elements_coefficients[element_id];
+        if (coefficient != 1.0)
+            all_coefficient_one = false;
+    }
+
+    if (lower_bound == 1
+            && upper_bound == 1
+            && all_coefficient_one
+            && number_of_binary_variables == number_of_variables) {
+        return ConstraintClass::SetPartitioning;
+    }
+
+    if (constraint_sense == ConstraintSense::LessThanOrEqualTo
+            && upper_bound == 1
+            && all_coefficient_one
+            && number_of_binary_variables == number_of_variables) {
+        return ConstraintClass::SetPacking;
+    }
+
+    if (constraint_sense == ConstraintSense::GreaterThanOrEqualTo
+            && lower_bound == 1
+            && all_coefficient_one
+            && number_of_binary_variables == number_of_variables) {
+        return ConstraintClass::SetCovering;
+    }
+
+    if (constraint_sense == ConstraintSense::Equality
+            && all_coefficient_one
+            && number_of_binary_variables == number_of_variables) {
+        return ConstraintClass::Cardinality;
+    }
+
+    if (constraint_sense == ConstraintSense::LessThanOrEqualTo
+            && all_coefficient_one
+            && number_of_binary_variables == number_of_variables) {
+        return ConstraintClass::InvariantKnapsack;
+    }
+
+    if (constraint_sense == ConstraintSense::Equality
+            && number_of_binary_variables == number_of_variables) {
+        return ConstraintClass::EquationKnapsack;
+    }
+
+    if (constraint_sense == ConstraintSense::LessThanOrEqualTo
+            && number_of_binary_variables == number_of_variables) {
+        bool ok = false;
+        for (int element_id = this->constraints_starts[constraint_id];
+                element_id < this->constraint_end(constraint_id);
+                ++element_id) {
+            double coefficient = this->elements_coefficients[element_id];
+            if (coefficient == upper_bound)
+                ok = true;
+        }
+        if (ok)
+            return ConstraintClass::Binpacking;
+    }
+
+    if (constraint_sense == ConstraintSense::LessThanOrEqualTo
+            && number_of_binary_variables == number_of_variables) {
+        return ConstraintClass::Knapsack;
+    }
+
+    int number_of_integer_variables = this->number_of_variables(constraint_id, VariableType::Integer);
+    if (constraint_sense == ConstraintSense::LessThanOrEqualTo
+            && number_of_binary_variables + number_of_integer_variables == number_of_variables) {
+        return ConstraintClass::IntegerKnapsack;
+    }
+
+    if (number_of_integer_variables == 0)
+        return ConstraintClass::MixedBinary;
+
+    return ConstraintClass::GeneralLinear;
 }
 
 std::ostream& MilpModel::format_constraint(
@@ -180,7 +480,7 @@ std::ostream& MilpModel::format(
             ;
     }
 
-    if (verbosity_level == 2) {
+    if (verbosity_level >= 2) {
         // Print variables.
         os << std::right << std::endl
             << std::setw(12) << "Variable"
@@ -208,6 +508,50 @@ std::ostream& MilpModel::format(
         }
         os << std::endl;
 
+        // Print constraints.
+        os << std::right << std::endl
+            << std::setw(8) << "Constr."
+            << std::setw(24) << "Name"
+            << std::setw(20) << "Class"
+            << std::setw(6) << "Sense"
+            << std::setw(12) << "Lower"
+            << std::setw(12) << "Upper"
+            << std::setw(8) << "# var."
+            << std::setw(8) << "# cont."
+            << std::setw(8) << "# bin."
+            << std::setw(8) << "# int."
+            << std::endl
+            << std::setw(8) << "-------"
+            << std::setw(24) << "----"
+            << std::setw(20) << "-----"
+            << std::setw(6) << "-----"
+            << std::setw(12) << "-----"
+            << std::setw(12) << "-----"
+            << std::setw(8) << "------"
+            << std::setw(8) << "-------"
+            << std::setw(8) << "------"
+            << std::setw(8) << "------"
+            << std::endl;
+        for (int constraint_id = 0;
+                constraint_id < this->number_of_constraints();
+                ++constraint_id) {
+            os
+                << std::setw(8) << constraint_id
+                << std::setw(24) << this->constraint_name(constraint_id)
+                << std::setw(20) << this->constraint_class(constraint_id)
+                << std::setw(6) << this->constraint_sense(constraint_id)
+                << std::setw(12) << this->constraints_lower_bounds[constraint_id]
+                << std::setw(12) << this->constraints_upper_bounds[constraint_id]
+                << std::setw(8) << this->number_of_variables(constraint_id)
+                << std::setw(8) << this->number_of_variables(constraint_id, VariableType::Continuous)
+                << std::setw(8) << this->number_of_variables(constraint_id, VariableType::Binary)
+                << std::setw(8) << this->number_of_variables(constraint_id, VariableType::Integer)
+                << std::endl;
+        }
+        os << std::endl;
+    }
+
+    if (verbosity_level >= 3) {
         // Print objective.
         os << "obj:";
         bool first = true;
@@ -253,6 +597,88 @@ std::ostream& MilpModel::format(
     return os;
 }
 
+std::ostream& MilpModel::format_solution(
+        std::ostream& os,
+        const std::vector<double>& solution,
+        int verbosity_level) const
+{
+    if (verbosity_level == 0)
+        return os;
+
+    if (verbosity_level >= 1) {
+        os
+            << "Objective:  " << this->evaluate_objective(solution) << std::endl
+            << "Feasible:   " << this->check_solution(solution) << std::endl
+            ;
+    }
+
+    if (verbosity_level >= 2) {
+        // Print variables.
+        os << std::right << std::endl
+            << std::setw(12) << "Variable"
+            << std::setw(24) << "Name"
+            << std::setw(12) << "Type"
+            << std::setw(12) << "Lower"
+            << std::setw(12) << "Value"
+            << std::setw(12) << "Upper"
+            << std::setw(12) << "Feasible"
+            << std::endl
+            << std::setw(12) << "--------"
+            << std::setw(24) << "----"
+            << std::setw(12) << "-----"
+            << std::setw(12) << "-----"
+            << std::setw(12) << "----"
+            << std::setw(12) << "--------"
+            << std::endl;
+        for (int variable_id = 0;
+                variable_id < this->number_of_variables();
+                ++variable_id) {
+            os
+                << std::setw(12) << variable_id
+                << std::setw(24) << this->variable_name(variable_id)
+                << std::setw(12) << this->variables_lower_bounds[variable_id]
+                << std::setw(12) << this->variables_upper_bounds[variable_id]
+                << std::setw(12) << this->variables_types[variable_id]
+                << std::setw(12) << solution[variable_id]
+                << std::setw(12) << check_solution_variable(solution, variable_id, 0)
+                << std::endl;
+        }
+        os << std::endl;
+
+        // Print constraints.
+        os << std::right << std::endl
+            << std::setw(8) << "Constr."
+            << std::setw(24) << "Name"
+            << std::setw(12) << "Lower"
+            << std::setw(12) << "Value"
+            << std::setw(12) << "Upper"
+            << std::setw(12) << "Feasible"
+            << std::endl
+            << std::setw(8) << "-------"
+            << std::setw(24) << "----"
+            << std::setw(12) << "-----"
+            << std::setw(12) << "-----"
+            << std::setw(12) << "-----"
+            << std::setw(12) << "--------"
+            << std::endl;
+        for (int constraint_id = 0;
+                constraint_id < this->number_of_constraints();
+                ++constraint_id) {
+            os
+                << std::setw(8) << constraint_id
+                << std::setw(24) << this->constraint_name(constraint_id)
+                << std::setw(12) << this->constraints_lower_bounds[constraint_id]
+                << std::setw(12) << this->evaluate_constraint(solution, constraint_id)
+                << std::setw(12) << this->constraints_upper_bounds[constraint_id]
+                << std::setw(8) << this->check_solution_constraint(solution, constraint_id, 0)
+                << std::endl;
+        }
+        os << std::endl;
+    }
+
+    return os;
+}
+
 double MilpModel::evaluate_objective(
         const std::vector<double>& solution) const
 {
@@ -281,30 +707,15 @@ double MilpModel::evaluate_constraint(
     return value;
 }
 
-bool MilpModel::check_solution(
+bool MilpModel::check_solution_variable(
         const std::vector<double>& solution,
-        double feasiblity_tolerance,
-        double integrality_tolerance) const
+        int variable_id,
+        int verbosity_level) const
 {
     bool feasible = true;
-
-    // Check solution size.
-    if (solution.size() != this->number_of_variables()) {
-        std::stringstream ss;
-        ss << "wrong solution size; "
-            << "solution.size(): " << solution.size() << "; "
-            << "number_of_variables(): " << this->number_of_variables() << ".";
-        std::cout << ss.str() << std::endl;
-        feasible = false;
-        return feasible;
-    }
-
-    // Check variable bounds and integrity.
-    for (int variable_id = 0;
-            variable_id < this->number_of_variables();
-            ++variable_id) {
-        double value = solution[variable_id];
-        if (value < this->variables_lower_bounds[variable_id] - feasiblity_tolerance) {
+    double value = solution[variable_id];
+    if (value < this->variables_lower_bounds[variable_id] - this->feasiblity_tolerance) {
+        if (verbosity_level > 0) {
             std::stringstream ss;
             ss << "violated variable lower bound; "
                 << "variable_id: " << variable_id << "; "
@@ -312,9 +723,11 @@ bool MilpModel::check_solution(
                 << "lower_bound: " << this->variables_lower_bounds[variable_id] << "; "
                 << "value: " << value << ".";
             std::cout << ss.str() << std::endl;
-            feasible = false;
         }
-        if (value > this->variables_upper_bounds[variable_id] + feasiblity_tolerance) {
+        feasible = false;
+    }
+    if (value > this->variables_upper_bounds[variable_id] + this->feasiblity_tolerance) {
+        if (verbosity_level > 0) {
             std::stringstream ss;
             ss << "violated variable upper bound; "
                 << "variable_id: " << variable_id << "; "
@@ -322,11 +735,13 @@ bool MilpModel::check_solution(
                 << "upper_bound: " << this->variables_upper_bounds[variable_id] << "; "
                 << "value: " << value << ".";
             std::cout << ss.str() << std::endl;
-            feasible = false;
         }
-        double fractionality = std::abs(value - std::round(value));
-        if (this->variables_types[variable_id] != VariableType::Continuous
-                && fractionality > integrality_tolerance) {
+        feasible = false;
+    }
+    double fractionality = std::abs(value - std::round(value));
+    if (this->variables_types[variable_id] != VariableType::Continuous
+            && fractionality > this->integrality_tolerance) {
+        if (verbosity_level > 0) {
             std::stringstream ss;
             ss << "violated variable integrality; "
                 << "variable_id: " << variable_id << "; "
@@ -334,15 +749,21 @@ bool MilpModel::check_solution(
                 << "type: " << this->variables_types[variable_id] << "; "
                 << "value: " << value << ".";
             std::cout << ss.str() << std::endl;
-            feasible = false;
         }
+        feasible = false;
     }
+    return feasible;
+}
 
-    for (int constraint_id = 0;
-            constraint_id < this->number_of_constraints();
-            ++constraint_id) {
-        double value = this->evaluate_constraint(solution, constraint_id);
-        if (value < this->constraints_lower_bounds[constraint_id] - feasiblity_tolerance) {
+bool MilpModel::check_solution_constraint(
+        const std::vector<double>& solution,
+        int constraint_id,
+        int verbosity_level) const
+{
+    bool feasible = true;
+    double value = this->evaluate_constraint(solution, constraint_id);
+    if (value < this->constraints_lower_bounds[constraint_id] - this->feasiblity_tolerance) {
+        if (verbosity_level > 0) {
             std::stringstream ss;
             this->format_constraint(ss, constraint_id);
             ss << "violated constraint lower bound; "
@@ -351,9 +772,11 @@ bool MilpModel::check_solution(
                 << "lower_bound: " << this->constraints_lower_bounds[constraint_id] << "; "
                 << "value: " << value << ".";
             std::cout << ss.str() << std::endl;
-            feasible = false;
         }
-        if (value > this->constraints_upper_bounds[constraint_id] + feasiblity_tolerance) {
+        feasible = false;
+    }
+    if (value > this->constraints_upper_bounds[constraint_id] + this->feasiblity_tolerance) {
+        if (verbosity_level > 0) {
             std::stringstream ss;
             this->format_constraint(ss, constraint_id);
             ss << "violated constraint upper bound; "
@@ -362,9 +785,50 @@ bool MilpModel::check_solution(
                 << "upper_bound: " << this->constraints_upper_bounds[constraint_id] << "; "
                 << "value: " << value << ".";
             std::cout << ss.str() << std::endl;
-            feasible = false;
         }
+        feasible = false;
     }
+    return feasible;
+}
+
+bool MilpModel::check_solution(
+        const std::vector<double>& solution,
+        int verbosity_level) const
+{
+    bool feasible = true;
+
+    // Check solution size.
+    if (solution.size() != this->number_of_variables()) {
+        if (verbosity_level > 0) {
+            std::stringstream ss;
+            ss << "wrong solution size; "
+                << "solution.size(): " << solution.size() << "; "
+                << "number_of_variables(): " << this->number_of_variables() << ".";
+            std::cout << ss.str() << std::endl;
+        }
+        feasible = false;
+        return feasible;
+    }
+
+    // Check variable bounds and integrity.
+    for (int variable_id = 0;
+            variable_id < this->number_of_variables();
+            ++variable_id) {
+        feasible &= check_solution_variable(
+                solution,
+                variable_id,
+                verbosity_level);
+    }
+
+    for (int constraint_id = 0;
+            constraint_id < this->number_of_constraints();
+            ++constraint_id) {
+        feasible &= check_solution_constraint(
+                solution,
+                constraint_id,
+                verbosity_level);
+    }
+
     return feasible;
 }
 

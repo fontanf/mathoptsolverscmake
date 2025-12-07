@@ -26,49 +26,13 @@ enum class SolverName
     Xpress,
 };
 
-inline std::istream& operator>>(
+std::istream& operator>>(
         std::istream& in,
-        SolverName& solver_name)
-{
-    std::string token;
-    in >> token;
-    if (token == "cbc"
-            || token == "Cbc"
-            || token == "CBC") {
-        solver_name = SolverName::Cbc;
-    } else if (token == "highs"
-            || token == "Highs"
-            || token == "HiGHS"
-            || token == "HIGHS") {
-        solver_name = SolverName::Highs;
-    } else if (token == "xpress"
-            || token == "Xpress"
-            || token == "XPRESS") {
-        solver_name = SolverName::Xpress;
-    } else  {
-        in.setstate(std::ios_base::failbit);
-    }
-    return in;
-}
+        SolverName& solver_name);
 
-inline std::ostream& operator<<(
+std::ostream& operator<<(
         std::ostream& os,
-        SolverName solver_name)
-{
-    switch (solver_name) {
-    case SolverName::Cbc: {
-        os << "Cbc";
-        break;
-    } case SolverName::Highs: {
-        os << "HiGHS";
-        break;
-    } case SolverName::Xpress: {
-        os << "XPRESS";
-        break;
-    }
-    }
-    return os;
-}
+        SolverName solver_name);
 
 enum class ObjectiveDirection
 {
@@ -98,6 +62,66 @@ std::istream& operator>>(
 std::ostream& operator<<(
         std::ostream& os,
         VariableType variable_type);
+
+enum class ConstraintSense
+{
+    LessThanOrEqualTo,
+    GreaterThanOrEqualTo,
+    Equality,
+    Range,
+    Free,
+};
+
+std::ostream& operator<<(
+        std::ostream& os,
+        ConstraintSense constraint_sense);
+
+/**
+ * Constraint classes.
+ *
+ * Based on https://miplib.zib.de/statistics.html
+ */
+enum class ConstraintClass
+{
+    /** Linear constraint with no variables. */
+    Empty,
+    /** Linear constraint with no finite side. */
+    Free,
+    /** Linear constraint with a single variable. */
+    Singleton,
+    /** Linear constraint of the type ax+by=c. */
+    Aggregation,
+    /** Linear constraint of the type ax−ay≤b, where x and y must have the same type. */
+    Precedence,
+    /** Linear constraint of the form ax+by≤c,x∈{0,1}. */
+    VariableBound,
+    /** Linear constraint of the form ∑xi=1,xi∈{0,1}∀i. */
+    SetPartitioning,
+    /** Linear constraint of the form ∑xi≤1,xi∈{0,1}∀i. */
+    SetPacking,
+    /** Linear constraint of the form ∑xi≥1,xi∈{0,1}∀i. */
+    SetCovering,
+    /** Linear constraint of the form ∑xi=k,xi∈{0,1}∀i,k≥2. */
+    Cardinality,
+    /** Linear constraint of the form ∑xi≤b,xi∈{0,1}∀i,b∈N≥2. */
+    InvariantKnapsack,
+    /** Linear constraint of the form ∑aixi=b,xi∈{0,1}∀i,b∈N≥2. */
+    EquationKnapsack,
+    /** Linear constraint of the form ∑aixi+ax≤a,x,xi∈{0,1}∀i,a∈N≥2. */
+    Binpacking,
+    /** Linear constraint of the form ∑akxk≤b,xi∈{0,1}∀i,b∈N≥2. */
+    Knapsack,
+    /** Linear constraint of the form ∑akxk≤b,xi∈Z∀i,b∈N. */
+    IntegerKnapsack,
+    /** Linear constraint of the form ∑akxk+∑pjsj{≤,=}b,xi∈{0,1}∀i,sj cont. ∀j. */
+    MixedBinary,
+    /** Linear constraint with no special structure. */
+    GeneralLinear,
+};
+
+std::ostream& operator<<(
+        std::ostream& os,
+        ConstraintClass constraint_class);
 
 struct MilpModel
 {
@@ -134,6 +158,20 @@ struct MilpModel
     /** Get the end element of a constraint. */
     int constraint_end(int constraint_id) const;
 
+    /** Get the number of variables involved in a given constraint. */
+    int number_of_variables(int constraint_id) const;
+
+    /** Get the number of variables of a given type in a given constraint. */
+    int number_of_variables(
+            int constraint_id,
+            VariableType variable_type) const;
+
+    /** Get the sense of a given constraint. */
+    ConstraintSense constraint_sense(int constraint_id) const;
+
+    /** Find the type of a constraint. */
+    ConstraintClass constraint_class(int constraint_id) const;
+
     /** Format a single constraint. */
     std::ostream& format_constraint(
             std::ostream& os,
@@ -142,6 +180,12 @@ struct MilpModel
     /** Format the model. */
     std::ostream& format(
             std::ostream& os,
+            int verbosity_level = 1) const;
+
+    /** Format a solution. */
+    std::ostream& format_solution(
+            std::ostream& os,
+            const std::vector<double>& solution,
             int verbosity_level = 1) const;
 
     /** Get the objective value of a given solution. */
@@ -153,11 +197,22 @@ struct MilpModel
             const std::vector<double>& solution,
             int constraint_id) const;
 
+    /** Check if a variable is feasible. */
+    bool check_solution_variable(
+            const std::vector<double>& solution,
+            int variable_id,
+            int verbosity_level) const;
+
+    /** Check if a constraint is feasible. */
+    bool check_solution_constraint(
+            const std::vector<double>& solution,
+            int constraint_id,
+            int verbosity_level) const;
+
     /** Check if a solution is feasible. */
     bool check_solution(
             const std::vector<double>& solution,
-            double feasiblity_tolerance = 0.0,
-            double integrality_tolerance = 0.0) const;
+            int verbosity_level = 0) const;
 
 
     ObjectiveDirection objective_direction;
@@ -175,6 +230,9 @@ struct MilpModel
     std::vector<std::string> constraints_names;
     std::vector<int> elements_variables;
     std::vector<double> elements_coefficients;
+
+    double feasiblity_tolerance = 0.0;
+    double integrality_tolerance = 0.0;
 };
 
 #ifdef CBC_FOUND
