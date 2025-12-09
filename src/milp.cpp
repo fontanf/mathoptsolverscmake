@@ -615,35 +615,34 @@ std::ostream& MilpModel::format_solution(
     if (verbosity_level >= 2) {
         // Print variables.
         os << std::right << std::endl
-            << std::setw(12) << "Variable"
+            << std::setw(8) << "Var."
             << std::setw(24) << "Name"
             << std::setw(12) << "Type"
             << std::setw(12) << "Lower"
             << std::setw(12) << "Value"
             << std::setw(12) << "Upper"
-            << std::setw(12) << "Feasible"
+            << std::setw(8) << "Feas."
             << std::endl
-            << std::setw(12) << "--------"
+            << std::setw(8) << "----"
             << std::setw(24) << "----"
             << std::setw(12) << "-----"
             << std::setw(12) << "-----"
             << std::setw(12) << "----"
-            << std::setw(12) << "--------"
+            << std::setw(8) << "-----"
             << std::endl;
         for (int variable_id = 0;
                 variable_id < this->number_of_variables();
                 ++variable_id) {
             os
-                << std::setw(12) << variable_id
+                << std::setw(8) << variable_id
                 << std::setw(24) << this->variable_name(variable_id)
-                << std::setw(12) << this->variables_lower_bounds[variable_id]
-                << std::setw(12) << this->variables_upper_bounds[variable_id]
                 << std::setw(12) << this->variables_types[variable_id]
+                << std::setw(12) << this->variables_lower_bounds[variable_id]
                 << std::setw(12) << solution[variable_id]
-                << std::setw(12) << check_solution_variable(solution, variable_id, 0)
+                << std::setw(12) << this->variables_upper_bounds[variable_id]
+                << std::setw(8) << check_solution_variable(solution, variable_id, 0)
                 << std::endl;
         }
-        os << std::endl;
 
         // Print constraints.
         os << std::right << std::endl
@@ -652,14 +651,14 @@ std::ostream& MilpModel::format_solution(
             << std::setw(12) << "Lower"
             << std::setw(12) << "Value"
             << std::setw(12) << "Upper"
-            << std::setw(12) << "Feasible"
+            << std::setw(8) << "Feas."
             << std::endl
             << std::setw(8) << "-------"
             << std::setw(24) << "----"
             << std::setw(12) << "-----"
             << std::setw(12) << "-----"
             << std::setw(12) << "-----"
-            << std::setw(12) << "--------"
+            << std::setw(8) << "-----"
             << std::endl;
         for (int constraint_id = 0;
                 constraint_id < this->number_of_constraints();
