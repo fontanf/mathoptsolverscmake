@@ -1,10 +1,30 @@
 # MathOptSolversCMake
 
-CMake wrappers for mathematical optimization solvers.
+This library includes:
+* CMake wrappers for mathematical optimization solvers.
+* A mixed-integer linear programming modeler
+* A box-constrained nonlinear programming modeler (for Lagrangian relaxations)
 
-For [Artelys Knitro](https://www.artelys.com/solvers/knitro/) see [fontanf/knitrocpp](https://github.com/fontanf/knitrocpp).
+The goal of the modelers are:
+* Minimize the modeler's overhead
+* Run multiple solvers while writing the model's code once and ensuring that the model passed to each solver is the same
+* Keep access to all the direct API features of the solvers
+* Minimize the quantity of code to integrate a new solver
+* Provide some features to help model debugging
 
-Example usage:
+They are not designed to be as user-friendly as possible.
+And switching solver requires a bit more lines of code than changing a string.
+
+Milp modeler examples:
+* [Multiple-choice knapsack](https://github.com/fontanf/multiplechoiceknapsacksolver/blob/main/src/algorithms/milp.cpp)
+* [Set covering](https://github.com/fontanf/setcoveringsolver/blob/master/src/algorithms/milp.cpp)
+* [Generalized assignment](https://github.com/fontanf/generalizedassignmentsolver/blob/master/src/algorithms/milp.cpp)
+* [Clique](https://github.com/fontanf/stablesolver/blob/master/src/clique/algorithms/milp.cpp), [stable](https://github.com/fontanf/stablesolver/blob/master/src/stable/algorithms/milp.cpp)
+* [Knapsack with conflicts](https://github.com/fontanf/knapsackwithconflictssolver/blob/main/src/algorithms/milp.cpp)
+* [Graph coloring](https://github.com/fontanf/coloringsolver/blob/master/src/algorithms/milp.cpp)
+* Shop scheduling, [positional model](https://github.com/fontanf/shopschedulingsolver/blob/main/src/algorithms/milp_positional.cpp), [disjunctive model](https://github.com/fontanf/shopschedulingsolver/blob/main/src/algorithms/milp_disjunctive.cpp)
+
+CMake integration example:
 ```cmake
 # Fetch fontanf/mathoptsolverscmake.
 set(MATHOPTSOLVERSCMAKE_USE_CLP ON)
@@ -19,80 +39,4 @@ FetchContent_MakeAvailable(mathoptsolverscmake)
 
 target_link_libraries(MyProject_my_target PUBLIC
     MathOptSolversCMake::clp)
-```
-
-## [CLP](https://github.com/coin-or/Clp)
-
-* CLP will automatically be downloaded. It doesn't need to be already installed.
-* Example:
-```cmake
-set(MATHOPTSOLVERSCMAKE_USE_CLP ON)
-
-...
-
-target_link_libraries(MyProject_my_target_1 PUBLIC
-    MathOptSolversCMake::clp)
-```
-
-## [CBC](https://github.com/coin-or/Cbc)
-
-* CBC will automatically be downloaded. It doesn't need to be already installed.
-* Example:
-```cmake
-set(MATHOPTSOLVERSCMAKE_USE_CBC ON)
-
-...
-
-target_link_libraries(MyProject_my_target_2 PUBLIC
-    MathOptSolversCMake::cbc)
-```
-
-## [FICO Xpress](https://www.fico.com/en/products/fico-xpress-optimization)
-
-* FICO Xpress must be installed and a `XPRESSDIR` environment variable must be properly defined
-* Currently only working on Linux, contributions welcome for Windows and macOS
-* Example:
-```cmake
-set(MATHOPTSOLVERSCMAKE_USE_XPRESS ON)
-
-...
-
-target_link_libraries(MyProject_my_target PUBLIC
-    MathOptSolversCMake::xpress)
-```
-
-## [IBM® ILOG CPLEX Optimizer](https://www.ibm.com/products/ilog-cplex-optimization-studio/cplex-optimizer)
-
-* IBM® ILOG CPLEX Optimizer must be installed and a `CPLEX_HOME` environment variable must be properly defined (example: `/opt/ibm/ILOG/CPLEX_Studio129/`)
-* Currently only working on Linux, contributions welcome for Windows and macOS
-* Example:
-```cmake
-set(MATHOPTSOLVERSCMAKE_USE_CPLEX ON)
-
-...
-
-target_link_libraries(MyProject_my_target_1 PUBLIC
-    MathOptSolversCMake::cplex)
-target_link_libraries(MyProject_my_target_2 PUBLIC
-    MathOptSolversCMake::cpoptimizer)
-```
-
-## [Gurobi](https://www.gurobi.com/)
-
-* Gurobi must be installed and a `GUROBI_HOME` environment variable must be properly defined (example: `/opt/gurobi1003/linux64`)
-* The Gurobi C++ interface must have been installed. For example, on Linux:
-```
-cd ${GUROBI_HOME}/linux64/src/build/
-make
-cp libgurobi_c++.a ../../lib/
-```
-* Currently only working on Linux, contributions welcome for Windows and macOS
-* Example:
-```cmake
-set(MATHOPTSOLVERSCMAKE_USE_GUROBI ON)
-
-...
-
-target_link_libraries(MyProject_my_target PUBLIC
-    MathOptSolversCMake::gurobi)
 ```
