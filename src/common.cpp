@@ -1,6 +1,7 @@
 #include "mathoptsolverscmake/common.hpp"
 
 #include <iostream>
+#include <string>
 
 using namespace mathoptsolverscmake;
 
