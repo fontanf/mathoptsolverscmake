@@ -432,7 +432,7 @@ if(MATHOPTSOLVERSCMAKE_USE_CONICBUNDLE)
     FetchContent_Declare(
         conicbundle
         GIT_REPOSITORY https://github.com/fontanf/ConicBundle.git
-        GIT_TAG b256eda2a7ac6fe5fcc92d479f95ca606f361ad1
+        GIT_TAG ee4f2b177be46e1750edf6093cd2fcdd033eb3c0
         EXCLUDE_FROM_ALL)
     FetchContent_MakeAvailable(conicbundle)
 endif()
