@@ -49,7 +49,21 @@ struct BoxConstrainedNlpDlibOutput
 };
 
 BoxConstrainedNlpDlibOutput solve_dlib(
-        BoxConstrainedNlpModel& dlib_model);
+        const BoxConstrainedNlpModel& model);
+
+#endif
+
+#ifdef CONICBUNDLE_FOUND
+
+struct BoxConstrainedNlpConicBundleOutput
+{
+    double objective_value = 0;
+
+    std::vector<double> solution;
+};
+
+BoxConstrainedNlpConicBundleOutput solve_conicbundle(
+        const BoxConstrainedNlpModel& model);
 
 #endif
 

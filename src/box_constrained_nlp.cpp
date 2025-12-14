@@ -4,6 +4,10 @@
 #include "dlib/optimization.h"
 #endif
 
+#ifdef CONICBUNDLE_FOUND
+#include "CBSolver.hxx"
+#endif
+
 using namespace mathoptsolverscmake;
 
 #ifdef DLIB_FOUND
@@ -49,7 +53,7 @@ private:
 };
 
 BoxConstrainedNlpDlibOutput mathoptsolverscmake::solve_dlib(
-        BoxConstrainedNlpModel& model)
+        const BoxConstrainedNlpModel& model)
 {
     BoxConstrainedNlpDlibOutput output;
 
@@ -101,6 +105,89 @@ BoxConstrainedNlpDlibOutput mathoptsolverscmake::solve_dlib(
             variable_id < model.number_of_variables();
             ++variable_id) {
         output.solution[variable_id] = dlib_variables(variable_id);
+    }
+    return output;
+}
+
+#endif
+
+#ifdef CONICBUNDLE_FOUND
+
+class BoxConstrainedNlpConicBundleFunction: public ConicBundle::FunctionOracle
+{
+
+public:
+
+    BoxConstrainedNlpConicBundleFunction(
+            const BoxConstrainedNlpModel& model):
+        model_(model) { }
+
+    int evaluate(
+            const double* x,
+            double /* relprec */,
+            double& objective_value,
+            std::vector<ConicBundle::Minorant*>& minorants,
+            ConicBundle::PrimalExtender*&)
+    {
+        std::vector<double> x_vec(x, x + this->model_.number_of_variables());
+        BoxConstrainedNlpFunctionOutput sp_output = this->model_.objective_function(x_vec);
+        if (this->model_.objective_direction == ObjectiveDirection::Minimize) {
+            objective_value = sp_output.objective_value;
+            minorants.push_back(new ConicBundle::Minorant(objective_value, sp_output.gradient));
+        } else {
+            objective_value = -sp_output.objective_value;
+            std::vector<double> gradient(this->model_.number_of_variables(), 0);
+            for (int variable_id = 0;
+                    variable_id < this->model_.number_of_variables();
+                    ++variable_id) {
+                gradient[variable_id] = -sp_output.gradient[variable_id];
+            }
+            minorants.push_back(new ConicBundle::Minorant(objective_value, gradient));
+        }
+        return 0;
+    }
+
+private:
+
+    const BoxConstrainedNlpModel& model_;
+
+};
+
+BoxConstrainedNlpConicBundleOutput mathoptsolverscmake::solve_conicbundle(
+        const BoxConstrainedNlpModel& model)
+{
+    BoxConstrainedNlpConicBundleFunction cb_function(model);
+
+    // initilialize solver with basic output
+    ConicBundle::CBSolver solver(&std::cout, 1);
+    solver.init_problem(model.number_of_variables());
+    solver.add_function(cb_function);
+    // Set relative precision
+    solver.set_term_relprec(1e-8);
+    // Minimize the function.
+    solver.solve();
+    solver.print_termination_code(std::cout);
+    ConicBundle::DVector variables;
+    // Retrieve the computed solution
+    solver.get_center(variables);
+
+    BoxConstrainedNlpConicBundleOutput output;
+    if (model.objective_direction == ObjectiveDirection::Minimize) {
+        output.objective_value = solver.get_objval();
+        output.solution = std::vector<double>(model.number_of_variables());
+        for (int variable_id = 0;
+                variable_id < model.number_of_variables();
+                ++variable_id) {
+            output.solution[variable_id] = variables[variable_id];
+        }
+    } else {
+        output.objective_value = -solver.get_objval();
+        output.solution = std::vector<double>(model.number_of_variables());
+        for (int variable_id = 0;
+                variable_id < model.number_of_variables();
+                ++variable_id) {
+            output.solution[variable_id] = -variables[variable_id];
+        }
     }
     return output;
 }

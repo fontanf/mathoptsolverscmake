@@ -26,6 +26,9 @@ std::istream& mathoptsolverscmake::operator>>(
         solver_name = SolverName::Xpress;
     } else if (token == "dlib") {
         solver_name = SolverName::Dlib;
+    } else if (token == "ConicBundle"
+            || token == "conicbundle") {
+        solver_name = SolverName::ConicBundle;
     } else  {
         in.setstate(std::ios_base::failbit);
     }
@@ -48,6 +51,9 @@ std::ostream& mathoptsolverscmake::operator<<(
         break;
     } case SolverName::Dlib: {
         os << "dlib";
+        break;
+    } case SolverName::ConicBundle: {
+        os << "ConicBundle";
         break;
     }
     }

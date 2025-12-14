@@ -11,6 +11,7 @@ enum class SolverName
     Highs,
     Xpress,
     Dlib,
+    ConicBundle,
 };
 
 std::istream& operator>>(

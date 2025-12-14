@@ -45,4 +45,10 @@ if(MATHOPTSOLVERSCMAKE_USE_DLIB)
     target_compile_definitions(MathOptSolversCMake_box_constrained_nlp PUBLIC
         DLIB_FOUND=1)
 endif()
+if(MATHOPTSOLVERSCMAKE_USE_CONICBUNDLE)
+    target_link_libraries(MathOptSolversCMake_box_constrained_nlp PUBLIC
+        cb)
+    target_compile_definitions(MathOptSolversCMake_box_constrained_nlp PUBLIC
+        CONICBUNDLE_FOUND=1)
+endif()
 add_library(MathOptSolversCMake::box_constrained_nlp ALIAS MathOptSolversCMake_box_constrained_nlp)
