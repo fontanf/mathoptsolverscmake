@@ -417,3 +417,12 @@ if(MATHOPTSOLVERSCMAKE_USE_GUROBI)
     endif()
     add_library(MathOptSolversCMake::gurobi ALIAS MathOptSolversCMake_gurobi)
 endif()
+
+# Fetch dlib.
+if (MATHOPTSOLVERSCMAKE_USE_DLIB)
+    FetchContent_Declare(
+        dlib
+        GIT_REPOSITORY https://github.com/davisking/dlib.git
+        GIT_TAG v20.0)
+    FetchContent_MakeAvailable(dlib)
+endif()
