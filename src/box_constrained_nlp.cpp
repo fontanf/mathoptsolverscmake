@@ -160,7 +160,10 @@ BoxConstrainedNlpConicBundleOutput mathoptsolverscmake::solve_conicbundle(
 
     // initilialize solver with basic output
     ConicBundle::CBSolver solver(&std::cout, 1);
-    solver.init_problem(model.number_of_variables());
+    solver.init_problem(
+            model.number_of_variables(),
+            &model.variables_lower_bounds,
+            &model.variables_upper_bounds);
     solver.add_function(cb_function);
     // Set relative precision
     solver.set_term_relprec(1e-8);
