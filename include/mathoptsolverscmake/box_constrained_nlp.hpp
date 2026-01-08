@@ -2,6 +2,14 @@
 
 #include "mathoptsolverscmake/common.hpp"
 
+#ifdef KNITRO_FOUND
+#include "knitrocpp/knitro.hpp"
+#endif
+
+#ifdef CONICBUNDLE_FOUND
+#include "CBSolver.hxx"
+#endif
+
 #include <vector>
 #include <limits>
 #include <functional>
@@ -39,6 +47,20 @@ struct BoxConstrainedNlpModel
     BoxConstrainedNlpFunction objective_function = [](const std::vector<double>&) { return BoxConstrainedNlpFunctionOutput(); };
 };
 
+#ifdef KNITRO_FOUND
+
+void solve(
+        const BoxConstrainedNlpModel& model,
+        knitrocpp::Context& knitro_context);
+
+double get_solution_value(
+        const knitrocpp::Context& knitro_context);
+
+std::vector<double> get_solution(
+        const knitrocpp::Context& knitro_context);
+
+#endif
+
 #ifdef DLIB_FOUND
 
 struct BoxConstrainedNlpDlibOutput
@@ -55,15 +77,17 @@ BoxConstrainedNlpDlibOutput solve_dlib(
 
 #ifdef CONICBUNDLE_FOUND
 
-struct BoxConstrainedNlpConicBundleOutput
-{
-    double objective_value = 0;
+void solve(
+        const BoxConstrainedNlpModel& model,
+        ConicBundle::CBSolver& solver);
 
-    std::vector<double> solution;
-};
+double get_solution_value(
+        const BoxConstrainedNlpModel& model,
+        const ConicBundle::CBSolver& solver);
 
-BoxConstrainedNlpConicBundleOutput solve_conicbundle(
-        const BoxConstrainedNlpModel& model);
+std::vector<double> get_solution(
+        const BoxConstrainedNlpModel& model,
+        const ConicBundle::CBSolver& solver);
 
 #endif
 

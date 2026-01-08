@@ -1,7 +1,7 @@
 # MathOptSolversCMake
 
 This library includes:
-* CMake wrappers for mathematical optimization solvers.
+* CMake wrappers for mathematical optimization solvers
 * A mixed-integer linear programming modeler
 * A box-constrained nonlinear programming modeler (for Lagrangian relaxations)
 
@@ -15,6 +15,11 @@ The goal of the modelers are:
 They are not designed to be as user-friendly as possible.
 And switching solver requires a bit more lines of code than changing a string.
 
+Supported MILP solvers:
+* HiGHS https://highs.dev/
+* Cbc https://github.com/coin-or/Cbc
+* FICO Xpress https://www.fico.com/en/products/fico-xpress-optimization
+
 Milp modeler examples:
 * [Multiple-choice knapsack](https://github.com/fontanf/multiplechoiceknapsacksolver/blob/main/src/algorithms/milp.cpp)
 * [Set covering](https://github.com/fontanf/setcoveringsolver/blob/master/src/algorithms/milp.cpp)
@@ -23,6 +28,15 @@ Milp modeler examples:
 * [Knapsack with conflicts](https://github.com/fontanf/knapsackwithconflictssolver/blob/main/src/algorithms/milp.cpp)
 * [Graph coloring](https://github.com/fontanf/coloringsolver/blob/master/src/algorithms/milp.cpp)
 * Shop scheduling, [positional model](https://github.com/fontanf/shopschedulingsolver/blob/main/src/algorithms/milp_positional.cpp), [disjunctive model](https://github.com/fontanf/shopschedulingsolver/blob/main/src/algorithms/milp_disjunctive.cpp)
+
+Supported box-constrained nonlinear solvers:
+* Artelys Knitro https://www.artelys.com/solvers/knitro/
+* Dlib https://dlib.net/
+* ConicBundle https://www-user.tu-chemnitz.de/~helmberg/ConicBundle/
+
+box-constrained nonlinear modeler examples:
+* [Generalized assignment](https://github.com/fontanf/generalizedassignmentsolver/blob/master/src/algorithms/lagrangian_relaxation.cpp)
+* [Knapsack with conflicts](https://github.com/fontanf/knapsackwithconflictssolver/blob/main/src/algorithms/lagrangian_relaxation.cpp)
 
 CMake integration example:
 ```cmake

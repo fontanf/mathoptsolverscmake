@@ -10,6 +10,7 @@ enum class SolverName
     Cbc,
     Highs,
     Xpress,
+    Knitro,
     Dlib,
     ConicBundle,
 };

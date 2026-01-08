@@ -4,11 +4,90 @@
 #include "dlib/optimization.h"
 #endif
 
-#ifdef CONICBUNDLE_FOUND
-#include "CBSolver.hxx"
-#endif
-
 using namespace mathoptsolverscmake;
+
+#ifdef KNITRO_FOUND
+
+inline double to_knitro(double value)
+{
+    if (value == std::numeric_limits<double>::infinity())
+        return KN_INFINITY;
+    if (value == -std::numeric_limits<double>::infinity())
+        return -KN_INFINITY;
+    return value;
+}
+
+void mathoptsolverscmake::solve(
+        const BoxConstrainedNlpModel& model,
+        knitrocpp::Context& knitro_context)
+{
+    knitro_context.add_vars(model.number_of_variables());
+    if (!model.variables_initial_values.empty())
+        knitro_context.set_var_primal_init_values(model.variables_initial_values);
+    std::vector<double> knitro_lower_bounds(model.number_of_variables(), 0.0);
+    std::vector<double> knitro_upper_bounds(model.number_of_variables(), 0.0);
+    for (int variable_id = 0; variable_id < model.number_of_variables(); ++variable_id) {
+        knitro_lower_bounds[variable_id] = to_knitro(model.variables_lower_bounds[variable_id]);
+        knitro_upper_bounds[variable_id] = to_knitro(model.variables_upper_bounds[variable_id]);
+    }
+    knitro_context.set_var_lobnds(knitro_lower_bounds);
+    knitro_context.set_var_upbnds(knitro_upper_bounds);
+
+    if (model.objective_direction == ObjectiveDirection::Minimize) {
+        knitro_context.set_obj_goal(KN_OBJGOAL_MINIMIZE);
+    } else {
+        knitro_context.set_obj_goal(KN_OBJGOAL_MAXIMIZE);
+    }
+    std::vector<double> x(model.number_of_variables(), 0.0);
+    BoxConstrainedNlpFunctionOutput f_output;
+    CB_context* callback_context = knitro_context.add_eval_callback(
+            true,  // evaluate objective?
+            {},  // constraints
+            [&model, &x, &f_output](
+                const knitrocpp::Context&,
+                CB_context*,
+                KN_eval_request_ptr const eval_request,
+                KN_eval_result_ptr const eval_result)
+            {
+                for (int variable_id = 0; variable_id < model.number_of_variables(); ++variable_id)
+                    x[variable_id] = eval_request->x[variable_id];
+                f_output = model.objective_function(x);
+                *eval_result->obj = f_output.objective_value;
+                return 0;
+            });
+    knitro_context.set_cb_grad(
+            callback_context,
+            nullptr,
+            nullptr,
+            nullptr,
+            [&model, &f_output](
+                const knitrocpp::Context&,
+                CB_context*,
+                KN_eval_request_ptr const eval_request,
+                KN_eval_result_ptr const eval_result)
+            {
+                for (int variable_id = 0; variable_id < model.number_of_variables(); ++variable_id)
+                    eval_result->objGrad[variable_id] = f_output.gradient[variable_id];
+                return 0;
+            });
+
+    // Solve
+    int knitro_return_status = knitro_context.solve();
+}
+
+double mathoptsolverscmake::get_solution_value(
+        const knitrocpp::Context& knitro_context)
+{
+    return knitro_context.get_obj_value();
+}
+
+std::vector<double> mathoptsolverscmake::get_solution(
+        const knitrocpp::Context& knitro_context)
+{
+    return knitro_context.get_var_primal_values();
+}
+
+#endif
 
 #ifdef DLIB_FOUND
 
@@ -153,46 +232,50 @@ private:
 
 };
 
-BoxConstrainedNlpConicBundleOutput mathoptsolverscmake::solve_conicbundle(
-        const BoxConstrainedNlpModel& model)
+void mathoptsolverscmake::solve(
+        const BoxConstrainedNlpModel& model,
+        ConicBundle::CBSolver& solver)
 {
     BoxConstrainedNlpConicBundleFunction cb_function(model);
-
-    // initilialize solver with basic output
-    ConicBundle::CBSolver solver(&std::cout, 1);
     solver.init_problem(
             model.number_of_variables(),
             &model.variables_lower_bounds,
             &model.variables_upper_bounds);
     solver.add_function(cb_function);
-    // Set relative precision
-    solver.set_term_relprec(1e-8);
-    // Minimize the function.
     solver.solve();
-    solver.print_termination_code(std::cout);
+}
+
+double mathoptsolverscmake::get_solution_value(
+        const BoxConstrainedNlpModel& model,
+        const ConicBundle::CBSolver& solver)
+{
+    return (model.objective_direction == ObjectiveDirection::Minimize)?
+        solver.get_objval():
+        -solver.get_objval();
+}
+
+std::vector<double> mathoptsolverscmake::get_solution(
+        const BoxConstrainedNlpModel& model,
+        const ConicBundle::CBSolver& solver)
+{
+    std::vector<double> solution(model.number_of_variables(), 0.0);
     ConicBundle::DVector variables;
-    // Retrieve the computed solution
     solver.get_center(variables);
 
-    BoxConstrainedNlpConicBundleOutput output;
     if (model.objective_direction == ObjectiveDirection::Minimize) {
-        output.objective_value = solver.get_objval();
-        output.solution = std::vector<double>(model.number_of_variables());
         for (int variable_id = 0;
                 variable_id < model.number_of_variables();
                 ++variable_id) {
-            output.solution[variable_id] = variables[variable_id];
+            solution[variable_id] = variables[variable_id];
         }
     } else {
-        output.objective_value = -solver.get_objval();
-        output.solution = std::vector<double>(model.number_of_variables());
         for (int variable_id = 0;
                 variable_id < model.number_of_variables();
                 ++variable_id) {
-            output.solution[variable_id] = -variables[variable_id];
+            solution[variable_id] = -variables[variable_id];
         }
     }
-    return output;
+    return solution;
 }
 
 #endif

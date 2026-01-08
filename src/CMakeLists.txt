@@ -45,6 +45,12 @@ if(MATHOPTSOLVERSCMAKE_USE_DLIB)
     target_compile_definitions(MathOptSolversCMake_box_constrained_nlp PUBLIC
         DLIB_FOUND=1)
 endif()
+if(MATHOPTSOLVERSCMAKE_USE_KNITRO)
+    target_link_libraries(MathOptSolversCMake_box_constrained_nlp PUBLIC
+        KnitroCpp::knitrocpp)
+    target_compile_definitions(MathOptSolversCMake_box_constrained_nlp PUBLIC
+        KNITRO_FOUND=1)
+endif()
 if(MATHOPTSOLVERSCMAKE_USE_CONICBUNDLE)
     target_link_libraries(MathOptSolversCMake_box_constrained_nlp PUBLIC
         cb)

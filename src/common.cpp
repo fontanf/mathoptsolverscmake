@@ -24,6 +24,9 @@ std::istream& mathoptsolverscmake::operator>>(
             || token == "Xpress"
             || token == "XPRESS") {
         solver_name = SolverName::Xpress;
+    } else if (token == "Knitro"
+            || token == "knitro") {
+        solver_name = SolverName::Knitro;
     } else if (token == "dlib") {
         solver_name = SolverName::Dlib;
     } else if (token == "ConicBundle"
@@ -48,6 +51,9 @@ std::ostream& mathoptsolverscmake::operator<<(
         break;
     } case SolverName::Xpress: {
         os << "XPRESS";
+        break;
+    } case SolverName::Knitro: {
+        os << "Knitro";
         break;
     } case SolverName::Dlib: {
         os << "dlib";
