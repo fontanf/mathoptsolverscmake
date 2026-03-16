@@ -244,6 +244,10 @@ void load(
         Highs& highs_model,
         const MilpModel& model);
 
+void set_solution(
+        Highs& highs_model,
+        const std::vector<double>& solution);
+
 void reduce_printout(
         Highs& highs_model);
 

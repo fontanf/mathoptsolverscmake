@@ -903,6 +903,16 @@ void mathoptsolverscmake::load(
             variables_types.data());
 }
 
+void mathoptsolverscmake::set_solution(
+        Highs& highs_model,
+        const std::vector<double>& solution)
+{
+    HighsSolution highs_solution;
+    highs_solution.col_value = solution;
+    highs_solution.value_valid = true;
+    highs_model.setSolution(highs_solution);
+}
+
 void mathoptsolverscmake::reduce_printout(
         Highs& highs_model)
 {
