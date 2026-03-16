@@ -745,6 +745,127 @@ bool MilpModel::check_solution(
     return feasible;
 }
 
+bool MilpModel::check(int verbosity_level) const
+{
+    bool ok = true;
+
+    // Check variable vector sizes.
+    if ((int)this->variables_upper_bounds.size() != this->number_of_variables()) {
+        if (verbosity_level > 0) {
+            std::cout << "inconsistent variables_upper_bounds size: "
+                << this->variables_upper_bounds.size() << " != " << this->number_of_variables() << "." << std::endl;
+        }
+        ok = false;
+    }
+    if ((int)this->variables_types.size() != this->number_of_variables()) {
+        if (verbosity_level > 0) {
+            std::cout << "inconsistent variables_types size: "
+                << this->variables_types.size() << " != " << this->number_of_variables() << "." << std::endl;
+        }
+        ok = false;
+    }
+    if ((int)this->objective_coefficients.size() != this->number_of_variables()) {
+        if (verbosity_level > 0) {
+            std::cout << "inconsistent objective_coefficients size: "
+                << this->objective_coefficients.size() << " != " << this->number_of_variables() << "." << std::endl;
+        }
+        ok = false;
+    }
+    if (!this->variables_names.empty() && (int)this->variables_names.size() != this->number_of_variables()) {
+        if (verbosity_level > 0) {
+            std::cout << "inconsistent variables_names size: "
+                << this->variables_names.size() << " != " << this->number_of_variables() << "." << std::endl;
+        }
+        ok = false;
+    }
+
+    // Check constraint vector sizes.
+    if ((int)this->constraints_upper_bounds.size() != this->number_of_constraints()) {
+        if (verbosity_level > 0) {
+            std::cout << "inconsistent constraints_upper_bounds size: "
+                << this->constraints_upper_bounds.size() << " != " << this->number_of_constraints() << "." << std::endl;
+        }
+        ok = false;
+    }
+    if ((int)this->constraints_starts.size() != this->number_of_constraints()) {
+        if (verbosity_level > 0) {
+            std::cout << "inconsistent constraints_starts size: "
+                << this->constraints_starts.size() << " != " << this->number_of_constraints() << "." << std::endl;
+        }
+        ok = false;
+    }
+    if (!this->constraints_names.empty() && (int)this->constraints_names.size() != this->number_of_constraints()) {
+        if (verbosity_level > 0) {
+            std::cout << "inconsistent constraints_names size: "
+                << this->constraints_names.size() << " != " << this->number_of_constraints() << "." << std::endl;
+        }
+        ok = false;
+    }
+
+    // Check element vector sizes.
+    if ((int)this->elements_coefficients.size() != this->number_of_elements()) {
+        if (verbosity_level > 0) {
+            std::cout << "inconsistent elements_coefficients size: "
+                << this->elements_coefficients.size() << " != " << this->number_of_elements() << "." << std::endl;
+        }
+        ok = false;
+    }
+
+    // Stop here if sizes are wrong to avoid out-of-bounds access below.
+    if (!ok)
+        return false;
+
+    // Check constraints_starts validity.
+    for (int constraint_id = 0;
+            constraint_id < this->number_of_constraints();
+            ++constraint_id) {
+        int start = this->constraints_starts[constraint_id];
+        if (start < 0 || start > this->number_of_elements()) {
+            if (verbosity_level > 0) {
+                std::cout << "constraints_starts[" << constraint_id << "] = " << start
+                    << " is out of range [0, " << this->number_of_elements() << "]." << std::endl;
+            }
+            ok = false;
+        }
+        if (constraint_id > 0 && start < this->constraints_starts[constraint_id - 1]) {
+            if (verbosity_level > 0) {
+                std::cout << "constraints_starts is not non-decreasing at constraint "
+                    << constraint_id << "." << std::endl;
+            }
+            ok = false;
+        }
+    }
+
+    // Check elements_variables validity and duplicate variables per constraint.
+    for (int constraint_id = 0; constraint_id < this->number_of_constraints(); ++constraint_id) {
+        int start = this->constraints_starts[constraint_id];
+        int end = this->constraint_end(constraint_id);
+        std::vector<bool> seen(this->number_of_variables(), false);
+        for (int element_id = start; element_id < end; ++element_id) {
+            int variable_id = this->elements_variables[element_id];
+            if (variable_id < 0 || variable_id >= this->number_of_variables()) {
+                if (verbosity_level > 0) {
+                    std::cout << "elements_variables[" << element_id << "] = " << variable_id
+                        << " is out of range [0, " << this->number_of_variables() << ") in constraint "
+                        << constraint_id << "." << std::endl;
+                }
+                ok = false;
+                continue;
+            }
+            if (seen[variable_id]) {
+                if (verbosity_level > 0) {
+                    std::cout << "variable " << variable_id
+                        << " appears more than once in constraint " << constraint_id << "." << std::endl;
+                }
+                ok = false;
+            }
+            seen[variable_id] = true;
+        }
+    }
+
+    return ok;
+}
+
 #ifdef CBC_FOUND
 
 void mathoptsolverscmake::load(

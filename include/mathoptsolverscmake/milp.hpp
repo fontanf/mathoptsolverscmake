@@ -187,6 +187,9 @@ struct MilpModel
             const std::vector<double>& solution,
             int verbosity_level = 0) const;
 
+    /** Check if the model is consistent. */
+    bool check(int verbosity_level = 0) const;
+
 
     ObjectiveDirection objective_direction;
 
