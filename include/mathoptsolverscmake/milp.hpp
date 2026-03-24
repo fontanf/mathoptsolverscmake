@@ -258,6 +258,10 @@ void set_time_limit(
         Highs& highs_model,
         double time_limit);
 
+void set_node_limit(
+        Highs& highs_model,
+        int node_limit);
+
 void set_log_file(
         Highs& highs_model,
         const std::string& log_file);

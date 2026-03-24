@@ -1051,6 +1051,15 @@ void mathoptsolverscmake::set_time_limit(
             time_limit);
 }
 
+void mathoptsolverscmake::set_node_limit(
+        Highs& highs_model,
+        int node_limit)
+{
+    HighsStatus highs_status = highs_model.setOptionValue(
+            "mip_max_nodes",
+            node_limit);
+}
+
 void mathoptsolverscmake::set_log_file(
         Highs& highs_model,
         const std::string& log_file)
