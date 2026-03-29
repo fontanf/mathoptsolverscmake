@@ -1026,6 +1026,14 @@ void mathoptsolverscmake::load(
             variables_indices.size(),
             variables_indices.data(),
             variables_types.data());
+
+    // Set tolerances.
+    highs_model.setOptionValue(
+            "primal_feasibility_tolerance",
+            model.feasiblity_tolerance);
+    highs_model.setOptionValue(
+            "mip_feasibility_tolerance",
+            model.integrality_tolerance);
 }
 
 void mathoptsolverscmake::set_solution(
