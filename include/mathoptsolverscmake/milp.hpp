@@ -266,6 +266,10 @@ void set_log_file(
         Highs& highs_model,
         const std::string& log_file);
 
+void write_mps(
+        Highs& highs_model,
+        const std::string& mps_file);
+
 void solve(
         Highs& highs_model);
 

@@ -1073,6 +1073,13 @@ void mathoptsolverscmake::set_log_file(
             log_file);
 }
 
+void mathoptsolverscmake::write_mps(
+        Highs& highs_model,
+        const std::string& mps_file)
+{
+    HighsStatus return_status = highs_model.writeModel(mps_file);
+}
+
 void mathoptsolverscmake::solve(
         Highs& highs_model)
 {
