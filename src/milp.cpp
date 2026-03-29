@@ -631,7 +631,7 @@ bool MilpModel::check_solution_variable(
 {
     bool feasible = true;
     double value = solution[variable_id];
-    if (value < this->variables_lower_bounds[variable_id] - this->feasiblity_tolerance) {
+    if (value < this->variables_lower_bounds[variable_id] - this->feasibility_tolerance) {
         if (verbosity_level > 0) {
             std::stringstream ss;
             ss << "violated variable lower bound; "
@@ -643,7 +643,7 @@ bool MilpModel::check_solution_variable(
         }
         feasible = false;
     }
-    if (value > this->variables_upper_bounds[variable_id] + this->feasiblity_tolerance) {
+    if (value > this->variables_upper_bounds[variable_id] + this->feasibility_tolerance) {
         if (verbosity_level > 0) {
             std::stringstream ss;
             ss << "violated variable upper bound; "
@@ -679,7 +679,7 @@ bool MilpModel::check_solution_constraint(
 {
     bool feasible = true;
     double value = this->evaluate_constraint(solution, constraint_id);
-    if (value < this->constraints_lower_bounds[constraint_id] - this->feasiblity_tolerance) {
+    if (value < this->constraints_lower_bounds[constraint_id] - this->feasibility_tolerance) {
         if (verbosity_level > 0) {
             std::stringstream ss;
             this->format_constraint(ss, constraint_id);
@@ -692,7 +692,7 @@ bool MilpModel::check_solution_constraint(
         }
         feasible = false;
     }
-    if (value > this->constraints_upper_bounds[constraint_id] + this->feasiblity_tolerance) {
+    if (value > this->constraints_upper_bounds[constraint_id] + this->feasibility_tolerance) {
         if (verbosity_level > 0) {
             std::stringstream ss;
             this->format_constraint(ss, constraint_id);
@@ -1030,7 +1030,7 @@ void mathoptsolverscmake::load(
     // Set tolerances.
     highs_model.setOptionValue(
             "primal_feasibility_tolerance",
-            model.feasiblity_tolerance);
+            model.feasibility_tolerance);
     highs_model.setOptionValue(
             "mip_feasibility_tolerance",
             model.integrality_tolerance);

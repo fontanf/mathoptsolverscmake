@@ -207,7 +207,7 @@ struct MilpModel
     std::vector<int> elements_variables;
     std::vector<double> elements_coefficients;
 
-    double feasiblity_tolerance = 0.0;
+    double feasibility_tolerance = 0.0;
     double integrality_tolerance = 0.0;
 };
 
