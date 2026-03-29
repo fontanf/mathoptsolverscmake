@@ -610,12 +610,16 @@ double MilpModel::evaluate_constraint(
         int constraint_id) const
 {
     double value = 0.0;
+    double compensation = 0.0;
     for (int element_id = this->constraints_starts[constraint_id];
             element_id < this->constraint_end(constraint_id);
             ++element_id) {
         double variable_id = this->elements_variables[element_id];
         double coefficient = this->elements_coefficients[element_id];
-        value += solution[variable_id] * coefficient;
+        double term = solution[variable_id] * coefficient - compensation;
+        double new_value = value + term;
+        compensation = (new_value - value) - term;
+        value = new_value;
     }
     return value;
 }
