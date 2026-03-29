@@ -1027,6 +1027,24 @@ void mathoptsolverscmake::load(
             variables_indices.data(),
             variables_types.data());
 
+    // Set variable names.
+    if (!model.variables_names.empty()) {
+        for (int variable_id = 0;
+                variable_id < model.number_of_variables();
+                ++variable_id) {
+            highs_model.passColName(variable_id, model.variables_names[variable_id]);
+        }
+    }
+
+    // Set constraint names.
+    if (!model.constraints_names.empty()) {
+        for (int constraint_id = 0;
+                constraint_id < model.number_of_constraints();
+                ++constraint_id) {
+            highs_model.passRowName(constraint_id, model.constraints_names[constraint_id]);
+        }
+    }
+
     // Set tolerances.
     highs_model.setOptionValue(
             "primal_feasibility_tolerance",
