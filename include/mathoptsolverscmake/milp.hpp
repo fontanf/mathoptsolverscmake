@@ -190,6 +190,11 @@ struct MilpModel
     /** Check if the model is consistent. */
     bool check(int verbosity_level = 0) const;
 
+    /** Write a solution to a file in HiGHS raw solution format. */
+    void write_solution(
+            const std::vector<double>& solution,
+            const std::string& solution_file) const;
+
 
     ObjectiveDirection objective_direction;
 

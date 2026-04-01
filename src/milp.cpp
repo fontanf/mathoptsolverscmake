@@ -6,6 +6,7 @@
 #include <numeric>
 #include <iomanip>
 #include <iostream>
+#include <fstream>
 #include <sstream>
 
 using namespace mathoptsolverscmake;
@@ -868,6 +869,34 @@ bool MilpModel::check(int verbosity_level) const
     }
 
     return ok;
+}
+
+void MilpModel::write_solution(
+        const std::vector<double>& solution,
+        const std::string& solution_file) const
+{
+    std::ofstream file(solution_file);
+    file << "Model status\n"
+         << "Feasible\n"
+         << "\n"
+         << "# Primal solution values\n"
+         << "Feasible\n";
+    file << std::setprecision(17);
+    file << "Objective " << this->evaluate_objective(solution) << "\n";
+    file << "# Columns " << this->number_of_variables() << "\n";
+    for (int variable_id = 0;
+            variable_id < this->number_of_variables();
+            ++variable_id) {
+        file << this->variable_name(variable_id)
+             << " " << solution[variable_id] << "\n";
+    }
+    file << "# Rows " << this->number_of_constraints() << "\n";
+    for (int constraint_id = 0;
+            constraint_id < this->number_of_constraints();
+            ++constraint_id) {
+        file << this->constraint_name(constraint_id)
+             << " " << this->evaluate_constraint(solution, constraint_id) << "\n";
+    }
 }
 
 #ifdef CBC_FOUND
