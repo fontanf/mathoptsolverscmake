@@ -232,7 +232,7 @@ ConstraintClass MilpModel::constraint_class(int constraint_id) const
         return ConstraintClass::Singleton;
 
     if (constraint_sense == ConstraintSense::Equality
-            && number_of_variables) {
+            && number_of_variables == 2) {
         return ConstraintClass::Aggregation;
     }
 
