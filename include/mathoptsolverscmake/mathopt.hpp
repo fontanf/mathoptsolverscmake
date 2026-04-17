@@ -96,9 +96,9 @@ std::ostream& operator<<(
         std::ostream& os,
         ConstraintClass constraint_class);
 
-struct MilpModel
+struct MathOptModel
 {
-    MilpModel(
+    MathOptModel(
             int number_of_variables = 0,
             int number_of_constraints = 0,
             int number_of_elements = 0):
@@ -220,7 +220,7 @@ struct MilpModel
 
 void load(
         CbcModel& cbc_model,
-        const MilpModel& model);
+        const MathOptModel& model);
 
 void reduce_printout(
         CbcModel& cbc_model);
@@ -250,7 +250,7 @@ int get_number_of_nodes(
 
 void load(
         Highs& highs_model,
-        const MilpModel& model);
+        const MathOptModel& model);
 
 void set_solution(
         Highs& highs_model,
@@ -290,7 +290,7 @@ double get_bound(
 
 void load(
         XPRSprob& xpress_model,
-        const MilpModel& model);
+        const MathOptModel& model);
 
 void set_time_limit(
         XPRSprob& xpress_model,

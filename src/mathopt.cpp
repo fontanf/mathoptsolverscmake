@@ -1,4 +1,4 @@
-#include "mathoptsolverscmake/milp.hpp"
+#include "mathoptsolverscmake/mathopt.hpp"
 
 #include <cmath>
 #include <cstddef>
@@ -147,33 +147,33 @@ std::ostream& mathoptsolverscmake::operator<<(
     return os;
 }
 
-std::string MilpModel::variable_name(int variable_id) const
+std::string MathOptModel::variable_name(int variable_id) const
 {
     if (this->variables_names.empty())
         return "x" + std::to_string(variable_id);
     return this->variables_names[variable_id];
 }
 
-std::string MilpModel::constraint_name(int constraint_id) const
+std::string MathOptModel::constraint_name(int constraint_id) const
 {
     if (this->constraints_names.empty())
         return "c" + std::to_string(constraint_id);
     return this->constraints_names[constraint_id];
 }
 
-int MilpModel::constraint_end(int constraint_id) const
+int MathOptModel::constraint_end(int constraint_id) const
 {
     return (constraint_id == this->number_of_constraints() - 1)?
         this->number_of_elements():
         this->constraints_starts[constraint_id + 1];
 }
 
-int MilpModel::number_of_variables(int constraint_id) const
+int MathOptModel::number_of_variables(int constraint_id) const
 {
     return this->constraint_end(constraint_id) - this->constraints_starts[constraint_id] - 1;
 }
 
-int MilpModel::number_of_variables(
+int MathOptModel::number_of_variables(
         int constraint_id,
         VariableType variable_type) const
 {
@@ -188,7 +188,7 @@ int MilpModel::number_of_variables(
     return res;
 }
 
-ConstraintSense MilpModel::constraint_sense(int constraint_id) const
+ConstraintSense MathOptModel::constraint_sense(int constraint_id) const
 {
     if (this->constraints_lower_bounds[constraint_id]
             == -std::numeric_limits<double>::infinity()
@@ -215,7 +215,7 @@ ConstraintSense MilpModel::constraint_sense(int constraint_id) const
     return ConstraintSense::Range;
 }
 
-ConstraintClass MilpModel::constraint_class(int constraint_id) const
+ConstraintClass MathOptModel::constraint_class(int constraint_id) const
 {
     int number_of_variables = this->number_of_variables(constraint_id);
     ConstraintSense constraint_sense = this->constraint_sense(constraint_id);
@@ -338,7 +338,7 @@ ConstraintClass MilpModel::constraint_class(int constraint_id) const
     return ConstraintClass::GeneralLinear;
 }
 
-std::ostream& MilpModel::format_constraint(
+std::ostream& MathOptModel::format_constraint(
         std::ostream& os,
         int constraint_id) const
 {
@@ -379,7 +379,7 @@ std::ostream& MilpModel::format_constraint(
     return os;
 }
 
-std::ostream& MilpModel::format(
+std::ostream& MathOptModel::format(
         std::ostream& os,
         int verbosity_level) const
 {
@@ -512,7 +512,7 @@ std::ostream& MilpModel::format(
     return os;
 }
 
-std::ostream& MilpModel::format_solution(
+std::ostream& MathOptModel::format_solution(
         std::ostream& os,
         const std::vector<double>& solution,
         int verbosity_level) const
@@ -593,7 +593,7 @@ std::ostream& MilpModel::format_solution(
     return os;
 }
 
-double MilpModel::evaluate_objective(
+double MathOptModel::evaluate_objective(
         const std::vector<double>& solution) const
 {
     double value = 0.0;
@@ -606,7 +606,7 @@ double MilpModel::evaluate_objective(
     return value;
 }
 
-double MilpModel::evaluate_constraint(
+double MathOptModel::evaluate_constraint(
         const std::vector<double>& solution,
         int constraint_id) const
 {
@@ -625,7 +625,7 @@ double MilpModel::evaluate_constraint(
     return value;
 }
 
-bool MilpModel::check_solution_variable(
+bool MathOptModel::check_solution_variable(
         const std::vector<double>& solution,
         int variable_id,
         int verbosity_level) const
@@ -673,7 +673,7 @@ bool MilpModel::check_solution_variable(
     return feasible;
 }
 
-bool MilpModel::check_solution_constraint(
+bool MathOptModel::check_solution_constraint(
         const std::vector<double>& solution,
         int constraint_id,
         int verbosity_level) const
@@ -709,7 +709,7 @@ bool MilpModel::check_solution_constraint(
     return feasible;
 }
 
-bool MilpModel::check_solution(
+bool MathOptModel::check_solution(
         const std::vector<double>& solution,
         int verbosity_level) const
 {
@@ -750,7 +750,7 @@ bool MilpModel::check_solution(
     return feasible;
 }
 
-bool MilpModel::check(int verbosity_level) const
+bool MathOptModel::check(int verbosity_level) const
 {
     bool ok = true;
 
@@ -871,7 +871,7 @@ bool MilpModel::check(int verbosity_level) const
     return ok;
 }
 
-void MilpModel::write_solution(
+void MathOptModel::write_solution(
         const std::vector<double>& solution,
         const std::string& solution_file) const
 {
@@ -903,7 +903,7 @@ void MilpModel::write_solution(
 
 void mathoptsolverscmake::load(
         CbcModel& cbc_model,
-        const MilpModel& model)
+        const MathOptModel& model)
 {
     std::vector<int> constraints_lengths(model.number_of_constraints(), 0);
     for (int constraint_id = 0;
@@ -1004,7 +1004,7 @@ int mathoptsolverscmake::get_number_of_nodes(
 
 void mathoptsolverscmake::load(
         Highs& highs_model,
-        const MilpModel& model)
+        const MathOptModel& model)
 {
     HighsStatus highs_status;
     highs_status = highs_model.addCols(
@@ -1159,7 +1159,7 @@ double mathoptsolverscmake::get_bound(
 
 void mathoptsolverscmake::load(
         XPRSprob& xpress_model,
-        const MilpModel& model)
+        const MathOptModel& model)
 {
     int status = 0;
 
