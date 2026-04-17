@@ -423,8 +423,8 @@ if(MATHOPTSOLVERSCMAKE_USE_KNITRO)
     FetchContent_Declare(
         knitrocpp
         GIT_REPOSITORY https://github.com/fontanf/knitrocpp.git
-        GIT_TAG 433a920dcdd850641f875db2dc295ffa7f6718e1
-        #SOURCE_DIR "${PROJECT_SOURCE_DIR}/../../knitro/knitrocpp/"
+        GIT_TAG c5d8f39e1d46a94bd5c34b8a8e2d51e766b221c3
+        #SOURCE_DIR "${PROJECT_SOURCE_DIR}/../knitrocpp/"
         EXCLUDE_FROM_ALL)
     FetchContent_MakeAvailable(knitrocpp)
 endif()

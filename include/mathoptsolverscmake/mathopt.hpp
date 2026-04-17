@@ -1,25 +1,52 @@
 #pragma once
 
-#include "mathoptsolverscmake/common.hpp"
+#if defined(__GNUC__) || defined(__clang__)
+#  define FUNC_SIGNATURE std::string(__PRETTY_FUNCTION__)
+#elif defined(_MSC_VER)
+#  define FUNC_SIGNATURE std::string(__FUNCSIG__)
+#else
+#  define FUNC_SIGNATURE std::string(__func__)
+#endif
 
 #include <vector>
 #include <limits>
 #include <istream>
-
-#ifdef HIGHS_FOUND
-#include "Highs.h"
-#endif
-
-#ifdef CBC_FOUND
-#include "coin/OsiCbcSolverInterface.hpp"
-#endif
-
-#ifdef XPRESS_FOUND
-#include "xprs.h"
-#endif
+#include <functional>
 
 namespace mathoptsolverscmake
 {
+
+enum class SolverName
+{
+    Cbc,
+    Highs,
+    Xpress,
+    Knitro,
+    Dlib,
+    ConicBundle,
+};
+
+std::istream& operator>>(
+        std::istream& in,
+        SolverName& solver_name);
+
+std::ostream& operator<<(
+        std::ostream& os,
+        SolverName solver_name);
+
+enum class ObjectiveDirection
+{
+    Minimize,
+    Maximize,
+};
+
+std::istream& operator>>(
+        std::istream& in,
+        ObjectiveDirection& objective_direction);
+
+std::ostream& operator<<(
+        std::ostream& os,
+        ObjectiveDirection objective_direction);
 
 enum class VariableType
 {
@@ -90,11 +117,24 @@ enum class ConstraintClass
     MixedBinary,
     /** Linear constraint with no special structure. */
     GeneralLinear,
+    /** Linear quadratic with no special structure. */
+    GeneralQuadratic,
+    /** Black-box constraint with no special structure. */
+    GeneralBlackBox,
 };
 
 std::ostream& operator<<(
         std::ostream& os,
         ConstraintClass constraint_class);
+
+struct BlackBoxFunctionOutput
+{
+    double objective_value = 0;
+
+    std::vector<double> gradient;
+};
+
+using BlackBoxFunction = std::function<BlackBoxFunctionOutput(const std::vector<double>&)>;
 
 struct MathOptModel
 {
@@ -110,7 +150,9 @@ struct MathOptModel
         constraints_upper_bounds(number_of_constraints, +std::numeric_limits<double>::infinity()),
         constraints_starts(number_of_constraints),
         elements_variables(number_of_elements),
-        elements_coefficients(number_of_elements)
+        elements_coefficients(number_of_elements),
+        quadratic_elements_constraints_starts(number_of_constraints),
+        constraints_functions(number_of_constraints)
     { }
 
     /** Get the number of variables. */
@@ -130,6 +172,9 @@ struct MathOptModel
 
     /** Get the end element of a constraint. */
     int constraint_end(int constraint_id) const;
+
+    /** Get the end quadratic element of a constraint. */
+    int quadratic_constraint_end(int constraint_id) const;
 
     /** Get the number of variables involved in a given constraint. */
     int number_of_variables(int constraint_id) const;
@@ -161,6 +206,10 @@ struct MathOptModel
             const std::vector<double>& solution,
             int verbosity_level = 1) const;
 
+    /*
+     * Evaluations
+     */
+
     /** Get the objective value of a given solution. */
     double evaluate_objective(
             const std::vector<double>& solution) const;
@@ -169,6 +218,13 @@ struct MathOptModel
     double evaluate_constraint(
             const std::vector<double>& solution,
             int constraint_id) const;
+
+    /*
+     * Checks
+     */
+
+    /** Check if the model is consistent. */
+    bool check(int verbosity_level = 0) const;
 
     /** Check if a variable is feasible. */
     bool check_solution_variable(
@@ -187,8 +243,55 @@ struct MathOptModel
             const std::vector<double>& solution,
             int verbosity_level = 0) const;
 
-    /** Check if the model is consistent. */
-    bool check(int verbosity_level = 0) const;
+    /*
+     * Methods to check what components the model has
+     */
+
+    /** Return true if all variables are continuous. */
+    bool has_non_continuous_variables() const
+    {
+        for (const VariableType type: variables_types)
+            if (type != VariableType::Continuous)
+                return true;
+        return false;
+    }
+
+    /** Return true if the model has any quadratic terms (objective or constraints). */
+    bool has_quadratic() const
+    {
+        return !this->objective_quadratic_elements_variables_1.empty()
+            || !this->quadratic_elements_variables_1.empty();
+    }
+
+    /** Return true if the model has any black-box objective or constraint functions. */
+    bool has_black_box() const
+    {
+        if (bool(this->objective_function))
+            return true;
+        for (const auto& constraint_function: this->constraints_functions)
+            if ((bool)constraint_function)
+                return true;
+        return false;
+    }
+
+    /*
+     * Method to check the type of model
+     */
+
+    /** Return true if the model is a linear program (MILP with only continuous variables). */
+    bool is_lp() const
+    {
+        return !this->has_black_box()
+            && !this->has_quadratic()
+            && !this->has_non_continuous_variables();
+    }
+
+    /** Return true if the model is a mixed-integer linear program (no black-box, no quadratic). An LP is a special case. */
+    bool is_milp() const { return !this->has_black_box() && !this->has_quadratic(); }
+
+    /** Return true if the model is only box-constrained. */
+    bool is_box_constrained() const { return this->constraints_lower_bounds.empty(); }
+
 
     /** Write a solution to a file in HiGHS raw solution format. */
     void write_solution(
@@ -202,123 +305,46 @@ struct MathOptModel
     std::vector<double> variables_upper_bounds;
     std::vector<VariableType> variables_types;
     std::vector<std::string> variables_names;
-
-    std::vector<double> objective_coefficients;
+    std::vector<double> variables_initial_values;
 
     std::vector<double> constraints_lower_bounds;
     std::vector<double> constraints_upper_bounds;
-    std::vector<int> constraints_starts;
     std::vector<std::string> constraints_names;
+
+    /*
+     * Linear structures
+     */
+
+    std::vector<double> objective_coefficients;
+    std::vector<int> constraints_starts;
     std::vector<int> elements_variables;
     std::vector<double> elements_coefficients;
+
+    /*
+     * Quadratic structures
+     */
+
+    std::vector<int> objective_quadratic_elements_variables_1;
+    std::vector<int> objective_quadratic_elements_variables_2;
+    std::vector<double> objective_quadratic_elements_coefficients;
+    std::vector<int> quadratic_elements_constraints_starts;
+    std::vector<int> quadratic_elements_variables_1;
+    std::vector<int> quadratic_elements_variables_2;
+    std::vector<double> quadratic_elements_coefficients;
+
+    /*
+     * Black-box structures
+     */
+
+    BlackBoxFunction objective_function;
+    std::vector<BlackBoxFunction> constraints_functions;
+
+    /*
+     * Other parameters
+     */
 
     double feasibility_tolerance = 0.0;
     double integrality_tolerance = 0.0;
 };
-
-#ifdef CBC_FOUND
-
-void load(
-        CbcModel& cbc_model,
-        const MathOptModel& model);
-
-void reduce_printout(
-        CbcModel& cbc_model);
-
-void set_time_limit(
-        CbcModel& cbc_model,
-        double time_limit);
-
-void solve(
-        CbcModel& cbc_model);
-
-double get_solution_value(
-        const CbcModel& cbc_model);
-
-std::vector<double> get_solution(
-        const CbcModel& cbc_model);
-
-double get_bound(
-        const CbcModel& cbc_model);
-
-int get_number_of_nodes(
-        const CbcModel& cbc_model);
-
-#endif
-
-#ifdef HIGHS_FOUND
-
-void load(
-        Highs& highs_model,
-        const MathOptModel& model);
-
-void set_solution(
-        Highs& highs_model,
-        const std::vector<double>& solution);
-
-void reduce_printout(
-        Highs& highs_model);
-
-void set_time_limit(
-        Highs& highs_model,
-        double time_limit);
-
-void set_node_limit(
-        Highs& highs_model,
-        int node_limit);
-
-void set_log_file(
-        Highs& highs_model,
-        const std::string& log_file);
-
-void write_mps(
-        Highs& highs_model,
-        const std::string& mps_file);
-
-void solve(
-        Highs& highs_model);
-
-std::vector<double> get_solution(
-        const Highs& highs_model);
-
-double get_bound(
-        const Highs& highs_model);
-
-#endif
-
-#ifdef XPRESS_FOUND
-
-void load(
-        XPRSprob& xpress_model,
-        const MathOptModel& model);
-
-void set_time_limit(
-        XPRSprob& xpress_model,
-        double time_limit);
-
-void set_log_file(
-        XPRSprob& xpress_model,
-        const std::string& log_file);
-
-void write_mps(
-        const XPRSprob& xpress_model,
-        const std::string& mps_file);
-
-void solve(
-        XPRSprob& xpress_model);
-
-double get_solution_value(
-        const XPRSprob& xpress_model);
-
-std::vector<double> get_solution(
-        const XPRSprob& xpress_model);
-
-double get_bound(
-        const XPRSprob& xpress_model);
-
-int get_number_of_nodes(
-        const XPRSprob& xpress_model);
-
-#endif
 
 }

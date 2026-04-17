@@ -2,10 +2,9 @@
 
 This library includes:
 * CMake wrappers for mathematical optimization solvers
-* A mixed-integer linear programming modeler
-* A box-constrained nonlinear programming modeler (for Lagrangian relaxations)
+* A mathematical programming modeler (LP, MILP, QCQP, Black-box etc)
 
-The goal of the modelers are:
+The goal of the modeler are:
 * Minimize the modeler's overhead
 * Run multiple solvers while writing the model's code once and ensuring that the model passed to each solver is the same
 * Keep access to all the direct API features of the solvers
@@ -15,28 +14,26 @@ The goal of the modelers are:
 They are not designed to be as user-friendly as possible.
 And switching solver requires a bit more lines of code than changing a string.
 
-Supported MILP solvers:
-* HiGHS https://highs.dev/
-* Cbc https://github.com/coin-or/Cbc
-* FICO Xpress https://www.fico.com/en/products/fico-xpress-optimization
+Supported solvers:
+* HiGHS (MILP) https://highs.dev/
+* Cbc (MILP) https://github.com/coin-or/Cbc
+* FICO Xpress (MILP) https://www.fico.com/en/products/fico-xpress-optimization
+* Artelys Knitro (all) https://www.artelys.com/solvers/knitro/
+* Dlib (box-constrained) https://dlib.net/
+* ConicBundle (box-constrained) https://www-user.tu-chemnitz.de/~helmberg/ConicBundle/
 
-Milp modeler examples:
-* [Multiple-choice knapsack](https://github.com/fontanf/multiplechoiceknapsacksolver/blob/main/src/algorithms/milp.cpp)
-* [Set covering](https://github.com/fontanf/setcoveringsolver/blob/master/src/algorithms/milp.cpp)
-* [Generalized assignment](https://github.com/fontanf/generalizedassignmentsolver/blob/master/src/algorithms/milp.cpp)
-* [Clique](https://github.com/fontanf/stablesolver/blob/master/src/clique/algorithms/milp.cpp), [stable](https://github.com/fontanf/stablesolver/blob/master/src/stable/algorithms/milp.cpp)
-* [Knapsack with conflicts](https://github.com/fontanf/knapsackwithconflictssolver/blob/main/src/algorithms/milp.cpp)
-* [Graph coloring](https://github.com/fontanf/coloringsolver/blob/master/src/algorithms/milp.cpp)
-* Shop scheduling, [positional model](https://github.com/fontanf/shopschedulingsolver/blob/main/src/algorithms/milp_positional.cpp), [disjunctive model](https://github.com/fontanf/shopschedulingsolver/blob/main/src/algorithms/milp_disjunctive.cpp)
-
-Supported box-constrained nonlinear solvers:
-* Artelys Knitro https://www.artelys.com/solvers/knitro/
-* Dlib https://dlib.net/
-* ConicBundle https://www-user.tu-chemnitz.de/~helmberg/ConicBundle/
-
-box-constrained nonlinear modeler examples:
-* [Generalized assignment](https://github.com/fontanf/generalizedassignmentsolver/blob/master/src/algorithms/lagrangian_relaxation.cpp)
-* [Knapsack with conflicts](https://github.com/fontanf/knapsackwithconflictssolver/blob/main/src/algorithms/lagrangian_relaxation.cpp)
+Examples:
+* MILP:
+  * [Multiple-choice knapsack](https://github.com/fontanf/multiplechoiceknapsacksolver/blob/main/src/algorithms/milp.cpp)
+  * [Set covering](https://github.com/fontanf/setcoveringsolver/blob/master/src/algorithms/milp.cpp)
+  * [Generalized assignment](https://github.com/fontanf/generalizedassignmentsolver/blob/master/src/algorithms/milp.cpp)
+  * [Clique](https://github.com/fontanf/stablesolver/blob/master/src/clique/algorithms/milp.cpp), [stable](https://github.com/fontanf/stablesolver/blob/master/src/stable/algorithms/milp.cpp)
+  * [Knapsack with conflicts](https://github.com/fontanf/knapsackwithconflictssolver/blob/main/src/algorithms/milp.cpp)
+  * [Graph coloring](https://github.com/fontanf/coloringsolver/blob/master/src/algorithms/milp.cpp)
+  * Shop scheduling, [positional model](https://github.com/fontanf/shopschedulingsolver/blob/main/src/algorithms/milp_positional.cpp), [disjunctive model](https://github.com/fontanf/shopschedulingsolver/blob/main/src/algorithms/milp_disjunctive.cpp)
+* Box-constrained (Lagrangian relaxations):
+  * [Generalized assignment](https://github.com/fontanf/generalizedassignmentsolver/blob/master/src/algorithms/lagrangian_relaxation.cpp)
+  * [Knapsack with conflicts](https://github.com/fontanf/knapsackwithconflictssolver/blob/main/src/algorithms/lagrangian_relaxation.cpp)
 
 CMake integration example:
 ```cmake
