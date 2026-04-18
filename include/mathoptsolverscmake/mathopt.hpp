@@ -121,6 +121,8 @@ enum class ConstraintClass
     GeneralQuadratic,
     /** Black-box constraint with no special structure. */
     GeneralBlackBox,
+    /** Nonlinear constraint expressed as an expression tree. */
+    GeneralNonlinear,
 };
 
 std::ostream& operator<<(
@@ -175,6 +177,9 @@ struct MathOptModel
 
     /** Get the end quadratic element of a constraint. */
     int quadratic_constraint_end(int constraint_id) const;
+
+    /** Get the end nonlinear element of a constraint. */
+    int nonlinear_constraint_end(int constraint_id) const;
 
     /** Get the number of variables involved in a given constraint. */
     int number_of_variables(int constraint_id) const;
@@ -263,6 +268,13 @@ struct MathOptModel
             || !this->quadratic_elements_variables_1.empty();
     }
 
+    /** Return true if the model has any nonlinear expression tree terms (objective or constraints). */
+    bool has_nonlinear() const
+    {
+        return !this->objective_nonlinear_elements_operators.empty()
+            || !this->nonlinear_elements_operators.empty();
+    }
+
     /** Return true if the model has any black-box objective or constraint functions. */
     bool has_black_box() const
     {
@@ -283,11 +295,12 @@ struct MathOptModel
     {
         return !this->has_black_box()
             && !this->has_quadratic()
+            && !this->has_nonlinear()
             && !this->has_non_continuous_variables();
     }
 
-    /** Return true if the model is a mixed-integer linear program (no black-box, no quadratic). An LP is a special case. */
-    bool is_milp() const { return !this->has_black_box() && !this->has_quadratic(); }
+    /** Return true if the model is a mixed-integer linear program (no black-box, no quadratic, no nonlinear). An LP is a special case. */
+    bool is_milp() const { return !this->has_black_box() && !this->has_quadratic() && !this->has_nonlinear(); }
 
     /** Return true if the model is only box-constrained. */
     bool is_box_constrained() const { return this->constraints_lower_bounds.empty(); }
@@ -301,11 +314,19 @@ struct MathOptModel
 
     ObjectiveDirection objective_direction;
 
+    /*
+     * Variables
+     */
+
     std::vector<double> variables_lower_bounds;
     std::vector<double> variables_upper_bounds;
     std::vector<VariableType> variables_types;
     std::vector<std::string> variables_names;
     std::vector<double> variables_initial_values;
+
+    /*
+     * Constraints
+     */
 
     std::vector<double> constraints_lower_bounds;
     std::vector<double> constraints_upper_bounds;
@@ -331,6 +352,36 @@ struct MathOptModel
     std::vector<int> quadratic_elements_variables_1;
     std::vector<int> quadratic_elements_variables_2;
     std::vector<double> quadratic_elements_coefficients;
+
+    /*
+     * Nonlinear structures (expression trees stored as parallel element arrays).
+     *
+     * Element operators use the following char codes:
+     *   '+', '-', '*', '/' — binary arithmetic
+     *   'n'                — unary negation
+     *   'e'                — exp, 'l' — log (natural), 'q' — sqrt
+     *   's'                — sin, 'c' — cos, 't' — tan
+     *   'p'                — pow (binary)
+     *   'v'                — variable (index stored in *_elements_variables)
+     *   'k'                — constant  (value  stored in *_elements_values)
+     *
+     * *_elements_left / *_elements_right hold absolute indices into the element
+     * arrays; -1 means no child. By convention the root of each tree is the last
+     * element in its range, so no separate root index is needed.
+     */
+
+    std::vector<char> objective_nonlinear_elements_operators;
+    std::vector<double> objective_nonlinear_elements_values;
+    std::vector<int> objective_nonlinear_elements_variables;
+    std::vector<int> objective_nonlinear_elements_left;
+    std::vector<int> objective_nonlinear_elements_right;
+
+    std::vector<int> nonlinear_elements_constraints_starts;
+    std::vector<char> nonlinear_elements_operators;
+    std::vector<double> nonlinear_elements_values;
+    std::vector<int> nonlinear_elements_variables;
+    std::vector<int> nonlinear_elements_left;
+    std::vector<int> nonlinear_elements_right;
 
     /*
      * Black-box structures

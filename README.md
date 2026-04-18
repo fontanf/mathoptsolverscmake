@@ -2,7 +2,12 @@
 
 This library includes:
 * CMake wrappers for mathematical optimization solvers
-* A mathematical programming modeler (LP, MILP, QCQP, Black-box etc)
+* A mathematical programming modeler that supports:
+  * Coninous and integer variables
+  * Linear structures
+  * Quadratic structures
+  * Nonlinear structures
+  * Black-box functions
 
 The goal of the modeler are:
 * Minimize the modeler's overhead

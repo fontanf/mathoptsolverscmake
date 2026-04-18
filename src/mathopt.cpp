@@ -248,6 +248,9 @@ std::ostream& mathoptsolverscmake::operator<<(
     } case ConstraintClass::GeneralBlackBox: {
         os << "General black-box";
         break;
+    } case ConstraintClass::GeneralNonlinear: {
+        os << "General nonlinear";
+        break;
     }
     }
     return os;
@@ -279,6 +282,13 @@ int MathOptModel::quadratic_constraint_end(int constraint_id) const
     return (constraint_id == this->number_of_constraints() - 1)?
         (int)this->quadratic_elements_variables_1.size():
         this->quadratic_elements_constraints_starts[constraint_id + 1];
+}
+
+int MathOptModel::nonlinear_constraint_end(int constraint_id) const
+{
+    return (constraint_id == this->number_of_constraints() - 1)?
+        (int)this->nonlinear_elements_operators.size():
+        this->nonlinear_elements_constraints_starts[constraint_id + 1];
 }
 
 int MathOptModel::number_of_variables(int constraint_id) const
@@ -333,6 +343,12 @@ ConstraintClass MathOptModel::constraint_class(int constraint_id) const
     if (!this->constraints_functions.empty()
             && this->constraints_functions[constraint_id]) {
         return ConstraintClass::GeneralBlackBox;
+    }
+
+    if (!this->nonlinear_elements_operators.empty()
+            && this->nonlinear_constraint_end(constraint_id)
+            > this->nonlinear_elements_constraints_starts[constraint_id]) {
+        return ConstraintClass::GeneralNonlinear;
     }
 
     if (!this->quadratic_elements_variables_1.empty()
@@ -562,6 +578,7 @@ std::ostream& MathOptModel::format(
             << "Objective:              " << this->objective_direction << std::endl
             << "Has non-continuous:     " << this->has_non_continuous_variables() << std::endl
             << "Has quadratic:          " << this->has_quadratic() << std::endl
+            << "Has nonlinear:          " << this->has_nonlinear() << std::endl
             << "Has black-box:          " << this->has_black_box() << std::endl
             << "Is LP:                  " << this->is_lp() << std::endl
             << "Is MILP:                " << this->is_milp() << std::endl
@@ -800,6 +817,40 @@ std::ostream& MathOptModel::format_solution(
     return os;
 }
 
+static double evaluate_nonlinear_element(
+        const std::vector<char>& operators,
+        const std::vector<double>& values,
+        const std::vector<int>& variables,
+        const std::vector<int>& left,
+        const std::vector<int>& right,
+        const std::vector<double>& solution,
+        int start,
+        int end)
+{
+    std::vector<double> node_values(end - start);
+    for (int element_id = start; element_id < end; ++element_id) {
+        const int i = element_id - start;
+        switch (operators[element_id]) {
+        case 'k': node_values[i] = values[element_id]; break;
+        case 'v': node_values[i] = solution[variables[element_id]]; break;
+        case '+': node_values[i] = node_values[left[element_id] - start] + node_values[right[element_id] - start]; break;
+        case '-': node_values[i] = node_values[left[element_id] - start] - node_values[right[element_id] - start]; break;
+        case '*': node_values[i] = node_values[left[element_id] - start] * node_values[right[element_id] - start]; break;
+        case '/': node_values[i] = node_values[left[element_id] - start] / node_values[right[element_id] - start]; break;
+        case 'n': node_values[i] = -node_values[left[element_id] - start]; break;
+        case 'e': node_values[i] = std::exp(node_values[left[element_id] - start]); break;
+        case 'l': node_values[i] = std::log(node_values[left[element_id] - start]); break;
+        case 'q': node_values[i] = std::sqrt(node_values[left[element_id] - start]); break;
+        case 's': node_values[i] = std::sin(node_values[left[element_id] - start]); break;
+        case 'c': node_values[i] = std::cos(node_values[left[element_id] - start]); break;
+        case 't': node_values[i] = std::tan(node_values[left[element_id] - start]); break;
+        case 'p': node_values[i] = std::pow(node_values[left[element_id] - start], node_values[right[element_id] - start]); break;
+        default:  node_values[i] = 0.0; break;
+        }
+    }
+    return node_values.back();
+}
+
 double MathOptModel::evaluate_objective(
         const std::vector<double>& solution) const
 {
@@ -820,6 +871,17 @@ double MathOptModel::evaluate_objective(
             double coefficient = this->objective_quadratic_elements_coefficients[element_id];
             value += coefficient * solution[variable_1_id] * solution[variable_2_id];
         }
+    }
+    if (!this->objective_nonlinear_elements_operators.empty()) {
+        value += evaluate_nonlinear_element(
+                this->objective_nonlinear_elements_operators,
+                this->objective_nonlinear_elements_values,
+                this->objective_nonlinear_elements_variables,
+                this->objective_nonlinear_elements_left,
+                this->objective_nonlinear_elements_right,
+                solution,
+                0,
+                (int)this->objective_nonlinear_elements_operators.size());
     }
     if (this->objective_function)
         value += this->objective_function(solution).objective_value;
@@ -852,6 +914,21 @@ double MathOptModel::evaluate_constraint(
             int variable_2_id = this->quadratic_elements_variables_2[element_id];
             double coefficient = this->quadratic_elements_coefficients[element_id];
             value += coefficient * solution[variable_1_id] * solution[variable_2_id];
+        }
+    }
+    if (!this->nonlinear_elements_operators.empty()) {
+        int start = this->nonlinear_elements_constraints_starts[constraint_id];
+        int end = this->nonlinear_constraint_end(constraint_id);
+        if (end > start) {
+            value += evaluate_nonlinear_element(
+                    this->nonlinear_elements_operators,
+                    this->nonlinear_elements_values,
+                    this->nonlinear_elements_variables,
+                    this->nonlinear_elements_left,
+                    this->nonlinear_elements_right,
+                    solution,
+                    start,
+                    end);
         }
     }
     if (!this->constraints_functions.empty()
@@ -1120,6 +1197,79 @@ bool MathOptModel::check(int verbosity_level) const
                 << " != " << this->number_of_variables() << "." << std::endl;
         }
         ok = false;
+    }
+
+    // Check nonlinear objective element vector sizes.
+    if (this->objective_nonlinear_elements_values.size()
+            != this->objective_nonlinear_elements_operators.size()) {
+        if (verbosity_level > 0)
+            std::cout << "inconsistent objective_nonlinear_elements_values size: "
+                << this->objective_nonlinear_elements_values.size()
+                << " != " << this->objective_nonlinear_elements_operators.size() << "." << std::endl;
+        ok = false;
+    }
+    if (this->objective_nonlinear_elements_variables.size()
+            != this->objective_nonlinear_elements_operators.size()) {
+        if (verbosity_level > 0)
+            std::cout << "inconsistent objective_nonlinear_elements_variables size: "
+                << this->objective_nonlinear_elements_variables.size()
+                << " != " << this->objective_nonlinear_elements_operators.size() << "." << std::endl;
+        ok = false;
+    }
+    if (this->objective_nonlinear_elements_left.size()
+            != this->objective_nonlinear_elements_operators.size()) {
+        if (verbosity_level > 0)
+            std::cout << "inconsistent objective_nonlinear_elements_left size: "
+                << this->objective_nonlinear_elements_left.size()
+                << " != " << this->objective_nonlinear_elements_operators.size() << "." << std::endl;
+        ok = false;
+    }
+    if (this->objective_nonlinear_elements_right.size()
+            != this->objective_nonlinear_elements_operators.size()) {
+        if (verbosity_level > 0)
+            std::cout << "inconsistent objective_nonlinear_elements_right size: "
+                << this->objective_nonlinear_elements_right.size()
+                << " != " << this->objective_nonlinear_elements_operators.size() << "." << std::endl;
+        ok = false;
+    }
+
+    // Check nonlinear constraint element vector sizes.
+    if (!this->nonlinear_elements_operators.empty()) {
+        if ((int)this->nonlinear_elements_constraints_starts.size() != this->number_of_constraints()) {
+            if (verbosity_level > 0)
+                std::cout << "inconsistent nonlinear_elements_constraints_starts size: "
+                    << this->nonlinear_elements_constraints_starts.size()
+                    << " != " << this->number_of_constraints() << "." << std::endl;
+            ok = false;
+        }
+        if (this->nonlinear_elements_values.size() != this->nonlinear_elements_operators.size()) {
+            if (verbosity_level > 0)
+                std::cout << "inconsistent nonlinear_elements_values size: "
+                    << this->nonlinear_elements_values.size()
+                    << " != " << this->nonlinear_elements_operators.size() << "." << std::endl;
+            ok = false;
+        }
+        if (this->nonlinear_elements_variables.size() != this->nonlinear_elements_operators.size()) {
+            if (verbosity_level > 0)
+                std::cout << "inconsistent nonlinear_elements_variables size: "
+                    << this->nonlinear_elements_variables.size()
+                    << " != " << this->nonlinear_elements_operators.size() << "." << std::endl;
+            ok = false;
+        }
+        if (this->nonlinear_elements_left.size() != this->nonlinear_elements_operators.size()) {
+            if (verbosity_level > 0)
+                std::cout << "inconsistent nonlinear_elements_left size: "
+                    << this->nonlinear_elements_left.size()
+                    << " != " << this->nonlinear_elements_operators.size() << "." << std::endl;
+            ok = false;
+        }
+        if (this->nonlinear_elements_right.size() != this->nonlinear_elements_operators.size()) {
+            if (verbosity_level > 0)
+                std::cout << "inconsistent nonlinear_elements_right size: "
+                    << this->nonlinear_elements_right.size()
+                    << " != " << this->nonlinear_elements_operators.size() << "." << std::endl;
+            ok = false;
+        }
     }
 
     // Stop here if sizes are wrong to avoid out-of-bounds access below.
