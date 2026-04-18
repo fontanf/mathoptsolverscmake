@@ -324,7 +324,7 @@ if(MATHOPTSOLVERSCMAKE_USE_HIGHS)
     set(BUILD_SHARED_LIBS OFF)
     FetchContent_Declare(
         highs
-        URL https://github.com/ERGO-Code/HiGHS/archive/refs/tags/v1.13.1.zip
+        URL https://github.com/ERGO-Code/HiGHS/archive/refs/tags/v1.12.0.zip
         EXCLUDE_FROM_ALL)
     FetchContent_MakeAvailable(highs)
 endif()
