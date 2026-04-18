@@ -46,4 +46,7 @@ std::vector<double> get_solution(
 double get_bound(
         const Highs& highs_model);
 
+MathOptModel to_mathopt(
+        Highs& highs_model);
+
 }

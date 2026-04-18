@@ -162,3 +162,57 @@ double mathoptsolverscmake::get_bound(
 {
     return highs_model.getInfo().mip_dual_bound;
 }
+
+MathOptModel mathoptsolverscmake::to_mathopt(
+        Highs& highs_model)
+{
+    HighsLp lp = highs_model.getLp();
+    lp.ensureRowwise();
+
+    MathOptModel model;
+
+    // Objective direction.
+    model.objective_direction = (lp.sense_ == ObjSense::kMinimize)?
+        ObjectiveDirection::Minimize:
+        ObjectiveDirection::Maximize;
+
+    // Variables.
+    model.variables_lower_bounds = lp.col_lower_;
+    model.variables_upper_bounds = lp.col_upper_;
+    model.objective_coefficients = lp.col_cost_;
+    if (!lp.col_names_.empty())
+        model.variables_names = lp.col_names_;
+
+    // Variable types.
+    model.variables_types.resize(lp.num_col_, VariableType::Continuous);
+    for (int variable_id = 0; variable_id < lp.num_col_; ++variable_id) {
+        if (lp.integrality_.empty())
+            break;
+        if (lp.integrality_[variable_id] == HighsVarType::kInteger
+                || lp.integrality_[variable_id] == HighsVarType::kImplicitInteger) {
+            if (lp.col_lower_[variable_id] == 0.0
+                    && lp.col_upper_[variable_id] == 1.0) {
+                model.variables_types[variable_id] = VariableType::Binary;
+            } else {
+                model.variables_types[variable_id] = VariableType::Integer;
+            }
+        }
+    }
+
+    // Constraints.
+    model.constraints_lower_bounds = lp.row_lower_;
+    model.constraints_upper_bounds = lp.row_upper_;
+    if (!lp.row_names_.empty())
+        model.constraints_names = lp.row_names_;
+
+    // Constraint matrix (row-wise CSR).
+    model.constraints_starts = std::vector<int>(
+            lp.a_matrix_.start_.begin(),
+            lp.a_matrix_.start_.end());
+    model.elements_variables = std::vector<int>(
+            lp.a_matrix_.index_.begin(),
+            lp.a_matrix_.index_.end());
+    model.elements_coefficients = lp.a_matrix_.value_;
+
+    return model;
+}
