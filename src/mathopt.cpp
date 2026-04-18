@@ -804,18 +804,22 @@ double MathOptModel::evaluate_objective(
         const std::vector<double>& solution) const
 {
     double value = 0.0;
-    for (int variable_id = 0;
-            variable_id < this->number_of_variables();
-            ++variable_id) {
-        value += solution[variable_id] * this->objective_coefficients[variable_id];
+    if (!this->objective_coefficients.empty()) {
+        for (int variable_id = 0;
+                variable_id < this->number_of_variables();
+                ++variable_id) {
+            value += solution[variable_id] * this->objective_coefficients[variable_id];
+        }
     }
-    for (int element_id = 0;
-            element_id < (int)this->objective_quadratic_elements_variables_1.size();
-            ++element_id) {
-        int variable_1_id = this->objective_quadratic_elements_variables_1[element_id];
-        int variable_2_id = this->objective_quadratic_elements_variables_2[element_id];
-        double coefficient = this->objective_quadratic_elements_coefficients[element_id];
-        value += coefficient * solution[variable_1_id] * solution[variable_2_id];
+    if (!this->objective_quadratic_elements_variables_1.empty()) {
+        for (int element_id = 0;
+                element_id < (int)this->objective_quadratic_elements_variables_1.size();
+                ++element_id) {
+            int variable_1_id = this->objective_quadratic_elements_variables_1[element_id];
+            int variable_2_id = this->objective_quadratic_elements_variables_2[element_id];
+            double coefficient = this->objective_quadratic_elements_coefficients[element_id];
+            value += coefficient * solution[variable_1_id] * solution[variable_2_id];
+        }
     }
     if (this->objective_function)
         value += this->objective_function(solution).objective_value;
@@ -828,23 +832,27 @@ double MathOptModel::evaluate_constraint(
 {
     double value = 0.0;
     double compensation = 0.0;
-    for (int element_id = this->constraints_starts[constraint_id];
-            element_id < this->constraint_end(constraint_id);
-            ++element_id) {
-        double variable_id = this->elements_variables[element_id];
-        double coefficient = this->elements_coefficients[element_id];
-        double term = solution[variable_id] * coefficient - compensation;
-        double new_value = value + term;
-        compensation = (new_value - value) - term;
-        value = new_value;
+    if (!this->elements_variables.empty()) {
+        for (int element_id = this->constraints_starts[constraint_id];
+                element_id < this->constraint_end(constraint_id);
+                ++element_id) {
+            double variable_id = this->elements_variables[element_id];
+            double coefficient = this->elements_coefficients[element_id];
+            double term = solution[variable_id] * coefficient - compensation;
+            double new_value = value + term;
+            compensation = (new_value - value) - term;
+            value = new_value;
+        }
     }
-    for (int element_id = this->quadratic_elements_constraints_starts[constraint_id];
-            element_id < this->quadratic_constraint_end(constraint_id);
-            ++element_id) {
-        int variable_1_id = this->quadratic_elements_variables_1[element_id];
-        int variable_2_id = this->quadratic_elements_variables_2[element_id];
-        double coefficient = this->quadratic_elements_coefficients[element_id];
-        value += coefficient * solution[variable_1_id] * solution[variable_2_id];
+    if (!this->quadratic_elements_variables_1.empty()) {
+        for (int element_id = this->quadratic_elements_constraints_starts[constraint_id];
+                element_id < this->quadratic_constraint_end(constraint_id);
+                ++element_id) {
+            int variable_1_id = this->quadratic_elements_variables_1[element_id];
+            int variable_2_id = this->quadratic_elements_variables_2[element_id];
+            double coefficient = this->quadratic_elements_coefficients[element_id];
+            value += coefficient * solution[variable_1_id] * solution[variable_2_id];
+        }
     }
     if (!this->constraints_functions.empty()
             && this->constraints_functions[constraint_id]) {
