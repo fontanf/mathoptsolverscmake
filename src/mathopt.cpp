@@ -1052,6 +1052,76 @@ bool MathOptModel::check(int verbosity_level) const
         ok = false;
     }
 
+    // Check quadratic objective vector sizes.
+    if (this->objective_quadratic_elements_variables_2.size()
+            != this->objective_quadratic_elements_variables_1.size()) {
+        if (verbosity_level > 0) {
+            std::cout << "inconsistent objective_quadratic_elements_variables_2 size: "
+                << this->objective_quadratic_elements_variables_2.size()
+                << " != " << this->objective_quadratic_elements_variables_1.size() << "." << std::endl;
+        }
+        ok = false;
+    }
+    if (this->objective_quadratic_elements_coefficients.size()
+            != this->objective_quadratic_elements_variables_1.size()) {
+        if (verbosity_level > 0) {
+            std::cout << "inconsistent objective_quadratic_elements_coefficients size: "
+                << this->objective_quadratic_elements_coefficients.size()
+                << " != " << this->objective_quadratic_elements_variables_1.size() << "." << std::endl;
+        }
+        ok = false;
+    }
+
+    // Check quadratic constraint vector sizes.
+    if (!this->quadratic_elements_variables_1.empty()) {
+        if ((int)this->quadratic_elements_constraints_starts.size() != this->number_of_constraints()) {
+            if (verbosity_level > 0) {
+                std::cout << "inconsistent quadratic_elements_constraints_starts size: "
+                    << this->quadratic_elements_constraints_starts.size()
+                    << " != " << this->number_of_constraints() << "." << std::endl;
+            }
+            ok = false;
+        }
+        if (this->quadratic_elements_variables_2.size() != this->quadratic_elements_variables_1.size()) {
+            if (verbosity_level > 0) {
+                std::cout << "inconsistent quadratic_elements_variables_2 size: "
+                    << this->quadratic_elements_variables_2.size()
+                    << " != " << this->quadratic_elements_variables_1.size() << "." << std::endl;
+            }
+            ok = false;
+        }
+        if (this->quadratic_elements_coefficients.size() != this->quadratic_elements_variables_1.size()) {
+            if (verbosity_level > 0) {
+                std::cout << "inconsistent quadratic_elements_coefficients size: "
+                    << this->quadratic_elements_coefficients.size()
+                    << " != " << this->quadratic_elements_variables_1.size() << "." << std::endl;
+            }
+            ok = false;
+        }
+    }
+
+    // Check black-box constraint vector size.
+    if (!this->constraints_functions.empty()
+            && (int)this->constraints_functions.size() != this->number_of_constraints()) {
+        if (verbosity_level > 0) {
+            std::cout << "inconsistent constraints_functions size: "
+                << this->constraints_functions.size()
+                << " != " << this->number_of_constraints() << "." << std::endl;
+        }
+        ok = false;
+    }
+
+    // Check variables_initial_values size.
+    if (!this->variables_initial_values.empty()
+            && (int)this->variables_initial_values.size() != this->number_of_variables()) {
+        if (verbosity_level > 0) {
+            std::cout << "inconsistent variables_initial_values size: "
+                << this->variables_initial_values.size()
+                << " != " << this->number_of_variables() << "." << std::endl;
+        }
+        ok = false;
+    }
+
     // Stop here if sizes are wrong to avoid out-of-bounds access below.
     if (!ok)
         return false;
