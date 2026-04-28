@@ -821,34 +821,56 @@ static double evaluate_nonlinear_element(
         const std::vector<char>& operators,
         const std::vector<double>& values,
         const std::vector<int>& variables,
-        const std::vector<int>& left,
-        const std::vector<int>& right,
+        const std::vector<int>& parent,
         const std::vector<double>& solution,
         int start,
         int end)
 {
-    std::vector<double> node_values(end - start);
-    for (int element_id = start; element_id < end; ++element_id) {
+    const int n = end - start;
+
+    // Arity is needed for n-ary + and *; derive it from the parent array.
+    std::vector<int> arity(n, 0);
+    for (int i = start + 1; i < end; ++i)
+        arity[parent[i] - start]++;
+
+    // Evaluate by scanning from the last leaf back to the root (index start).
+    // Pre-order storage means this is a post-order traversal: every child is
+    // processed before its parent.  The left subtree ends up on top of the
+    // stack (lower indices, therefore processed last), so for binary operators
+    // first-pop == left operand and second-pop == right operand.
+    std::vector<double> stk;
+    stk.reserve(n);
+    for (int element_id = end - 1; element_id >= start; --element_id) {
         const int i = element_id - start;
         switch (operators[element_id]) {
-        case 'k': node_values[i] = values[element_id]; break;
-        case 'v': node_values[i] = solution[variables[element_id]]; break;
-        case '+': node_values[i] = node_values[left[element_id] - start] + node_values[right[element_id] - start]; break;
-        case '-': node_values[i] = node_values[left[element_id] - start] - node_values[right[element_id] - start]; break;
-        case '*': node_values[i] = node_values[left[element_id] - start] * node_values[right[element_id] - start]; break;
-        case '/': node_values[i] = node_values[left[element_id] - start] / node_values[right[element_id] - start]; break;
-        case 'n': node_values[i] = -node_values[left[element_id] - start]; break;
-        case 'e': node_values[i] = std::exp(node_values[left[element_id] - start]); break;
-        case 'l': node_values[i] = std::log(node_values[left[element_id] - start]); break;
-        case 'q': node_values[i] = std::sqrt(node_values[left[element_id] - start]); break;
-        case 's': node_values[i] = std::sin(node_values[left[element_id] - start]); break;
-        case 'c': node_values[i] = std::cos(node_values[left[element_id] - start]); break;
-        case 't': node_values[i] = std::tan(node_values[left[element_id] - start]); break;
-        case 'p': node_values[i] = std::pow(node_values[left[element_id] - start], node_values[right[element_id] - start]); break;
-        default:  node_values[i] = 0.0; break;
+        case 'k': stk.push_back(values[element_id]); break;
+        case 'v': stk.push_back(solution[variables[element_id]]); break;
+        case 'n': { double a = stk.back(); stk.pop_back(); stk.push_back(-a); break; }
+        case 'e': { double a = stk.back(); stk.pop_back(); stk.push_back(std::exp(a)); break; }
+        case 'l': { double a = stk.back(); stk.pop_back(); stk.push_back(std::log(a)); break; }
+        case 'q': { double a = stk.back(); stk.pop_back(); stk.push_back(std::sqrt(a)); break; }
+        case 's': { double a = stk.back(); stk.pop_back(); stk.push_back(std::sin(a)); break; }
+        case 'c': { double a = stk.back(); stk.pop_back(); stk.push_back(std::cos(a)); break; }
+        case 't': { double a = stk.back(); stk.pop_back(); stk.push_back(std::tan(a)); break; }
+        case '+': {
+            double sum = 0;
+            for (int c = 0; c < arity[i]; ++c) { sum += stk.back(); stk.pop_back(); }
+            stk.push_back(sum);
+            break;
+        }
+        case '*': {
+            double prod = 1;
+            for (int c = 0; c < arity[i]; ++c) { prod *= stk.back(); stk.pop_back(); }
+            stk.push_back(prod);
+            break;
+        }
+        case '-': { double l = stk.back(); stk.pop_back(); double r = stk.back(); stk.pop_back(); stk.push_back(l - r); break; }
+        case '/': { double l = stk.back(); stk.pop_back(); double r = stk.back(); stk.pop_back(); stk.push_back(l / r); break; }
+        case 'p': { double l = stk.back(); stk.pop_back(); double r = stk.back(); stk.pop_back(); stk.push_back(std::pow(l, r)); break; }
+        default:  stk.push_back(0.0); break;
         }
     }
-    return node_values.back();
+    return stk.back();
 }
 
 double MathOptModel::evaluate_objective(
@@ -877,8 +899,7 @@ double MathOptModel::evaluate_objective(
                 this->objective_nonlinear_elements_operators,
                 this->objective_nonlinear_elements_values,
                 this->objective_nonlinear_elements_variables,
-                this->objective_nonlinear_elements_left,
-                this->objective_nonlinear_elements_right,
+                this->objective_nonlinear_elements_parent,
                 solution,
                 0,
                 (int)this->objective_nonlinear_elements_operators.size());
@@ -924,8 +945,7 @@ double MathOptModel::evaluate_constraint(
                     this->nonlinear_elements_operators,
                     this->nonlinear_elements_values,
                     this->nonlinear_elements_variables,
-                    this->nonlinear_elements_left,
-                    this->nonlinear_elements_right,
+                    this->nonlinear_elements_parent,
                     solution,
                     start,
                     end);
@@ -1216,19 +1236,11 @@ bool MathOptModel::check(int verbosity_level) const
                 << " != " << this->objective_nonlinear_elements_operators.size() << "." << std::endl;
         ok = false;
     }
-    if (this->objective_nonlinear_elements_left.size()
+    if (this->objective_nonlinear_elements_parent.size()
             != this->objective_nonlinear_elements_operators.size()) {
         if (verbosity_level > 0)
-            std::cout << "inconsistent objective_nonlinear_elements_left size: "
-                << this->objective_nonlinear_elements_left.size()
-                << " != " << this->objective_nonlinear_elements_operators.size() << "." << std::endl;
-        ok = false;
-    }
-    if (this->objective_nonlinear_elements_right.size()
-            != this->objective_nonlinear_elements_operators.size()) {
-        if (verbosity_level > 0)
-            std::cout << "inconsistent objective_nonlinear_elements_right size: "
-                << this->objective_nonlinear_elements_right.size()
+            std::cout << "inconsistent objective_nonlinear_elements_parent size: "
+                << this->objective_nonlinear_elements_parent.size()
                 << " != " << this->objective_nonlinear_elements_operators.size() << "." << std::endl;
         ok = false;
     }
@@ -1256,17 +1268,10 @@ bool MathOptModel::check(int verbosity_level) const
                     << " != " << this->nonlinear_elements_operators.size() << "." << std::endl;
             ok = false;
         }
-        if (this->nonlinear_elements_left.size() != this->nonlinear_elements_operators.size()) {
+        if (this->nonlinear_elements_parent.size() != this->nonlinear_elements_operators.size()) {
             if (verbosity_level > 0)
-                std::cout << "inconsistent nonlinear_elements_left size: "
-                    << this->nonlinear_elements_left.size()
-                    << " != " << this->nonlinear_elements_operators.size() << "." << std::endl;
-            ok = false;
-        }
-        if (this->nonlinear_elements_right.size() != this->nonlinear_elements_operators.size()) {
-            if (verbosity_level > 0)
-                std::cout << "inconsistent nonlinear_elements_right size: "
-                    << this->nonlinear_elements_right.size()
+                std::cout << "inconsistent nonlinear_elements_parent size: "
+                    << this->nonlinear_elements_parent.size()
                     << " != " << this->nonlinear_elements_operators.size() << "." << std::endl;
             ok = false;
         }

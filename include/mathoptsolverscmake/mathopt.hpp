@@ -357,31 +357,35 @@ struct MathOptModel
      * Nonlinear structures (expression trees stored as parallel element arrays).
      *
      * Element operators use the following char codes:
-     *   '+', '-', '*', '/' — binary arithmetic
+     *   '+'                — addition       (n-ary, n >= 2)
+     *   '-'                — subtraction    (binary: left - right)
+     *   '*'                — multiplication (n-ary, n >= 2)
+     *   '/'                — division       (binary: left / right)
      *   'n'                — unary negation
      *   'e'                — exp, 'l' — log (natural), 'q' — sqrt
      *   's'                — sin, 'c' — cos, 't' — tan
-     *   'p'                — pow (binary)
+     *   'p'                — pow (binary: left ^ right)
      *   'v'                — variable (index stored in *_elements_variables)
      *   'k'                — constant  (value  stored in *_elements_values)
      *
-     * *_elements_left / *_elements_right hold absolute indices into the element
-     * arrays; -1 means no child. By convention the root of each tree is the last
-     * element in its range, so no separate root index is needed.
+     * Trees are stored in DFS pre-order: root first (index = range start),
+     * children immediately after their parent, left subtree before right.
+     * *_elements_parent[i] is the absolute index of node i's parent;
+     * the root has parent == -1. Parents always have a smaller index than
+     * their children, so the arity of any node can be derived by counting
+     * how many nodes point to it.
      */
 
     std::vector<char> objective_nonlinear_elements_operators;
     std::vector<double> objective_nonlinear_elements_values;
     std::vector<int> objective_nonlinear_elements_variables;
-    std::vector<int> objective_nonlinear_elements_left;
-    std::vector<int> objective_nonlinear_elements_right;
+    std::vector<int> objective_nonlinear_elements_parent;
 
     std::vector<int> nonlinear_elements_constraints_starts;
     std::vector<char> nonlinear_elements_operators;
     std::vector<double> nonlinear_elements_values;
     std::vector<int> nonlinear_elements_variables;
-    std::vector<int> nonlinear_elements_left;
-    std::vector<int> nonlinear_elements_right;
+    std::vector<int> nonlinear_elements_parent;
 
     /*
      * Black-box structures
