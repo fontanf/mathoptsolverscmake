@@ -84,6 +84,14 @@ void mathoptsolverscmake::load(
         }
     }
 
+    // Set initial values.
+    if (!model.variables_initial_values.empty()) {
+        HighsSolution highs_solution;
+        highs_solution.col_value = model.variables_initial_values;
+        highs_solution.value_valid = true;
+        highs_model.setSolution(highs_solution);
+    }
+
     // Set tolerances.
     highs_model.setOptionValue(
             "primal_feasibility_tolerance",
@@ -91,16 +99,6 @@ void mathoptsolverscmake::load(
     highs_model.setOptionValue(
             "mip_feasibility_tolerance",
             model.integrality_tolerance);
-}
-
-void mathoptsolverscmake::set_solution(
-        Highs& highs_model,
-        const std::vector<double>& solution)
-{
-    HighsSolution highs_solution;
-    highs_solution.col_value = solution;
-    highs_solution.value_valid = true;
-    highs_model.setSolution(highs_solution);
 }
 
 void mathoptsolverscmake::reduce_printout(
