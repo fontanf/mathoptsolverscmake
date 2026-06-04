@@ -15,6 +15,20 @@ inline double to_knitro(double value)
     return value;
 }
 
+void mathoptsolverscmake::set_solution(
+        knitrocpp::Context& knitro_context,
+        const std::vector<double>& solution)
+{
+    knitro_context.set_var_primal_init_values(solution);
+}
+
+void mathoptsolverscmake::set_time_limit(
+        knitrocpp::Context& knitro_context,
+        double time_limit)
+{
+    knitro_context.set_double_param(KN_PARAM_MAXTIMEREAL, time_limit);
+}
+
 void mathoptsolverscmake::solve(
         const MathOptModel& model,
         knitrocpp::Context& knitro_context)

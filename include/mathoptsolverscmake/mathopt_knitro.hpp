@@ -9,6 +9,14 @@
 namespace mathoptsolverscmake
 {
 
+void set_solution(
+        knitrocpp::Context& knitro_context,
+        const std::vector<double>& solution);
+
+void set_time_limit(
+        knitrocpp::Context& knitro_context,
+        double time_limit);
+
 void solve(
         const MathOptModel& model,
         knitrocpp::Context& knitro_context);
