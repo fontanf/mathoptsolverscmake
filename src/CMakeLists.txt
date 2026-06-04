@@ -47,7 +47,7 @@ if(MATHOPTSOLVERSCMAKE_USE_DLIB)
 endif()
 if(MATHOPTSOLVERSCMAKE_USE_KNITRO)
     target_link_libraries(MathOptSolversCMake_mathopt PUBLIC
-        KnitroCpp::knitrocpp)
+        MathOptSolversCMake_knitro)
     target_compile_definitions(MathOptSolversCMake_mathopt PUBLIC
         KNITRO_FOUND=1)
 endif()

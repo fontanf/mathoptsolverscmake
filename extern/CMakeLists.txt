@@ -418,15 +418,27 @@ if(MATHOPTSOLVERSCMAKE_USE_GUROBI)
     add_library(MathOptSolversCMake::gurobi ALIAS MathOptSolversCMake_gurobi)
 endif()
 
-# Fetch knitrocpp.
+# Knitro
 if(MATHOPTSOLVERSCMAKE_USE_KNITRO)
-    FetchContent_Declare(
-        knitrocpp
-        GIT_REPOSITORY https://github.com/fontanf/knitrocpp.git
-        GIT_TAG c5d8f39e1d46a94bd5c34b8a8e2d51e766b221c3
-        #SOURCE_DIR "${PROJECT_SOURCE_DIR}/../knitrocpp/"
-        EXCLUDE_FROM_ALL)
-    FetchContent_MakeAvailable(knitrocpp)
+    add_library(MathOptSolversCMake_knitro INTERFACE)
+    target_include_directories(MathOptSolversCMake_knitro INTERFACE
+        "$ENV{KNITRODIR}/include")
+    target_link_directories(MathOptSolversCMake_knitro INTERFACE
+        "$ENV{KNITRODIR}/lib")
+    if(UNIX AND NOT APPLE)
+        target_link_libraries(MathOptSolversCMake_knitro INTERFACE
+            knitro.so)
+    endif()
+    if(APPLE)
+        target_link_libraries(MathOptSolversCMake_knitro INTERFACE
+            knitro.dylib)
+    endif()
+    if(WIN32)
+        file(GLOB KNITROLIB "$ENV{KNITRODIR}/lib/knitro*.lib")
+        target_link_libraries(MathOptSolversCMake_knitro INTERFACE
+            ${KNITROLIB})
+    endif()
+    add_library(MathOptSolversCMake::knitro ALIAS MathOptSolversCMake_knitro)
 endif()
 
 # Fetch dlib.

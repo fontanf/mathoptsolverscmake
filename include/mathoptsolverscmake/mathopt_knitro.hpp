@@ -1,30 +1,56 @@
 #pragma once
 
+extern "C"
+{
+#include "knitro.h"
+}
+
 #include "mathoptsolverscmake/mathopt.hpp"
 
-#include "knitrocpp/knitro.hpp"
-
+#include <functional>
+#include <memory>
 #include <vector>
 
 namespace mathoptsolverscmake
 {
 
-void set_solution(
-        knitrocpp::Context& knitro_context,
-        const std::vector<double>& solution);
+struct KnitroContext
+{
+    KN_context* kc = nullptr;
+
+    struct EvalCallbackStruct
+    {
+        std::function<int(KN_eval_request_ptr const, KN_eval_result_ptr const)> eval;
+        std::function<int(KN_eval_request_ptr const, KN_eval_result_ptr const)> grad;
+    };
+
+    std::vector<double> x_;
+    std::vector<std::unique_ptr<EvalCallbackStruct>> eval_callbacks_;
+
+    KnitroContext();
+    ~KnitroContext();
+    KnitroContext(const KnitroContext&) = delete;
+    KnitroContext& operator=(const KnitroContext&) = delete;
+};
+
+void load(
+        KnitroContext& knitro,
+        const MathOptModel& model);
+
+void reduce_printout(
+        KnitroContext& knitro);
 
 void set_time_limit(
-        knitrocpp::Context& knitro_context,
+        KnitroContext& knitro,
         double time_limit);
 
 void solve(
-        const MathOptModel& model,
-        knitrocpp::Context& knitro_context);
+        KnitroContext& knitro);
 
 double get_solution_value(
-        const knitrocpp::Context& knitro_context);
+        const KnitroContext& knitro);
 
 std::vector<double> get_solution(
-        const knitrocpp::Context& knitro_context);
+        const KnitroContext& knitro);
 
 }
