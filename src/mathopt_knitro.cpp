@@ -345,3 +345,13 @@ std::vector<double> mathoptsolverscmake::get_solution(
             FUNC_SIGNATURE, "KN_get_var_primal_values_all");
     return values;
 }
+
+int mathoptsolverscmake::get_number_of_nodes(
+        const KnitroContext& knitro)
+{
+    int number_of_nodes = 0;
+    knitro_check(
+            KN_get_mip_number_nodes(knitro.kc, &number_of_nodes),
+            FUNC_SIGNATURE, "KN_get_mip_number_nodes");
+    return number_of_nodes;
+}

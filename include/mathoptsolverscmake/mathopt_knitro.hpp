@@ -53,4 +53,7 @@ double get_solution_value(
 std::vector<double> get_solution(
         const KnitroContext& knitro);
 
+int get_number_of_nodes(
+        const KnitroContext& knitro);
+
 }

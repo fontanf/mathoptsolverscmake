@@ -161,6 +161,12 @@ double mathoptsolverscmake::get_bound(
     return highs_model.getInfo().mip_dual_bound;
 }
 
+int mathoptsolverscmake::get_number_of_nodes(
+        const Highs& highs_model)
+{
+    return highs_model.getInfo().mip_node_count;
+}
+
 MathOptModel mathoptsolverscmake::to_mathopt(
         Highs& highs_model)
 {
