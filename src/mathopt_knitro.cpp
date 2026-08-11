@@ -27,6 +27,132 @@ static void knitro_check(int rc, const std::string& caller, const char* fn)
                 + std::to_string(rc) + ".");
 }
 
+/**
+ * Convert a nonlinear expression tree (stored as parallel element arrays,
+ * see mathopt.hpp) into a Knitro expression graph and return the KNExprId
+ * of its root.
+ *
+ * Mirrors the numerical evaluation performed by evaluate_nonlinear_element
+ * in mathopt.cpp: nodes are stored in DFS pre-order (root first), so
+ * scanning from the last element back to "start" is a post-order traversal
+ * in which every child expression is built before its parent's.
+ */
+static KNExprId to_knitro_expr(
+        KN_context_ptr kc,
+        const std::vector<char>& operators,
+        const std::vector<double>& values,
+        const std::vector<int>& variables,
+        const std::vector<int>& parent,
+        int start,
+        int end)
+{
+    const int n = end - start;
+
+    // Arity is needed for n-ary + and *; derive it from the parent array.
+    std::vector<int> arity(n, 0);
+    for (int i = start + 1; i < end; ++i)
+        arity[parent[i] - start]++;
+
+    std::vector<KNExprId> stk;
+    stk.reserve(n);
+    for (int element_id = end - 1; element_id >= start; --element_id) {
+        const int i = element_id - start;
+        KNExprId expr = 0;
+        switch (operators[element_id]) {
+        case 'k':
+            knitro_check(
+                    KN_constant_expr(kc, values[element_id], &expr),
+                    FUNC_SIGNATURE, "KN_constant_expr");
+            break;
+        case 'v':
+            knitro_check(
+                    KN_var_expr(kc, variables[element_id], &expr),
+                    FUNC_SIGNATURE, "KN_var_expr");
+            break;
+        case 'n': {
+            KNExprId a = stk.back(); stk.pop_back();
+            knitro_check(KN_neg_expr(kc, a, &expr), FUNC_SIGNATURE, "KN_neg_expr");
+            break;
+        }
+        case 'e': {
+            KNExprId a = stk.back(); stk.pop_back();
+            knitro_check(KN_exp_expr(kc, a, &expr), FUNC_SIGNATURE, "KN_exp_expr");
+            break;
+        }
+        case 'l': {
+            KNExprId a = stk.back(); stk.pop_back();
+            knitro_check(KN_log_expr(kc, a, &expr), FUNC_SIGNATURE, "KN_log_expr");
+            break;
+        }
+        case 'q': {
+            KNExprId a = stk.back(); stk.pop_back();
+            knitro_check(KN_sqrt_expr(kc, a, &expr), FUNC_SIGNATURE, "KN_sqrt_expr");
+            break;
+        }
+        case 's': {
+            KNExprId a = stk.back(); stk.pop_back();
+            knitro_check(KN_sin_expr(kc, a, &expr), FUNC_SIGNATURE, "KN_sin_expr");
+            break;
+        }
+        case 'c': {
+            KNExprId a = stk.back(); stk.pop_back();
+            knitro_check(KN_cos_expr(kc, a, &expr), FUNC_SIGNATURE, "KN_cos_expr");
+            break;
+        }
+        case 't': {
+            KNExprId a = stk.back(); stk.pop_back();
+            knitro_check(KN_tan_expr(kc, a, &expr), FUNC_SIGNATURE, "KN_tan_expr");
+            break;
+        }
+        case '+': {
+            expr = stk.back(); stk.pop_back();
+            for (int c = 1; c < arity[i]; ++c) {
+                KNExprId term = stk.back(); stk.pop_back();
+                KNExprId sum = 0;
+                knitro_check(KN_add_expr(kc, expr, term, &sum), FUNC_SIGNATURE, "KN_add_expr");
+                expr = sum;
+            }
+            break;
+        }
+        case '*': {
+            expr = stk.back(); stk.pop_back();
+            for (int c = 1; c < arity[i]; ++c) {
+                KNExprId term = stk.back(); stk.pop_back();
+                KNExprId prod = 0;
+                knitro_check(KN_mul_expr(kc, expr, term, &prod), FUNC_SIGNATURE, "KN_mul_expr");
+                expr = prod;
+            }
+            break;
+        }
+        case '-': {
+            KNExprId l = stk.back(); stk.pop_back();
+            KNExprId r = stk.back(); stk.pop_back();
+            knitro_check(KN_sub_expr(kc, l, r, &expr), FUNC_SIGNATURE, "KN_sub_expr");
+            break;
+        }
+        case '/': {
+            KNExprId l = stk.back(); stk.pop_back();
+            KNExprId r = stk.back(); stk.pop_back();
+            knitro_check(KN_div_expr(kc, l, r, &expr), FUNC_SIGNATURE, "KN_div_expr");
+            break;
+        }
+        case 'p': {
+            KNExprId l = stk.back(); stk.pop_back();
+            KNExprId r = stk.back(); stk.pop_back();
+            knitro_check(KN_pow_expr(kc, l, r, &expr), FUNC_SIGNATURE, "KN_pow_expr");
+            break;
+        }
+        default:
+            throw std::runtime_error(
+                    FUNC_SIGNATURE + ": "
+                    "unknown nonlinear operator '"
+                    + std::string(1, operators[element_id]) + "'.");
+        }
+        stk.push_back(expr);
+    }
+    return stk.back();
+}
+
 KnitroContext::KnitroContext()
 {
     int rc = KN_new(&kc);
@@ -170,6 +296,21 @@ void mathoptsolverscmake::load(
                 FUNC_SIGNATURE, "KN_add_obj_quadratic_struct");
     }
 
+    // Nonlinear objective.
+    if (!model.objective_nonlinear_elements_operators.empty()) {
+        KNExprId expr = to_knitro_expr(
+                knitro.kc,
+                model.objective_nonlinear_elements_operators,
+                model.objective_nonlinear_elements_values,
+                model.objective_nonlinear_elements_variables,
+                model.objective_nonlinear_elements_parent,
+                0,
+                (int)model.objective_nonlinear_elements_operators.size());
+        knitro_check(
+                KN_add_obj_expr(knitro.kc, expr),
+                FUNC_SIGNATURE, "KN_add_obj_expr");
+    }
+
     // Constraints.
     if (model.number_of_constraints() > 0) {
         knitro_check(
@@ -231,10 +372,44 @@ void mathoptsolverscmake::load(
                             model.quadratic_elements_coefficients.data()),
                     FUNC_SIGNATURE, "KN_add_con_quadratic_struct");
         }
+
+        // Nonlinear constraints.
+        if (!model.nonlinear_elements_operators.empty()) {
+            for (int constraint_id = 0;
+                    constraint_id < model.number_of_constraints();
+                    ++constraint_id) {
+                int start = model.nonlinear_elements_constraints_starts[constraint_id];
+                int end = model.nonlinear_constraint_end(constraint_id);
+                if (end <= start)
+                    continue;
+                KNExprId expr = to_knitro_expr(
+                        knitro.kc,
+                        model.nonlinear_elements_operators,
+                        model.nonlinear_elements_values,
+                        model.nonlinear_elements_variables,
+                        model.nonlinear_elements_parent,
+                        start,
+                        end);
+                knitro_check(
+                        KN_add_con_expr(knitro.kc, constraint_id, expr),
+                        FUNC_SIGNATURE, "KN_add_con_expr");
+            }
+        }
     }
 
     // Resize reusable evaluation buffer.
     knitro.x_.resize(model.number_of_variables(), 0.0);
+
+    // Black-box callbacks below share mutable state (knitro.x_ and a
+    // per-callback output buffer) across calls, which is not safe under
+    // Knitro's parallel MIP branch-and-bound (concurrent node subproblems
+    // would call the same callback from multiple threads at once). Force
+    // serial MIP solving whenever the model has a black-box function.
+    if (model.has_black_box()) {
+        knitro_check(
+                KN_set_int_param(knitro.kc, KN_PARAM_MIP_NUMTHREADS, 1),
+                FUNC_SIGNATURE, "KN_set_int_param");
+    }
 
     // Black-box objective callback.
     if (model.objective_function) {
@@ -354,4 +529,33 @@ int mathoptsolverscmake::get_number_of_nodes(
             KN_get_mip_number_nodes(knitro.kc, &number_of_nodes),
             FUNC_SIGNATURE, "KN_get_mip_number_nodes");
     return number_of_nodes;
+}
+
+bool mathoptsolverscmake::is_infeasible(
+        const KnitroContext& knitro)
+{
+    KNINT n = 0;
+    knitro_check(
+            KN_get_number_vars(knitro.kc, &n),
+            FUNC_SIGNATURE, "KN_get_number_vars");
+    KNINT m = 0;
+    knitro_check(
+            KN_get_number_cons(knitro.kc, &m),
+            FUNC_SIGNATURE, "KN_get_number_cons");
+
+    int status = 0;
+    double obj = 0.0;
+    std::vector<double> x(n, 0.0);
+    std::vector<double> lambda(n + m, 0.0);
+    knitro_check(
+            KN_get_solution(knitro.kc, &status, &obj, x.data(), lambda.data()),
+            FUNC_SIGNATURE, "KN_get_solution");
+
+    if (status <= KN_RC_INFEASIBLE && status > KN_RC_UNBOUNDED)
+        return true;
+    if (status == KN_RC_UNBOUNDED_OR_INFEAS)
+        return true;
+    if (status <= KN_RC_ITER_LIMIT_INFEAS && status >= KN_RC_MIP_NODE_LIMIT_INFEAS)
+        return true;
+    return false;
 }
