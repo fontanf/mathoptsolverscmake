@@ -13,6 +13,9 @@ option(MATHOPTSOLVERSCMAKE_USE_KNITRO "Use Knitro" OFF)
 option(MATHOPTSOLVERSCMAKE_USE_DLIB "Use dlib" OFF)
 option(MATHOPTSOLVERSCMAKE_USE_CONICBUNDLE "Use ConicBundle" OFF)
 
+# Test option.
+option(MATHOPTSOLVERSCMAKE_BUILD_TESTS "Build tests" OFF)
+
 # Avoid FetchContent warning.
 cmake_policy(SET CMP0135 NEW)
 
@@ -25,3 +28,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 # Add sub-directories.
 add_subdirectory(extern)
 add_subdirectory(src)
+if(MATHOPTSOLVERSCMAKE_BUILD_TESTS)
+    enable_testing()
+    add_subdirectory(test)
+endif()

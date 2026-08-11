@@ -1,6 +1,7 @@
 add_library(MathOptSolversCMake_mathopt)
 target_sources(MathOptSolversCMake_mathopt PRIVATE
-    mathopt.cpp)
+    mathopt.cpp
+    mathopt_nonlinear.cpp)
 if(MATHOPTSOLVERSCMAKE_USE_CBC)
     target_sources(MathOptSolversCMake_mathopt PRIVATE mathopt_cbc.cpp)
 endif()
