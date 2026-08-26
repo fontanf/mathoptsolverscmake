@@ -370,22 +370,22 @@ struct MathOptModel
      *
      * Trees are stored in DFS pre-order: root first (index = range start),
      * children immediately after their parent, left subtree before right.
-     * *_elements_parent[i] is the absolute index of node i's parent;
-     * the root has parent == -1. Parents always have a smaller index than
-     * their children, so the arity of any node can be derived by counting
-     * how many nodes point to it.
+     * *_elements_number_of_children[i] is the number of children of node i;
+     * summing the subtree sizes of exactly that many children (recursively)
+     * from index i + 1 onward locates each child and the end of node i's
+     * subtree.
      */
 
     std::vector<char> objective_nonlinear_elements_operators;
     std::vector<double> objective_nonlinear_elements_values;
     std::vector<int> objective_nonlinear_elements_variables;
-    std::vector<int> objective_nonlinear_elements_parent;
+    std::vector<int> objective_nonlinear_elements_number_of_children;
 
     std::vector<int> nonlinear_elements_constraints_starts;
     std::vector<char> nonlinear_elements_operators;
     std::vector<double> nonlinear_elements_values;
     std::vector<int> nonlinear_elements_variables;
-    std::vector<int> nonlinear_elements_parent;
+    std::vector<int> nonlinear_elements_number_of_children;
 
     /*
      * Black-box structures

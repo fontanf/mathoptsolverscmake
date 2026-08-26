@@ -42,21 +42,13 @@ static KNExprId to_knitro_expr(
         const std::vector<char>& operators,
         const std::vector<double>& values,
         const std::vector<int>& variables,
-        const std::vector<int>& parent,
+        const std::vector<int>& number_of_children,
         int start,
         int end)
 {
-    const int n = end - start;
-
-    // Arity is needed for n-ary + and *; derive it from the parent array.
-    std::vector<int> arity(n, 0);
-    for (int i = start + 1; i < end; ++i)
-        arity[parent[i] - start]++;
-
     std::vector<KNExprId> stk;
-    stk.reserve(n);
+    stk.reserve(end - start);
     for (int element_id = end - 1; element_id >= start; --element_id) {
-        const int i = element_id - start;
         KNExprId expr = 0;
         switch (operators[element_id]) {
         case 'k':
@@ -106,7 +98,7 @@ static KNExprId to_knitro_expr(
         }
         case '+': {
             expr = stk.back(); stk.pop_back();
-            for (int c = 1; c < arity[i]; ++c) {
+            for (int c = 1; c < number_of_children[element_id]; ++c) {
                 KNExprId term = stk.back(); stk.pop_back();
                 KNExprId sum = 0;
                 knitro_check(KN_add_expr(kc, expr, term, &sum), FUNC_SIGNATURE, "KN_add_expr");
@@ -116,7 +108,7 @@ static KNExprId to_knitro_expr(
         }
         case '*': {
             expr = stk.back(); stk.pop_back();
-            for (int c = 1; c < arity[i]; ++c) {
+            for (int c = 1; c < number_of_children[element_id]; ++c) {
                 KNExprId term = stk.back(); stk.pop_back();
                 KNExprId prod = 0;
                 knitro_check(KN_mul_expr(kc, expr, term, &prod), FUNC_SIGNATURE, "KN_mul_expr");
@@ -303,7 +295,7 @@ void mathoptsolverscmake::load(
                 model.objective_nonlinear_elements_operators,
                 model.objective_nonlinear_elements_values,
                 model.objective_nonlinear_elements_variables,
-                model.objective_nonlinear_elements_parent,
+                model.objective_nonlinear_elements_number_of_children,
                 0,
                 (int)model.objective_nonlinear_elements_operators.size());
         knitro_check(
@@ -387,7 +379,7 @@ void mathoptsolverscmake::load(
                         model.nonlinear_elements_operators,
                         model.nonlinear_elements_values,
                         model.nonlinear_elements_variables,
-                        model.nonlinear_elements_parent,
+                        model.nonlinear_elements_number_of_children,
                         start,
                         end);
                 knitro_check(
