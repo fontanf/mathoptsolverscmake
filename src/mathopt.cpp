@@ -821,27 +821,19 @@ static double evaluate_nonlinear_element(
         const std::vector<char>& operators,
         const std::vector<double>& values,
         const std::vector<int>& variables,
-        const std::vector<int>& parent,
+        const std::vector<int>& number_of_children,
         const std::vector<double>& solution,
         int start,
         int end)
 {
-    const int n = end - start;
-
-    // Arity is needed for n-ary + and *; derive it from the parent array.
-    std::vector<int> arity(n, 0);
-    for (int i = start + 1; i < end; ++i)
-        arity[parent[i] - start]++;
-
     // Evaluate by scanning from the last leaf back to the root (index start).
     // Pre-order storage means this is a post-order traversal: every child is
     // processed before its parent.  The left subtree ends up on top of the
     // stack (lower indices, therefore processed last), so for binary operators
     // first-pop == left operand and second-pop == right operand.
     std::vector<double> stk;
-    stk.reserve(n);
+    stk.reserve(end - start);
     for (int element_id = end - 1; element_id >= start; --element_id) {
-        const int i = element_id - start;
         switch (operators[element_id]) {
         case 'k': stk.push_back(values[element_id]); break;
         case 'v': stk.push_back(solution[variables[element_id]]); break;
@@ -854,13 +846,13 @@ static double evaluate_nonlinear_element(
         case 't': { double a = stk.back(); stk.pop_back(); stk.push_back(std::tan(a)); break; }
         case '+': {
             double sum = 0;
-            for (int c = 0; c < arity[i]; ++c) { sum += stk.back(); stk.pop_back(); }
+            for (int c = 0; c < number_of_children[element_id]; ++c) { sum += stk.back(); stk.pop_back(); }
             stk.push_back(sum);
             break;
         }
         case '*': {
             double prod = 1;
-            for (int c = 0; c < arity[i]; ++c) { prod *= stk.back(); stk.pop_back(); }
+            for (int c = 0; c < number_of_children[element_id]; ++c) { prod *= stk.back(); stk.pop_back(); }
             stk.push_back(prod);
             break;
         }
@@ -899,7 +891,7 @@ double MathOptModel::evaluate_objective(
                 this->objective_nonlinear_elements_operators,
                 this->objective_nonlinear_elements_values,
                 this->objective_nonlinear_elements_variables,
-                this->objective_nonlinear_elements_parent,
+                this->objective_nonlinear_elements_number_of_children,
                 solution,
                 0,
                 (int)this->objective_nonlinear_elements_operators.size());
@@ -945,7 +937,7 @@ double MathOptModel::evaluate_constraint(
                     this->nonlinear_elements_operators,
                     this->nonlinear_elements_values,
                     this->nonlinear_elements_variables,
-                    this->nonlinear_elements_parent,
+                    this->nonlinear_elements_number_of_children,
                     solution,
                     start,
                     end);
@@ -1236,11 +1228,11 @@ bool MathOptModel::check(int verbosity_level) const
                 << " != " << this->objective_nonlinear_elements_operators.size() << "." << std::endl;
         ok = false;
     }
-    if (this->objective_nonlinear_elements_parent.size()
+    if (this->objective_nonlinear_elements_number_of_children.size()
             != this->objective_nonlinear_elements_operators.size()) {
         if (verbosity_level > 0)
-            std::cout << "inconsistent objective_nonlinear_elements_parent size: "
-                << this->objective_nonlinear_elements_parent.size()
+            std::cout << "inconsistent objective_nonlinear_elements_number_of_children size: "
+                << this->objective_nonlinear_elements_number_of_children.size()
                 << " != " << this->objective_nonlinear_elements_operators.size() << "." << std::endl;
         ok = false;
     }
@@ -1268,10 +1260,10 @@ bool MathOptModel::check(int verbosity_level) const
                     << " != " << this->nonlinear_elements_operators.size() << "." << std::endl;
             ok = false;
         }
-        if (this->nonlinear_elements_parent.size() != this->nonlinear_elements_operators.size()) {
+        if (this->nonlinear_elements_number_of_children.size() != this->nonlinear_elements_operators.size()) {
             if (verbosity_level > 0)
-                std::cout << "inconsistent nonlinear_elements_parent size: "
-                    << this->nonlinear_elements_parent.size()
+                std::cout << "inconsistent nonlinear_elements_number_of_children size: "
+                    << this->nonlinear_elements_number_of_children.size()
                     << " != " << this->nonlinear_elements_operators.size() << "." << std::endl;
             ok = false;
         }

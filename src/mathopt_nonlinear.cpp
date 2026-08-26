@@ -13,13 +13,12 @@ NonlinearExpression leaf(char op, double value, int variable_id)
             std::vector<char>& operators,
             std::vector<double>& values,
             std::vector<int>& variables,
-            std::vector<int>& parents,
-            int parent_id)
+            std::vector<int>& number_of_children)
     {
         operators.push_back(op);
         values.push_back(value);
         variables.push_back(variable_id);
-        parents.push_back(parent_id);
+        number_of_children.push_back(0);
     };
 }
 
@@ -29,15 +28,13 @@ NonlinearExpression unary(char op, NonlinearExpression operand)
             std::vector<char>& operators,
             std::vector<double>& values,
             std::vector<int>& variables,
-            std::vector<int>& parents,
-            int parent_id)
+            std::vector<int>& number_of_children)
     {
-        int node_id = (int)operators.size();
         operators.push_back(op);
         values.push_back(0.0);
         variables.push_back(-1);
-        parents.push_back(parent_id);
-        operand(operators, values, variables, parents, node_id);
+        number_of_children.push_back(1);
+        operand(operators, values, variables, number_of_children);
     };
 }
 
@@ -47,16 +44,14 @@ NonlinearExpression nary(char op, std::vector<NonlinearExpression> operands)
             std::vector<char>& operators,
             std::vector<double>& values,
             std::vector<int>& variables,
-            std::vector<int>& parents,
-            int parent_id)
+            std::vector<int>& number_of_children)
     {
-        int node_id = (int)operators.size();
         operators.push_back(op);
         values.push_back(0.0);
         variables.push_back(-1);
-        parents.push_back(parent_id);
+        number_of_children.push_back((int)operands.size());
         for (const NonlinearExpression& operand: operands)
-            operand(operators, values, variables, parents, node_id);
+            operand(operators, values, variables, number_of_children);
     };
 }
 
@@ -146,8 +141,7 @@ void mathoptsolverscmake::set_objective_nonlinear_expression(
             model.objective_nonlinear_elements_operators,
             model.objective_nonlinear_elements_values,
             model.objective_nonlinear_elements_variables,
-            model.objective_nonlinear_elements_parent,
-            -1);
+            model.objective_nonlinear_elements_number_of_children);
 }
 
 void mathoptsolverscmake::add_constraint_nonlinear_expression(
@@ -163,6 +157,5 @@ void mathoptsolverscmake::add_constraint_nonlinear_expression(
             model.nonlinear_elements_operators,
             model.nonlinear_elements_values,
             model.nonlinear_elements_variables,
-            model.nonlinear_elements_parent,
-            -1);
+            model.nonlinear_elements_number_of_children);
 }

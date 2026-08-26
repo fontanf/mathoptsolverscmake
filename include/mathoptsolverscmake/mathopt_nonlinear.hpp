@@ -11,13 +11,13 @@ namespace mathoptsolverscmake
 /**
  * A composable builder for a node of a nonlinear expression tree (see the
  * "Nonlinear structures" comment on MathOptModel in mathopt.hpp for the
- * on-disk layout: operators/values/variables/parent stored as parallel
- * arrays in DFS pre-order).
+ * on-disk layout: operators/values/variables/number_of_children stored as
+ * parallel arrays in DFS pre-order).
  *
- * Given the parallel arrays to append to and the index of its parent
- * (-1 for a root), a NonlinearExpression appends itself and then
- * recursively its operands, so the resulting arrays are already in the
- * required pre-order without the caller having to track indices by hand.
+ * Given the parallel arrays to append to, a NonlinearExpression appends
+ * itself (including its number of children) and then recursively its
+ * operands, so the resulting arrays are already in the required pre-order
+ * without the caller having to track indices by hand.
  *
  * Build one with the nonlinear_* functions below, then install it into a
  * MathOptModel with set_objective_nonlinear_expression() or
@@ -27,8 +27,7 @@ using NonlinearExpression = std::function<void(
         std::vector<char>& operators,
         std::vector<double>& values,
         std::vector<int>& variables,
-        std::vector<int>& parents,
-        int parent_id)>;
+        std::vector<int>& number_of_children)>;
 
 /** A single variable, by index. */
 NonlinearExpression nonlinear_variable(int variable_id);
