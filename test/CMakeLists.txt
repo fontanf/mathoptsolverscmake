@@ -28,3 +28,15 @@ if(MATHOPTSOLVERSCMAKE_USE_KNITRO)
     include(GoogleTest)
     gtest_discover_tests(mathopt_knitro_test)
 endif()
+
+if(MATHOPTSOLVERSCMAKE_USE_SMSPP)
+    add_executable(mathopt_smspp_test
+        mathopt_smspp_test.cpp)
+    target_link_libraries(mathopt_smspp_test PRIVATE
+        MathOptSolversCMake_test_models
+        MathOptSolversCMake::mathopt
+        GTest::gtest_main)
+
+    include(GoogleTest)
+    gtest_discover_tests(mathopt_smspp_test)
+endif()

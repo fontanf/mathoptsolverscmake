@@ -20,6 +20,9 @@ endif()
 if(MATHOPTSOLVERSCMAKE_USE_CONICBUNDLE)
     target_sources(MathOptSolversCMake_mathopt PRIVATE mathopt_conicbundle.cpp)
 endif()
+if(MATHOPTSOLVERSCMAKE_USE_SMSPP)
+    target_sources(MathOptSolversCMake_mathopt PRIVATE mathopt_smspp.cpp)
+endif()
 target_include_directories(MathOptSolversCMake_mathopt PUBLIC
     ${PROJECT_SOURCE_DIR}/include)
 if(MATHOPTSOLVERSCMAKE_USE_CBC)
@@ -57,5 +60,23 @@ if(MATHOPTSOLVERSCMAKE_USE_CONICBUNDLE)
         cb)
     target_compile_definitions(MathOptSolversCMake_mathopt PUBLIC
         CONICBUNDLE_FOUND=1)
+endif()
+if(MATHOPTSOLVERSCMAKE_USE_SMSPP)
+    # BundleSolver's own Coin::CoinUtils/Coin::Clp imported targets (built
+    # from the CoinUtils/Clp tarball fetched in extern/CMakeLists.txt) don't
+    # themselves declare their ZLIB/BZip2 link dependency, so it has to be
+    # added explicitly here too, or the final link fails on the static
+    # archive's unresolved gzread. The ZLIB::ZLIB/BZip2::BZip2 targets
+    # extern/CMakeLists.txt finds aren't visible here (directory-scoped,
+    # and extern/ and src/ are sibling subdirectories), hence re-finding.
+    find_package(ZLIB REQUIRED)
+    find_package(BZip2 REQUIRED)
+    target_link_libraries(MathOptSolversCMake_mathopt PUBLIC
+        SMS++::SMS++
+        SMS++::BundleSolver
+        ZLIB::ZLIB
+        BZip2::BZip2)
+    target_compile_definitions(MathOptSolversCMake_mathopt PUBLIC
+        SMSPP_FOUND=1)
 endif()
 add_library(MathOptSolversCMake::mathopt ALIAS MathOptSolversCMake_mathopt)

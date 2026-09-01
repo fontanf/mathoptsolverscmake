@@ -54,6 +54,7 @@ TestModel nonlinear_infeasible_model();
 TestModel nonlinear_mixed_integer_infeasible_model();
 
 TestModel black_box_continuous_model();
+TestModel black_box_convex_model();
 TestModel black_box_mixed_integer_model();
 TestModel black_box_infeasible_model();
 TestModel black_box_mixed_integer_infeasible_model();
