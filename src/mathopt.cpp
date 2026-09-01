@@ -35,6 +35,9 @@ std::istream& mathoptsolverscmake::operator>>(
     } else if (token == "ConicBundle"
             || token == "conicbundle") {
         solver_name = SolverName::ConicBundle;
+    } else if (token == "SMS++"
+            || token == "smspp") {
+        solver_name = SolverName::Smspp;
     } else  {
         in.setstate(std::ios_base::failbit);
     }
@@ -63,6 +66,9 @@ std::ostream& mathoptsolverscmake::operator<<(
         break;
     } case SolverName::ConicBundle: {
         os << "ConicBundle";
+        break;
+    } case SolverName::Smspp: {
+        os << "SMS++";
         break;
     }
     }

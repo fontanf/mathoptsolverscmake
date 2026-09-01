@@ -24,6 +24,7 @@ enum class SolverName
     Knitro,
     Dlib,
     ConicBundle,
+    Smspp,
 };
 
 std::istream& operator>>(

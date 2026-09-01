@@ -390,6 +390,33 @@ TestModel mathoptsolverscmaketest::black_box_continuous_model()
     return TestModel{"black_box_continuous", model, {3.0, -2.0}};
 }
 
+TestModel mathoptsolverscmaketest::black_box_convex_model()
+{
+    // minimize (x0 - 3)^2 + (x1 + 2)^2
+    // s.t.     x0 >= 0, x1 free
+    // Optimal: x0 = 3, x1 = -2, objective = 0 -- the unconstrained optimum,
+    // which already satisfies x0 >= 0.
+    //
+    // Unlike black_box_continuous_model(), every lower bound here is either
+    // 0 or -infinity (no other finite bound) and the objective is convex:
+    // this is what solvers built around the Lagrangian-multiplier convention
+    // (lambda >= 0 or lambda free), such as SMS++'s BundleSolver, require.
+    MathOptModel model(2, 0, 0);
+    model.objective_direction = ObjectiveDirection::Minimize;
+
+    model.variables_lower_bounds[0] = 0.0;
+
+    model.objective_function = [](const std::vector<double>& x)
+    {
+        BlackBoxFunctionOutput output;
+        output.objective_value = (x[0] - 3.0) * (x[0] - 3.0) + (x[1] + 2.0) * (x[1] + 2.0);
+        output.gradient = {2.0 * (x[0] - 3.0), 2.0 * (x[1] + 2.0)};
+        return output;
+    };
+
+    return TestModel{"black_box_convex", model, {3.0, -2.0}};
+}
+
 TestModel mathoptsolverscmaketest::black_box_infeasible_model()
 {
     // minimize (x0 - 3)^2 + (x1 + 2)^2

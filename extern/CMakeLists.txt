@@ -3,7 +3,7 @@ include(FetchContent)
 
 # COIN-OR CLP/CBC
 
-if(MATHOPTSOLVERSCMAKE_USE_CLP OR MATHOPTSOLVERSCMAKE_USE_CBC)
+if(MATHOPTSOLVERSCMAKE_USE_CLP OR MATHOPTSOLVERSCMAKE_USE_CBC OR MATHOPTSOLVERSCMAKE_USE_SMSPP)
 
     # CoinUtils
 
@@ -458,4 +458,79 @@ if(MATHOPTSOLVERSCMAKE_USE_CONICBUNDLE)
         GIT_TAG ee4f2b177be46e1750edf6093cd2fcdd033eb3c0
         EXCLUDE_FROM_ALL)
     FetchContent_MakeAvailable(conicbundle)
+endif()
+
+# Fetch SMS++ (core + BundleSolver, via the smspp-project umbrella, which
+# handles the inter-module dependencies via git submodules).
+#
+# Unlike the other solvers above, SMS++ is not a set of prebuilt static
+# libraries: it is fetched and built from source, and its CMakeLists.txt
+# (a) requires CMake >= 3.21 (this repo's own cmake_minimum_required is
+#     lower, so building with this option needs a newer CMake than the
+#     project otherwise does), and
+# (b) requires Boost (>= 1.72), Eigen3 and netCDF-cxx4 to already be
+#     available on the system for the SMS++ core -- these are located with
+#     find_package() and are NOT fetched here. BundleSolver also needs Osi
+#     and an OsiClp (Clp) install; those ARE covered, by reusing the
+#     CoinUtils/Osi/Clp prebuilt tarballs fetched above (note the
+#     MATHOPTSOLVERSCMAKE_USE_SMSPP in that if() condition) via the
+#     *_ROOT hints their vendored Find modules read.
+if(MATHOPTSOLVERSCMAKE_USE_SMSPP)
+    # Point BundleSolver's vendored FindCoinUtils/FindOsi/FindClp.cmake
+    # modules (which search ${<Pkg>_ROOT}/include and .../lib) at the
+    # Clp tarball fetched above, whose include/lib trees already bundle
+    # matching CoinUtils, Osi and Clp headers/libraries together.
+    set(CoinUtils_ROOT ${clp_SOURCE_DIR})
+    set(Osi_ROOT ${clp_SOURCE_DIR})
+    set(Clp_ROOT ${clp_SOURCE_DIR})
+
+    # BundleSolver links MILPSolver but we never call into it; disable its
+    # commercial-solver backends so a locally installed but older/newer
+    # CPLEX or Gurobi than what MILPSolver's code expects (mismatched
+    # callback API symbols, say) can't break this unrelated build.
+    set(MILPSolver_USE_CPLEX OFF CACHE BOOL "" FORCE)
+    set(MILPSolver_USE_GUROBI OFF CACHE BOOL "" FORCE)
+
+
+    # Only build the two modules we need (SMS++ core + BundleSolver, which
+    # in turn needs MILPSolver); every other Block/Solver in the umbrella
+    # is switched off to avoid pulling in unrelated dependencies.
+    set(BUILD_BinaryKnapsackBlock OFF CACHE BOOL "" FORCE)
+    set(BUILD_UCBlock OFF CACHE BOOL "" FORCE)
+    set(BUILD_MCFBlock OFF CACHE BOOL "" FORCE)
+    set(BUILD_MMCFBlock OFF CACHE BOOL "" FORCE)
+    set(BUILD_LukFiBlock OFF CACHE BOOL "" FORCE)
+    set(BUILD_StochasticBlock OFF CACHE BOOL "" FORCE)
+    set(BUILD_SDDPBlock OFF CACHE BOOL "" FORCE)
+    set(BUILD_CapacitatedFacilityLocationBlock OFF CACHE BOOL "" FORCE)
+    set(BUILD_InvestmentBlock OFF CACHE BOOL "" FORCE)
+    set(BUILD_TwoStageStochasticBlock OFF CACHE BOOL "" FORCE)
+    set(BUILD_MultiStageStochasticBlock OFF CACHE BOOL "" FORCE)
+    set(BUILD_SVMBlock OFF CACHE BOOL "" FORCE)
+    set(BUILD_MILPSolver ON CACHE BOOL "" FORCE)
+    set(BUILD_BranchAndXSolver OFF CACHE BOOL "" FORCE)
+    set(BUILD_FrankWolfeSolver OFF CACHE BOOL "" FORCE)
+    set(BUILD_BundleSolver ON CACHE BOOL "" FORCE)
+    set(BUILD_LagrangianDualSolver OFF CACHE BOOL "" FORCE)
+    set(BUILD_MCFClassSolver OFF CACHE BOOL "" FORCE)
+    set(BUILD_MCFLemonSolver OFF CACHE BOOL "" FORCE)
+    set(BUILD_ScenarioReductionSolver OFF CACHE BOOL "" FORCE)
+    set(BUILD_tools OFF CACHE BOOL "" FORCE)
+    set(BUILD_tests OFF CACHE BOOL "" FORCE)
+
+    # smspp-project's own CMakeSettings.txt (auto-included, see its
+    # CMakeLists.txt) sets BUILD_SHARED_LIBS ON as a *plain* (non-cache)
+    # variable, which shadows any value set beforehand (a CACHE ... FORCE
+    # included). Appending an OFF override -- plain sets are last-write-wins
+    # within that file -- is the only way to get the static build every
+    # other solver here uses, needed because the CoinUtils/Osi/Clp tarballs
+    # fetched above are non-PIC static archives that cannot link into a .so.
+    FetchContent_Declare(
+        smspp_project
+        GIT_REPOSITORY https://gitlab.com/smspp/smspp-project.git
+        GIT_TAG 365d6d3ace24d32e2b9037782f2ef560ffd9fe85
+        GIT_SUBMODULES_RECURSE TRUE
+        PATCH_COMMAND sh -c "echo 'set(BUILD_SHARED_LIBS OFF)' >> CMakeSettings.txt"
+        EXCLUDE_FROM_ALL)
+    FetchContent_MakeAvailable(smspp_project)
 endif()
