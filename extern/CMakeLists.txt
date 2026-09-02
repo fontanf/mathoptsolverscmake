@@ -491,6 +491,15 @@ if(MATHOPTSOLVERSCMAKE_USE_SMSPP)
     set(MILPSolver_USE_CPLEX OFF CACHE BOOL "" FORCE)
     set(MILPSolver_USE_GUROBI OFF CACHE BOOL "" FORCE)
 
+    # MILPSolver's vendored FindHiGHS.cmake unconditionally does
+    # find_package(ZLIB REQUIRED), even though MILPSolver's own
+    # find_package(HiGHS) call is optional -- so on a machine without ZLIB
+    # (e.g. a default Windows CI runner), configuration fails hard even
+    # though nothing here calls into MILPSolver's HiGHS backend (BundleSolver
+    # only instantiates the plain base MILPSolver class, never
+    # HiGHSMILPSolver -- its own numeric master-problem solver is CPLEX or
+    # Gurobi, chosen via WHICH_OSI_QP, not MILPSolver at all).
+    set(MILPSolver_USE_HiGHS OFF CACHE BOOL "" FORCE)
 
     # Only build the two modules we need (SMS++ core + BundleSolver, which
     # in turn needs MILPSolver); every other Block/Solver in the umbrella
