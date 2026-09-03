@@ -14,7 +14,8 @@ if(MATHOPTSOLVERSCMAKE_USE_CLP OR MATHOPTSOLVERSCMAKE_USE_CBC OR MATHOPTSOLVERSC
             URL https://github.com/coin-or/CoinUtils/releases/download/releases%2F2.11.9/CoinUtils-releases.2.11.9-x86_64-ubuntu20-gcc940-static.tar.gz
             URL_HASH SHA256=14d07de1b7961f68e037da6f0c57844fd67d4cc1a4b125642f42cd134b228094
             CONFIGURE_COMMAND ""
-            BUILD_COMMAND "")
+            BUILD_COMMAND ""
+            OVERRIDE_FIND_PACKAGE)
         FetchContent_MakeAvailable(coinutils)
 
         target_include_directories(MathOptSolversCMake_coinutils INTERFACE
@@ -37,7 +38,8 @@ if(MATHOPTSOLVERSCMAKE_USE_CLP OR MATHOPTSOLVERSCMAKE_USE_CBC OR MATHOPTSOLVERSC
             URL https://github.com/fontanf/coinor-builds/releases/download/v0.1/CoinUtils-release.2.11.12-universal-macos.tar.gz
             URL_HASH SHA256=8cd0b09e2eed185b5b37f81ef66554e0d41f29e9b5ea87b128538ce158fa6bfa
             CONFIGURE_COMMAND ""
-            BUILD_COMMAND "")
+            BUILD_COMMAND ""
+            OVERRIDE_FIND_PACKAGE)
         FetchContent_MakeAvailable(coinutils)
 
         target_include_directories(MathOptSolversCMake_coinutils INTERFACE
@@ -51,7 +53,8 @@ if(MATHOPTSOLVERSCMAKE_USE_CLP OR MATHOPTSOLVERSCMAKE_USE_CBC OR MATHOPTSOLVERSC
             URL https://github.com/coin-or/CoinUtils/releases/download/releases%2F2.11.9/CoinUtils-releases.2.11.9-w64-msvc16-md.zip
             URL_HASH SHA256=2bc64f0afd80113571697e949b2663e9047272decf90d5f62e452c2628d33ca6
             CONFIGURE_COMMAND ""
-            BUILD_COMMAND "")
+            BUILD_COMMAND ""
+            OVERRIDE_FIND_PACKAGE)
         FetchContent_MakeAvailable(coinUtils)
 
         target_include_directories(MathOptSolversCMake_coinutils INTERFACE
@@ -72,7 +75,8 @@ if(MATHOPTSOLVERSCMAKE_USE_CLP OR MATHOPTSOLVERSCMAKE_USE_CBC OR MATHOPTSOLVERSC
             URL https://github.com/coin-or/Osi/releases/download/releases%2F0.108.8/Osi-releases.0.108.8-x86_64-ubuntu20-gcc940-static.tar.gz
             URL_HASH SHA256=bd5a5bf1e6b6a28d13d41ab1554becd9f3992afe775785e51a88c9405cf2853e
             CONFIGURE_COMMAND ""
-            BUILD_COMMAND "")
+            BUILD_COMMAND ""
+            OVERRIDE_FIND_PACKAGE)
         FetchContent_MakeAvailable(osi)
 
         add_library(MathOptSolversCMake_osicommontests STATIC IMPORTED GLOBAL)
@@ -96,7 +100,8 @@ if(MATHOPTSOLVERSCMAKE_USE_CLP OR MATHOPTSOLVERSCMAKE_USE_CBC OR MATHOPTSOLVERSC
             URL https://github.com/fontanf/coinor-builds/releases/download/v0.1/Osi-release.0.108.11-universal-macos.tar.gz
             URL_HASH SHA256=fc6b7b93106e0d4d0d8eea1b2fb9f9db3c345580444409655133fc984391682b
             CONFIGURE_COMMAND ""
-            BUILD_COMMAND "")
+            BUILD_COMMAND ""
+            OVERRIDE_FIND_PACKAGE)
         FetchContent_MakeAvailable(osi)
 
         add_library(MathOptSolversCMake_osicommontests STATIC IMPORTED GLOBAL)
@@ -120,7 +125,8 @@ if(MATHOPTSOLVERSCMAKE_USE_CLP OR MATHOPTSOLVERSCMAKE_USE_CBC OR MATHOPTSOLVERSC
             URL https://github.com/coin-or/Osi/releases/download/releases%2F0.108.8/Osi-releases.0.108.8-w64-msvc16-md.zip
             URL_HASH SHA256=a61fc462cb598139d205cd2323522581a01900575d0d6bccf660b6c7e1b0b71c
             CONFIGURE_COMMAND ""
-            BUILD_COMMAND "")
+            BUILD_COMMAND ""
+            OVERRIDE_FIND_PACKAGE)
         FetchContent_MakeAvailable(osi)
 
         add_library(MathOptSolversCMake_osicommontests STATIC IMPORTED GLOBAL)
@@ -152,7 +158,8 @@ if(MATHOPTSOLVERSCMAKE_USE_CLP OR MATHOPTSOLVERSCMAKE_USE_CBC OR MATHOPTSOLVERSC
             URL https://github.com/coin-or/Clp/releases/download/releases%2F1.17.8/Clp-releases.1.17.8-x86_64-ubuntu20-gcc940-static.tar.gz
             URL_HASH SHA256=d569b04d19c25876e55d2557a1d9739df8eb50ec8ca11a98ad387fd8b90212c9
             CONFIGURE_COMMAND ""
-            BUILD_COMMAND "")
+            BUILD_COMMAND ""
+            OVERRIDE_FIND_PACKAGE)
         FetchContent_MakeAvailable(clp)
 
         add_library(MathOptSolversCMake_osiclp STATIC IMPORTED GLOBAL)
@@ -174,7 +181,8 @@ if(MATHOPTSOLVERSCMAKE_USE_CLP OR MATHOPTSOLVERSCMAKE_USE_CBC OR MATHOPTSOLVERSC
             URL https://github.com/fontanf/coinor-builds/releases/download/v0.1/Clp-release.1.17.10-universal-macos.tar.gz
             URL_HASH SHA256=1179ae58b6d0fe827ff8933f72eed2a674273968d12e8125a93f5b03f9e8757b
             CONFIGURE_COMMAND ""
-            BUILD_COMMAND "")
+            BUILD_COMMAND ""
+            OVERRIDE_FIND_PACKAGE)
         FetchContent_MakeAvailable(clp)
 
         add_library(MathOptSolversCMake_osiclp STATIC IMPORTED GLOBAL)
@@ -196,7 +204,8 @@ if(MATHOPTSOLVERSCMAKE_USE_CLP OR MATHOPTSOLVERSCMAKE_USE_CBC OR MATHOPTSOLVERSC
             URL https://github.com/coin-or/Clp/releases/download/releases%2F1.17.8/Clp-releases.1.17.8-w64-msvc16-md.zip
             URL_HASH SHA256=e37c834aea5c31dfd8620b7d2432cb31fc16ecb0c6ffb398e8f07c9c82dd5028
             CONFIGURE_COMMAND ""
-            BUILD_COMMAND "")
+            BUILD_COMMAND ""
+            OVERRIDE_FIND_PACKAGE)
         FetchContent_MakeAvailable(clp)
 
         add_library(MathOptSolversCMake_osiclp STATIC IMPORTED GLOBAL)
@@ -471,18 +480,64 @@ endif()
 # (b) requires Boost (>= 1.72), Eigen3 and netCDF-cxx4 to already be
 #     available on the system for the SMS++ core -- these are located with
 #     find_package() and are NOT fetched here. BundleSolver also needs Osi
-#     and an OsiClp (Clp) install; those ARE covered, by reusing the
-#     CoinUtils/Osi/Clp prebuilt tarballs fetched above (note the
-#     MATHOPTSOLVERSCMAKE_USE_SMSPP in that if() condition) via the
-#     *_ROOT hints their vendored Find modules read.
+#     and an OsiClp (Clp) install; those ARE covered below, via the Clp
+#     tarball fetched above (note the MATHOPTSOLVERSCMAKE_USE_SMSPP in that
+#     if() condition).
 if(MATHOPTSOLVERSCMAKE_USE_SMSPP)
-    # Point BundleSolver's vendored FindCoinUtils/FindOsi/FindClp.cmake
-    # modules (which search ${<Pkg>_ROOT}/include and .../lib) at the
-    # Clp tarball fetched above, whose include/lib trees already bundle
-    # matching CoinUtils, Osi and Clp headers/libraries together.
-    set(CoinUtils_ROOT ${clp_SOURCE_DIR})
-    set(Osi_ROOT ${clp_SOURCE_DIR})
-    set(Clp_ROOT ${clp_SOURCE_DIR})
+    # BundleSolver's vendored FindCoinUtils/FindOsi/FindClp.cmake modules
+    # (invoked by its find_package(Osi REQUIRED ...) and
+    # find_package(Clp COMPONENTS OsiClp)) each have unconditional hard
+    # requirements of their own (e.g. FindCoinUtils.cmake always does
+    # find_package(BZip2 REQUIRED), regardless of whether CoinUtils is
+    # eventually found via a *_ROOT hint) that aren't necessarily available
+    # on the build machine (BZip2 isn't installed by default on Windows CI
+    # runners). Redirect find_package(CoinUtils/Osi/Clp) instead (via
+    # OVERRIDE_FIND_PACKAGE on the coinutils/osi/clp fetches above) to
+    # targets built from the Clp tarball fetched above, which bundles
+    # matching CoinUtils, Osi, Clp and OsiClp headers/libraries together
+    # (safer than reusing the separately-fetched coinutils/osi targets,
+    # which may be a different, potentially ABI-incompatible release).
+    # Their headers are installed under "coin/", and are #include'd by
+    # BundleSolver as e.g. #include "CoinPackedMatrix.hpp" (no "coin/"
+    # prefix), so the include path must point directly at that subdirectory.
+    foreach(_smspp_coin_lib CoinUtils Osi Clp OsiClp)
+        add_library(MathOptSolversCMake_smspp_${_smspp_coin_lib} STATIC IMPORTED)
+        set_target_properties(MathOptSolversCMake_smspp_${_smspp_coin_lib} PROPERTIES
+            IMPORTED_LOCATION "${clp_SOURCE_DIR}/lib/lib${_smspp_coin_lib}${CMAKE_STATIC_LIBRARY_SUFFIX}")
+        target_include_directories(MathOptSolversCMake_smspp_${_smspp_coin_lib} INTERFACE
+            "${clp_SOURCE_DIR}/include/coin")
+        add_library(Coin::${_smspp_coin_lib} ALIAS MathOptSolversCMake_smspp_${_smspp_coin_lib})
+    endforeach()
+    target_link_libraries(MathOptSolversCMake_smspp_Osi INTERFACE MathOptSolversCMake_smspp_CoinUtils)
+    target_link_libraries(MathOptSolversCMake_smspp_Clp INTERFACE MathOptSolversCMake_smspp_CoinUtils)
+    if(UNIX AND NOT APPLE)
+        # CoinUtils uses BLAS/LAPACK routines (e.g. dgetrf_) that a static
+        # library doesn't pull in on its own; LAPACK::LAPACK/BLAS::BLAS are
+        # already found above, by the CoinUtils fetch in the COIN-OR section.
+        target_link_libraries(MathOptSolversCMake_smspp_CoinUtils INTERFACE
+            LAPACK::LAPACK
+            BLAS::BLAS)
+    endif()
+    target_link_libraries(MathOptSolversCMake_smspp_OsiClp INTERFACE
+        MathOptSolversCMake_smspp_Clp MathOptSolversCMake_smspp_Osi)
+
+    # SMS++ core does find_package(Eigen3 NO_MODULE) (falling back to
+    # find_package(Eigen3 REQUIRED) module mode if that fails), so fetch it
+    # here instead of relying on a system install -- Windows CI runners
+    # don't have one by default. Eigen is header-only, so this is cheap, and
+    # its own CMakeLists.txt already defines an "Eigen3::Eigen" target for
+    # exactly this build-tree (not installed) usage, so no compatibility
+    # shim is needed here, unlike Boost/HiGHS/CoinUtils above.
+    set(EIGEN_BUILD_DOC OFF CACHE BOOL "" FORCE)
+    set(EIGEN_BUILD_TESTING OFF CACHE BOOL "" FORCE)
+    set(BUILD_TESTING OFF CACHE BOOL "" FORCE)
+    FetchContent_Declare(
+        eigen3
+        GIT_REPOSITORY https://gitlab.com/libeigen/eigen.git
+        GIT_TAG 3.4.0
+        EXCLUDE_FROM_ALL
+        OVERRIDE_FIND_PACKAGE)
+    FetchContent_MakeAvailable(eigen3)
 
     # BundleSolver links MILPSolver but we never call into it; disable its
     # commercial-solver backends so a locally installed but older/newer
@@ -500,6 +555,60 @@ if(MATHOPTSOLVERSCMAKE_USE_SMSPP)
     # HiGHSMILPSolver -- its own numeric master-problem solver is CPLEX or
     # Gurobi, chosen via WHICH_OSI_QP, not MILPSolver at all).
     set(MILPSolver_USE_HiGHS OFF CACHE BOOL "" FORCE)
+
+    # SMS++ core's own CMakeLists.txt unconditionally does
+    # find_library(GETOPT_LIBRARY getopt) and links it PUBLIC on MSVC, even
+    # though getopt() isn't called anywhere in SMS++'s core src/include
+    # (only by its tools/tests, already disabled below) -- so on a Windows
+    # CI runner without a getopt library installed, GETOPT_LIBRARY resolves
+    # to "GETOPT_LIBRARY-NOTFOUND", and every consumer of SMS++ fails to
+    # link against the literal file "GETOPT_LIBRARY-NOTFOUND.lib". Pre-set
+    # the cache variable so that find_library() call is a no-op instead,
+    # linking an empty string (itself a no-op for target_link_libraries()).
+    if(MSVC)
+        set(GETOPT_LIBRARY "" CACHE FILEPATH
+            "Unused by SMS++'s core library; left empty to avoid a broken NOTFOUND link." FORCE)
+    endif()
+
+    if(WIN32)
+        # SMS++ core's own CMakeLists.txt only tries the well-behaved,
+        # Config-mode netCDFCxx lookup "if (UNIX)", so on Windows it instead
+        # goes straight to its own vendored FindnetCDFCxx.cmake (Module
+        # mode), which in turn uses its own vendored FindnetCDF.cmake for
+        # the plain C library. Both modules' WIN32 search paths key off
+        # VCPKG_INSTALLED_DIR/VCPKG_TARGET_TRIPLET, which are only set by
+        # the full vcpkg toolchain file -- not used here, since it globally
+        # wraps add_library()/find_package() and breaks unrelated
+        # dependencies. They do also unconditionally honor a
+        # netCDF(Cxx)_ROOT hint, though, and CMake's own bundled
+        # FindZLIB.cmake honors a ZLIB_ROOT hint the same way, so point all
+        # three at the same vcpkg-installed prefix the CI workflow already
+        # passes via CMAKE_PREFIX_PATH.
+        #
+        # These need to be CACHE variables, not plain ones: this src/
+        # directory's own later find_package(ZLIB REQUIRED) (see
+        # src/CMakeLists.txt) is a *sibling* of this extern/ directory, not
+        # a descendant of it, so a plain set() here wouldn't be visible
+        # there -- unlike smspp_project-src, which is fetched as a
+        # descendant of this same extern/ scope and so does see plain
+        # variables set here.
+        set(netCDF_ROOT "${CMAKE_PREFIX_PATH}" CACHE PATH "" FORCE)
+        set(netCDFCxx_ROOT "${CMAKE_PREFIX_PATH}" CACHE PATH "" FORCE)
+
+        # ZLIB_ROOT alone isn't enough: the vcpkg zlib port, built under the
+        # x64-windows-static triplet, names its static library "zs.lib" --
+        # not any of the names CMake's own bundled FindZLIB.cmake searches
+        # for ("z", "zlib", "zlibstatic", etc.), so its NAMES-based
+        # find_library() call can't find it regardless of the search path.
+        # Bypass that search entirely via FindZLIB.cmake's own documented
+        # manual-override mechanism ("Allow ZLIB_LIBRARY to be set
+        # manually"): pre-setting ZLIB_LIBRARY skips the search, and
+        # ZLIB_LIBRARY_RELEASE is what actually ends up as the ZLIB::ZLIB
+        # target's IMPORTED_LOCATION_RELEASE.
+        set(ZLIB_ROOT "${CMAKE_PREFIX_PATH}" CACHE PATH "" FORCE)
+        set(ZLIB_LIBRARY "${CMAKE_PREFIX_PATH}/lib/zs.lib" CACHE FILEPATH "" FORCE)
+        set(ZLIB_LIBRARY_RELEASE "${CMAKE_PREFIX_PATH}/lib/zs.lib" CACHE FILEPATH "" FORCE)
+    endif()
 
     # Only build the two modules we need (SMS++ core + BundleSolver, which
     # in turn needs MILPSolver); every other Block/Solver in the umbrella
