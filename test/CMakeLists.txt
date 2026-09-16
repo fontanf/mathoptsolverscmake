@@ -17,6 +17,42 @@ target_include_directories(MathOptSolversCMake_test_models PUBLIC
 target_link_libraries(MathOptSolversCMake_test_models PUBLIC
     MathOptSolversCMake::mathopt)
 
+add_executable(mathopt_mps_test
+    mathopt_mps_test.cpp)
+target_link_libraries(mathopt_mps_test PRIVATE
+    MathOptSolversCMake::mathopt
+    GTest::gtest_main)
+
+include(GoogleTest)
+gtest_discover_tests(mathopt_mps_test)
+
+add_executable(mathopt_json_test
+    mathopt_json_test.cpp)
+target_link_libraries(mathopt_json_test PRIVATE
+    MathOptSolversCMake::mathopt
+    GTest::gtest_main)
+
+include(GoogleTest)
+gtest_discover_tests(mathopt_json_test)
+
+add_executable(mathopt_lp_test
+    mathopt_lp_test.cpp)
+target_link_libraries(mathopt_lp_test PRIVATE
+    MathOptSolversCMake::mathopt
+    GTest::gtest_main)
+
+include(GoogleTest)
+gtest_discover_tests(mathopt_lp_test)
+
+add_executable(mathopt_nl_test
+    mathopt_nl_test.cpp)
+target_link_libraries(mathopt_nl_test PRIVATE
+    MathOptSolversCMake::mathopt
+    GTest::gtest_main)
+
+include(GoogleTest)
+gtest_discover_tests(mathopt_nl_test)
+
 if(MATHOPTSOLVERSCMAKE_USE_KNITRO)
     add_executable(mathopt_knitro_test
         mathopt_knitro_test.cpp)

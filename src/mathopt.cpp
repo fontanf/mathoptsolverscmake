@@ -124,6 +124,7 @@ std::istream& mathoptsolverscmake::operator>>(
     std::string token;
     std::getline(in, token);
     if (token == "continuous"
+            || token == "Continuous"
             || token == "Continous"
             || token == "c"
             || token == "C") {
