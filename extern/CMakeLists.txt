@@ -1,6 +1,18 @@
 # Enable FetchContent.
 include(FetchContent)
 
+# Boost (program_options), for the app/ CLI only.
+
+if(MATHOPTSOLVERSCMAKE_BUILD_APP)
+    set(BOOST_INCLUDE_LIBRARIES program_options)
+    set(BOOST_ENABLE_CMAKE ON)
+    FetchContent_Declare(
+        Boost
+        URL https://github.com/boostorg/boost/releases/download/boost-1.84.0/boost-1.84.0.tar.xz
+        EXCLUDE_FROM_ALL)
+    FetchContent_MakeAvailable(Boost)
+endif()
+
 # COIN-OR CLP/CBC
 
 if(MATHOPTSOLVERSCMAKE_USE_CLP OR MATHOPTSOLVERSCMAKE_USE_CBC OR MATHOPTSOLVERSCMAKE_USE_SMSPP)

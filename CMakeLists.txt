@@ -15,7 +15,10 @@ option(MATHOPTSOLVERSCMAKE_USE_CONICBUNDLE "Use ConicBundle" OFF)
 option(MATHOPTSOLVERSCMAKE_USE_SMSPP "Use SMS++ (BundleSolver)" OFF)
 
 # Test option.
-option(MATHOPTSOLVERSCMAKE_BUILD_TESTS "Build tests" OFF)
+option(MATHOPTSOLVERSCMAKE_BUILD_TESTS "Build tests" ON)
+
+# App option.
+option(MATHOPTSOLVERSCMAKE_BUILD_APP "Build the mathoptsolverscmake_solve CLI app" ON)
 
 # Avoid FetchContent warning.
 cmake_policy(SET CMP0135 NEW)
@@ -32,4 +35,7 @@ add_subdirectory(src)
 if(MATHOPTSOLVERSCMAKE_BUILD_TESTS)
     enable_testing()
     add_subdirectory(test)
+endif()
+if(MATHOPTSOLVERSCMAKE_BUILD_APP)
+    add_subdirectory(app)
 endif()
