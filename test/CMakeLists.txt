@@ -76,3 +76,14 @@ if(MATHOPTSOLVERSCMAKE_USE_SMSPP)
     include(GoogleTest)
     gtest_discover_tests(mathopt_smspp_test)
 endif()
+
+add_executable(dual_test
+    dual_test.cpp)
+target_link_libraries(dual_test PRIVATE
+    MathOptSolversCMake::mathopt
+    GTest::gtest_main)
+target_compile_definitions(dual_test PRIVATE
+    MATHOPTSOLVERSCMAKE_DATA_DIR="${PROJECT_SOURCE_DIR}/data")
+
+include(GoogleTest)
+gtest_discover_tests(dual_test)

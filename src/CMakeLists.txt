@@ -5,7 +5,8 @@ target_sources(MathOptSolversCMake_mathopt PRIVATE
     mathopt_mps.cpp
     mathopt_json.cpp
     mathopt_lp.cpp
-    mathopt_nl.cpp)
+    mathopt_nl.cpp
+    dual.cpp)
 if(MATHOPTSOLVERSCMAKE_USE_CBC)
     target_sources(MathOptSolversCMake_mathopt PRIVATE mathopt_cbc.cpp)
 endif()

@@ -151,3 +151,6 @@ Objective value:  3089
 Bound:            3089
 Feasible:         1
 ```
+
+For a linear program, `--dual` solves its dual (built with `mathoptsolverscmake::dual()`) instead of the model itself.
+The reported objective value is the dual's, equal to the primal's at optimality, and `--output` writes the dual solution.
