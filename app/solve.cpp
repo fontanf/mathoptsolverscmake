@@ -1,4 +1,5 @@
 #include "mathoptsolverscmake/mathopt.hpp"
+#include "mathoptsolverscmake/dual.hpp"
 #include "mathoptsolverscmake/mathopt_json.hpp"
 #include "mathoptsolverscmake/mathopt_lp.hpp"
 #include "mathoptsolverscmake/mathopt_mps.hpp"
@@ -202,6 +203,7 @@ int main(int argc, char* argv[])
         ("input,i", po::value<std::string>(), "input model file (required)")
         ("format,f", po::value<FileFormat>(), "input file format: mps, lp, json or nl (guessed from the file extension if not given)")
         ("solver,s", po::value<SolverName>(), "solver: cbc, highs, xpress or knitro (required)")
+        ("dual,d", po::bool_switch(), "solve the dual of the model instead of the model itself (LPs only, see mathoptsolverscmake::dual()); --output then writes the dual solution")
         ("time-limit,t", po::value<double>(), "time limit in seconds (no limit if not given)")
         ("output,o", po::value<std::string>(), "solution output file (see MathOptModel::write_solution())")
         ("verbosity-level,v", po::value<int>()->default_value(1), "model summary verbosity level (0: none)")
@@ -243,6 +245,14 @@ int main(int argc, char* argv[])
     } catch (const std::exception& e) {
         std::cerr << "Error reading \"" << input_path << "\": " << e.what() << std::endl;
         return 1;
+    }
+    if (vm["dual"].as<bool>()) {
+        try {
+            model = dual(model);
+        } catch (const std::exception& e) {
+            std::cerr << "Error building the dual of \"" << input_path << "\": " << e.what() << std::endl;
+            return 1;
+        }
     }
     model.feasibility_tolerance = vm["tolerance"].as<double>();
     model.integrality_tolerance = vm["tolerance"].as<double>();
