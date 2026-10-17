@@ -110,8 +110,7 @@ SolveResult solve_model(
     switch (solver) {
     case SolverName::Cbc: {
 #ifdef CBC_FOUND
-        OsiCbcSolverInterface osi_solver;
-        CbcModel cbc_model(osi_solver);
+        mathoptsolverscmake::CbcModel cbc_model;
         if (has_time_limit)
             set_time_limit(cbc_model, time_limit);
         load(cbc_model, model);
