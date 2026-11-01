@@ -16,6 +16,12 @@ endif()
 if(MATHOPTSOLVERSCMAKE_USE_XPRESS)
     target_sources(MathOptSolversCMake_mathopt PRIVATE mathopt_xpress.cpp)
 endif()
+if(MATHOPTSOLVERSCMAKE_USE_CPLEX)
+    target_sources(MathOptSolversCMake_mathopt PRIVATE mathopt_cplex.cpp)
+endif()
+if(MATHOPTSOLVERSCMAKE_USE_GUROBI)
+    target_sources(MathOptSolversCMake_mathopt PRIVATE mathopt_gurobi.cpp)
+endif()
 if(MATHOPTSOLVERSCMAKE_USE_KNITRO)
     target_sources(MathOptSolversCMake_mathopt PRIVATE mathopt_knitro.cpp)
 endif()
@@ -53,6 +59,18 @@ if(MATHOPTSOLVERSCMAKE_USE_XPRESS)
         MathOptSolversCMake_xpress)
     target_compile_definitions(MathOptSolversCMake_mathopt PUBLIC
         XPRESS_FOUND=1)
+endif()
+if(MATHOPTSOLVERSCMAKE_USE_CPLEX)
+    target_link_libraries(MathOptSolversCMake_mathopt PUBLIC
+        MathOptSolversCMake_cplex)
+    target_compile_definitions(MathOptSolversCMake_mathopt PUBLIC
+        CPLEX_FOUND=1)
+endif()
+if(MATHOPTSOLVERSCMAKE_USE_GUROBI)
+    target_link_libraries(MathOptSolversCMake_mathopt PUBLIC
+        MathOptSolversCMake_gurobi)
+    target_compile_definitions(MathOptSolversCMake_mathopt PUBLIC
+        GUROBI_FOUND=1)
 endif()
 if(MATHOPTSOLVERSCMAKE_USE_DLIB)
     target_link_libraries(MathOptSolversCMake_mathopt PUBLIC

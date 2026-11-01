@@ -27,6 +27,14 @@ std::istream& mathoptsolverscmake::operator>>(
             || token == "Xpress"
             || token == "XPRESS") {
         solver_name = SolverName::Xpress;
+    } else if (token == "cplex"
+            || token == "Cplex"
+            || token == "CPLEX") {
+        solver_name = SolverName::Cplex;
+    } else if (token == "gurobi"
+            || token == "Gurobi"
+            || token == "GUROBI") {
+        solver_name = SolverName::Gurobi;
     } else if (token == "Knitro"
             || token == "knitro") {
         solver_name = SolverName::Knitro;
@@ -65,6 +73,12 @@ std::ostream& mathoptsolverscmake::operator<<(
         break;
     } case SolverName::Xpress: {
         os << "XPRESS";
+        break;
+    } case SolverName::Cplex: {
+        os << "CPLEX";
+        break;
+    } case SolverName::Gurobi: {
+        os << "Gurobi";
         break;
     } case SolverName::Knitro: {
         os << "Knitro";

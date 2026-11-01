@@ -14,6 +14,12 @@
 #ifdef XPRESS_FOUND
 #include "mathoptsolverscmake/mathopt_xpress.hpp"
 #endif
+#ifdef CPLEX_FOUND
+#include "mathoptsolverscmake/mathopt_cplex.hpp"
+#endif
+#ifdef GUROBI_FOUND
+#include "mathoptsolverscmake/mathopt_gurobi.hpp"
+#endif
 #ifdef KNITRO_FOUND
 #include "mathoptsolverscmake/mathopt_knitro.hpp"
 #endif
@@ -91,7 +97,7 @@ MathOptModel read_model(const std::string& file_path, FileFormat format)
     throw std::logic_error("unreachable");
 }
 
-/** The solver-specific dispatch; only Cbc, HiGHS, XPRESS, Knitro, Ipopt and SCIP have a
+/** The solver-specific dispatch; only Cbc, HiGHS, XPRESS, CPLEX, Gurobi, Knitro, Ipopt and SCIP have a
  * generic load()/solve()/get_solution() interface suited to "load an
  * arbitrary file and solve it" (dlib/ConicBundle/SMS++ target narrower use
  * cases -- box-constrained, convex Lagrangian relaxation, black-box-only --
@@ -167,6 +173,36 @@ SolveResult solve_model(
         throw std::invalid_argument("solver \"XPRESS\" is not available in this build.");
 #endif
         break;
+    } case SolverName::Cplex: {
+#ifdef CPLEX_FOUND
+        CplexModel cplex_model;
+        if (has_time_limit)
+            set_time_limit(cplex_model, time_limit);
+        load(cplex_model, model);
+        solve(cplex_model);
+        result.solution = get_solution(cplex_model);
+        result.found_solution = !result.solution.empty();
+        result.bound = get_bound(cplex_model);
+        result.has_bound = true;
+#else
+        throw std::invalid_argument("solver \"CPLEX\" is not available in this build.");
+#endif
+        break;
+    } case SolverName::Gurobi: {
+#ifdef GUROBI_FOUND
+        GurobiModel gurobi_model;
+        if (has_time_limit)
+            set_time_limit(gurobi_model, time_limit);
+        load(gurobi_model, model);
+        solve(gurobi_model);
+        result.solution = get_solution(gurobi_model);
+        result.found_solution = !result.solution.empty();
+        result.bound = get_bound(gurobi_model);
+        result.has_bound = true;
+#else
+        throw std::invalid_argument("solver \"Gurobi\" is not available in this build.");
+#endif
+        break;
     } case SolverName::Knitro: {
 #ifdef KNITRO_FOUND
         KnitroContext knitro;
@@ -218,7 +254,7 @@ SolveResult solve_model(
         solver_name << solver;
         throw std::invalid_argument(
                 "solver \"" + solver_name.str() + "\" is not supported by this tool "
-                "(only Cbc, HiGHS, XPRESS, Knitro, Ipopt and SCIP are).");
+                "(only Cbc, HiGHS, XPRESS, CPLEX, Gurobi, Knitro, Ipopt and SCIP are).");
     }
     }
 
@@ -237,7 +273,7 @@ int main(int argc, char* argv[])
         ("help,h", "produce help message")
         ("input,i", po::value<std::string>(), "input model file (required)")
         ("format,f", po::value<FileFormat>(), "input file format: mps, lp, json or nl (guessed from the file extension if not given)")
-        ("solver,s", po::value<SolverName>(), "solver: cbc, highs, xpress, knitro, ipopt or scip (required)")
+        ("solver,s", po::value<SolverName>(), "solver: cbc, highs, xpress, cplex, gurobi, knitro, ipopt or scip (required)")
         ("dual,d", po::bool_switch(), "solve the dual of the model instead of the model itself (LPs only, see mathoptsolverscmake::dual()); --output then writes the dual solution")
         ("time-limit,t", po::value<double>(), "time limit in seconds (no limit if not given)")
         ("output,o", po::value<std::string>(), "solution output file (see MathOptModel::write_solution())")

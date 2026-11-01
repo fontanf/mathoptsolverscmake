@@ -230,6 +230,35 @@ TestModel mathoptsolverscmaketest::quadratic_mixed_integer_infeasible_model()
     return TestModel{"quadratic_mixed_integer_infeasible", model, {}, false};
 }
 
+TestModel mathoptsolverscmaketest::quadratic_constraint_model()
+{
+    // maximize x0 + x1
+    // s.t.     x0^2 + x1^2 <= 2
+    //          0 <= x0 - x1 <= 1
+    // Optimal: x0 = 1, x1 = 1, objective = 2.
+    MathOptModel model(2, 2, 2);
+    model.objective_direction = ObjectiveDirection::Maximize;
+
+    model.objective_coefficients = {1.0, 1.0};
+
+    // Constraint 0: x0^2 + x1^2 <= 2.
+    model.constraints_starts[0] = 0;
+    model.quadratic_elements_constraints_starts = {0, 2};
+    model.quadratic_elements_variables_1 = {0, 1};
+    model.quadratic_elements_variables_2 = {0, 1};
+    model.quadratic_elements_coefficients = {1.0, 1.0};
+    model.constraints_upper_bounds[0] = 2.0;
+
+    // Constraint 1: 0 <= x0 - x1 <= 1 (range).
+    model.constraints_starts[1] = 0;
+    model.elements_variables = {0, 1};
+    model.elements_coefficients = {1.0, -1.0};
+    model.constraints_lower_bounds[1] = 0.0;
+    model.constraints_upper_bounds[1] = 1.0;
+
+    return TestModel{"quadratic_constraint", model, {1.0, 1.0}};
+}
+
 TestModel mathoptsolverscmaketest::nonlinear_continuous_model()
 {
     // minimize (x0 - 1)^2 + exp(x1) - x1
@@ -486,6 +515,28 @@ TestModel mathoptsolverscmaketest::nonconvex_mixed_integer_model()
     model.constraints_lower_bounds[0] = 1.0;
 
     return TestModel{"nonconvex_mixed_integer", model, {4.0, 1.0}};
+}
+
+TestModel mathoptsolverscmaketest::nonconvex_quadratic_model()
+{
+    // minimize -x0^2 + 2 x0
+    // s.t.     -1 <= x0 <= 4
+    // Same concave objective as nonconvex_continuous_model, up to a
+    // constant, as a quadratic objective: the local minima are at x0 = -1
+    // (objective -3) and x0 = 4 (objective -8).
+    // Optimal: x0 = 4, objective = -8.
+    MathOptModel model(1, 0, 0);
+    model.objective_direction = ObjectiveDirection::Minimize;
+
+    model.variables_lower_bounds[0] = -1.0;
+    model.variables_upper_bounds[0] = 4.0;
+
+    model.objective_coefficients = {2.0};
+    model.objective_quadratic_elements_variables_1 = {0};
+    model.objective_quadratic_elements_variables_2 = {0};
+    model.objective_quadratic_elements_coefficients = {-1.0};
+
+    return TestModel{"nonconvex_quadratic", model, {4.0}};
 }
 
 TestModel mathoptsolverscmaketest::black_box_continuous_model()

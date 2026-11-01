@@ -21,6 +21,8 @@ enum class SolverName
     Cbc,
     Highs,
     Xpress,
+    Cplex,
+    Gurobi,
     Knitro,
     Ipopt,
     Scip,

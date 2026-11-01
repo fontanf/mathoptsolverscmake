@@ -61,6 +61,7 @@ INSTANTIATE_TEST_SUITE_P(
                 quadratic_mixed_integer_model(),
                 quadratic_infeasible_model(),
                 quadratic_mixed_integer_infeasible_model(),
+                quadratic_constraint_model(),
                 nonlinear_continuous_model(),
                 nonlinear_mixed_integer_model(),
                 nonlinear_infeasible_model(),

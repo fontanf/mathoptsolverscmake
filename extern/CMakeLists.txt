@@ -372,70 +372,86 @@ if(MATHOPTSOLVERSCMAKE_USE_XPRESS)
 endif()
 
 # IBM ILOG CPLEX Optimizer
+#
+# Only the C callable library is used. CPLEX is not downloaded: set the
+# CPLEX_HOME environment variable to the CPLEX Studio installation directory,
+# or set MATHOPTSOLVERSCMAKE_CPLEX_INCLUDE_DIR (the directory containing
+# ilcplex/cplex.h) and MATHOPTSOLVERSCMAKE_CPLEX_LIBRARY.
 
 if(MATHOPTSOLVERSCMAKE_USE_CPLEX)
-    add_library(MathOptSolversCMake_concert INTERFACE)
-    target_include_directories(MathOptSolversCMake_concert INTERFACE
-        "$ENV{CPLEX_HOME}/concert/include")
-    if(UNIX AND NOT APPLE)
-        target_compile_definitions(MathOptSolversCMake_concert INTERFACE
-            IL_STD=1)
-        target_link_directories(MathOptSolversCMake_concert INTERFACE
-            "$ENV{CPLEX_HOME}/concert/lib/x86-64_linux/static_pic/")
-        target_link_libraries(MathOptSolversCMake_concert INTERFACE
-            libconcert.a
-            libm.a
-            libpthread.a
-            libdl.a)
+    find_path(MATHOPTSOLVERSCMAKE_CPLEX_INCLUDE_DIR ilcplex/cplex.h
+        HINTS "$ENV{CPLEX_HOME}/cplex/include")
+    if(NOT MATHOPTSOLVERSCMAKE_CPLEX_LIBRARY)
+        if(WIN32)
+            file(GLOB MATHOPTSOLVERSCMAKE_CPLEX_LIBRARY_CANDIDATES
+                "$ENV{CPLEX_HOME}/cplex/lib/x64_windows_msvc14/stat_mda/cplex[0-9]*.lib")
+        else()
+            file(GLOB MATHOPTSOLVERSCMAKE_CPLEX_LIBRARY_CANDIDATES
+                "$ENV{CPLEX_HOME}/cplex/lib/*/static_pic/libcplex.a")
+        endif()
+        if(MATHOPTSOLVERSCMAKE_CPLEX_LIBRARY_CANDIDATES)
+            list(GET MATHOPTSOLVERSCMAKE_CPLEX_LIBRARY_CANDIDATES 0 MATHOPTSOLVERSCMAKE_CPLEX_LIBRARY)
+        endif()
     endif()
-    if(APPLE)
-        # TODO
+    if(NOT MATHOPTSOLVERSCMAKE_CPLEX_INCLUDE_DIR OR NOT MATHOPTSOLVERSCMAKE_CPLEX_LIBRARY)
+        message(FATAL_ERROR
+            "CPLEX not found. Set the CPLEX_HOME environment variable, or "
+            "MATHOPTSOLVERSCMAKE_CPLEX_INCLUDE_DIR and MATHOPTSOLVERSCMAKE_CPLEX_LIBRARY.")
     endif()
-    if(WIN32)
-        # TODO
-    endif()
-    add_library(MathOptSolversCMake::concert ALIAS MathOptSolversCMake_concert)
 
     add_library(MathOptSolversCMake_cplex INTERFACE)
     target_include_directories(MathOptSolversCMake_cplex INTERFACE
-        "$ENV{CPLEX_HOME}/cplex/include")
-    if(UNIX AND NOT APPLE)
-        target_link_directories(MathOptSolversCMake_cplex INTERFACE
-            "$ENV{CPLEX_HOME}/cplex/lib/x86-64_linux/static_pic/")
-        target_link_libraries(MathOptSolversCMake_cplex INTERFACE
-            libilocplex.a
-            libcplex.a)
-    endif()
-    if(APPLE)
-        # TODO
-    endif()
-    if(WIN32)
-        # TODO
-    endif()
+        "${MATHOPTSOLVERSCMAKE_CPLEX_INCLUDE_DIR}")
     target_link_libraries(MathOptSolversCMake_cplex INTERFACE
-        MathOptSolversCMake_concert)
+        "${MATHOPTSOLVERSCMAKE_CPLEX_LIBRARY}")
+    if(UNIX)
+        find_package(Threads REQUIRED)
+        target_link_libraries(MathOptSolversCMake_cplex INTERFACE
+            m
+            ${CMAKE_DL_LIBS}
+            Threads::Threads)
+    endif()
     add_library(MathOptSolversCMake::cplex ALIAS MathOptSolversCMake_cplex)
 endif()
 
 # Gurobi
+#
+# Only the C library is used. Gurobi is not downloaded: set the GUROBI_HOME
+# environment variable to the Gurobi installation directory (the one
+# containing include/ and lib/), or set MATHOPTSOLVERSCMAKE_GUROBI_INCLUDE_DIR
+# and MATHOPTSOLVERSCMAKE_GUROBI_LIBRARY.
 
 if(MATHOPTSOLVERSCMAKE_USE_GUROBI)
+    find_path(MATHOPTSOLVERSCMAKE_GUROBI_INCLUDE_DIR gurobi_c.h
+        HINTS "$ENV{GUROBI_HOME}/include")
+    if(NOT MATHOPTSOLVERSCMAKE_GUROBI_LIBRARY)
+        # The library name contains the version, e.g. libgurobi130.so.
+        if(WIN32)
+            file(GLOB MATHOPTSOLVERSCMAKE_GUROBI_LIBRARY_CANDIDATES
+                "$ENV{GUROBI_HOME}/lib/gurobi[0-9]*.lib")
+        elseif(APPLE)
+            file(GLOB MATHOPTSOLVERSCMAKE_GUROBI_LIBRARY_CANDIDATES
+                "$ENV{GUROBI_HOME}/lib/libgurobi[0-9]*.dylib")
+        else()
+            file(GLOB MATHOPTSOLVERSCMAKE_GUROBI_LIBRARY_CANDIDATES
+                "$ENV{GUROBI_HOME}/lib/libgurobi[0-9]*.so")
+        endif()
+        list(FILTER MATHOPTSOLVERSCMAKE_GUROBI_LIBRARY_CANDIDATES EXCLUDE REGEX "_light")
+        if(MATHOPTSOLVERSCMAKE_GUROBI_LIBRARY_CANDIDATES)
+            list(GET MATHOPTSOLVERSCMAKE_GUROBI_LIBRARY_CANDIDATES 0 MATHOPTSOLVERSCMAKE_GUROBI_LIBRARY)
+        endif()
+    endif()
+    if(NOT MATHOPTSOLVERSCMAKE_GUROBI_INCLUDE_DIR OR NOT MATHOPTSOLVERSCMAKE_GUROBI_LIBRARY)
+        message(FATAL_ERROR
+            "Gurobi not found. Set the GUROBI_HOME environment variable, or "
+            "MATHOPTSOLVERSCMAKE_GUROBI_INCLUDE_DIR and MATHOPTSOLVERSCMAKE_GUROBI_LIBRARY.")
+    endif()
+
     add_library(MathOptSolversCMake_gurobi INTERFACE)
     target_include_directories(MathOptSolversCMake_gurobi INTERFACE
-        "$ENV{GUROBI_HOME}/include")
-    target_link_directories(MathOptSolversCMake_gurobi INTERFACE
-        "$ENV{GUROBI_HOME}/lib/")
-    if(UNIX AND NOT APPLE)
-        target_link_libraries(MathOptSolversCMake_gurobi INTERFACE
-            libgurobi_c++.a
-            libgurobi_g++4.2.a)
-    endif()
-    if(APPLE)
-        # TODO
-    endif()
-    if(WIN32)
-        # TODO
-    endif()
+        "${MATHOPTSOLVERSCMAKE_GUROBI_INCLUDE_DIR}")
+    target_link_libraries(MathOptSolversCMake_gurobi INTERFACE
+        "${MATHOPTSOLVERSCMAKE_GUROBI_LIBRARY}")
     add_library(MathOptSolversCMake::gurobi ALIAS MathOptSolversCMake_gurobi)
 endif()
 
