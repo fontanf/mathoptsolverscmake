@@ -366,6 +366,128 @@ TestModel mathoptsolverscmaketest::nonlinear_mixed_integer_infeasible_model()
     return TestModel{"nonlinear_mixed_integer_infeasible", model, {}, false};
 }
 
+TestModel mathoptsolverscmaketest::nonlinear_operators_model()
+{
+    // minimize (sin(x0) / cos(x0) - tan(1))^2
+    //        + log(x1)^2 + (sqrt(x1) - 1)^2
+    //        + (2^x2 - 4)^2
+    //        + (tan(x3) - 1)^2
+    // s.t.     -(x0 x1 x2) >= -3
+    //          0 <= x0 <= 1.4, 0.5 <= x1 <= 3, 0 <= x2 <= 3, 0 <= x3 <= 1.2
+    // Each term only depends on one variable and has a unique minimum in
+    // its domain (tan is increasing on [0, 1.4]), where it is 0. The
+    // constraint (x0 x1 x2 = 2 <= 3) is not active.
+    // Optimal: x0 = 1, x1 = 1, x2 = 2, x3 = pi / 4, objective = 0.
+    MathOptModel model(4, 1, 0);
+    model.objective_direction = ObjectiveDirection::Minimize;
+
+    model.variables_lower_bounds[0] = 0.0;
+    model.variables_upper_bounds[0] = 1.4;
+    model.variables_lower_bounds[1] = 0.5;
+    model.variables_upper_bounds[1] = 3.0;
+    model.variables_lower_bounds[2] = 0.0;
+    model.variables_upper_bounds[2] = 3.0;
+    model.variables_lower_bounds[3] = 0.0;
+    model.variables_upper_bounds[3] = 1.2;
+
+    auto square = [](NonlinearExpression expression)
+    {
+        return nonlinear_power(expression, nonlinear_constant(2.0));
+    };
+    set_objective_nonlinear_expression(
+            model,
+            nonlinear_sum({
+                square(nonlinear_subtract(
+                        nonlinear_divide(
+                            nonlinear_sin(nonlinear_variable(0)),
+                            nonlinear_cos(nonlinear_variable(0))),
+                        nonlinear_constant(std::tan(1.0)))),
+                square(nonlinear_log(nonlinear_variable(1))),
+                square(nonlinear_subtract(
+                        nonlinear_sqrt(nonlinear_variable(1)),
+                        nonlinear_constant(1.0))),
+                square(nonlinear_subtract(
+                        nonlinear_power(nonlinear_constant(2.0), nonlinear_variable(2)),
+                        nonlinear_constant(4.0))),
+                square(nonlinear_subtract(
+                        nonlinear_tan(nonlinear_variable(3)),
+                        nonlinear_constant(1.0))),
+            }));
+
+    model.constraints_lower_bounds[0] = -3.0;
+    add_constraint_nonlinear_expression(
+            model,
+            0,
+            nonlinear_negate(nonlinear_product({
+                    nonlinear_variable(0),
+                    nonlinear_variable(1),
+                    nonlinear_variable(2)})));
+
+    return TestModel{"nonlinear_operators", model, {1.0, 1.0, 2.0, std::atan(1.0)}};
+}
+
+TestModel mathoptsolverscmaketest::nonconvex_continuous_model()
+{
+    // minimize -(x0 - 1)^2
+    // s.t.     -1 <= x0 <= 4
+    // Concave objective: the local minima are at the bounds, x0 = -1
+    // (objective -4) and x0 = 4 (objective -9). From x0 = 0, the descent
+    // direction leads to x0 = -1.
+    // Optimal: x0 = 4, objective = -9.
+    MathOptModel model(1, 0, 0);
+    model.objective_direction = ObjectiveDirection::Minimize;
+
+    model.variables_lower_bounds[0] = -1.0;
+    model.variables_upper_bounds[0] = 4.0;
+
+    set_objective_nonlinear_expression(
+            model,
+            nonlinear_negate(nonlinear_power(
+                    nonlinear_subtract(nonlinear_variable(0), nonlinear_constant(1.0)),
+                    nonlinear_constant(2.0))));
+
+    return TestModel{"nonconvex_continuous", model, {4.0}};
+}
+
+TestModel mathoptsolverscmaketest::nonconvex_mixed_integer_model()
+{
+    // minimize -(x0 - 1)^2 + (x1 - 1.4)^2, x1 integer
+    // s.t.     x0 x1 >= 1
+    //          -1 <= x0 <= 4, 0 <= x1 <= 3
+    // The bilinear constraint is non-convex and excludes x1 = 0. For x1 > 0
+    // the constraint is x0 >= 1 / x1, so x0 = 4 is always feasible and is
+    // the best value of the concave x0 term; the best integer x1 is 1
+    // (|1 - 1.4| < |2 - 1.4|).
+    // Optimal: x0 = 4, x1 = 1, objective = -9 + 0.16 = -8.84.
+    MathOptModel model(2, 1, 0);
+    model.objective_direction = ObjectiveDirection::Minimize;
+
+    model.variables_lower_bounds[0] = -1.0;
+    model.variables_upper_bounds[0] = 4.0;
+    model.variables_lower_bounds[1] = 0.0;
+    model.variables_upper_bounds[1] = 3.0;
+    model.variables_types[1] = VariableType::Integer;
+
+    set_objective_nonlinear_expression(
+            model,
+            nonlinear_sum({
+                nonlinear_negate(nonlinear_power(
+                        nonlinear_subtract(nonlinear_variable(0), nonlinear_constant(1.0)),
+                        nonlinear_constant(2.0))),
+                nonlinear_power(
+                        nonlinear_subtract(nonlinear_variable(1), nonlinear_constant(1.4)),
+                        nonlinear_constant(2.0)),
+            }));
+
+    // Constraint: x0 x1 >= 1 (quadratic term).
+    model.quadratic_elements_variables_1 = {0};
+    model.quadratic_elements_variables_2 = {1};
+    model.quadratic_elements_coefficients = {1.0};
+    model.constraints_lower_bounds[0] = 1.0;
+
+    return TestModel{"nonconvex_mixed_integer", model, {4.0, 1.0}};
+}
+
 TestModel mathoptsolverscmaketest::black_box_continuous_model()
 {
     // minimize (x0 - 3)^2 + (x1 + 2)^2

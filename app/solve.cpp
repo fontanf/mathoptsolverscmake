@@ -17,6 +17,12 @@
 #ifdef KNITRO_FOUND
 #include "mathoptsolverscmake/mathopt_knitro.hpp"
 #endif
+#ifdef IPOPT_FOUND
+#include "mathoptsolverscmake/mathopt_ipopt.hpp"
+#endif
+#ifdef SCIP_FOUND
+#include "mathoptsolverscmake/mathopt_scip.hpp"
+#endif
 
 #include <boost/program_options.hpp>
 
@@ -85,7 +91,7 @@ MathOptModel read_model(const std::string& file_path, FileFormat format)
     throw std::logic_error("unreachable");
 }
 
-/** The solver-specific dispatch; only Cbc, HiGHS, XPRESS and Knitro have a
+/** The solver-specific dispatch; only Cbc, HiGHS, XPRESS, Knitro, Ipopt and SCIP have a
  * generic load()/solve()/get_solution() interface suited to "load an
  * arbitrary file and solve it" (dlib/ConicBundle/SMS++ target narrower use
  * cases -- box-constrained, convex Lagrangian relaxation, black-box-only --
@@ -177,12 +183,42 @@ SolveResult solve_model(
         throw std::invalid_argument("solver \"Knitro\" is not available in this build.");
 #endif
         break;
+    } case SolverName::Ipopt: {
+#ifdef IPOPT_FOUND
+        IpoptModel ipopt_model;
+        if (has_time_limit)
+            set_time_limit(ipopt_model, time_limit);
+        load(ipopt_model, model);
+        solve(ipopt_model);
+        if (!is_infeasible(ipopt_model)) {
+            result.solution = get_solution(ipopt_model);
+            result.found_solution = !result.solution.empty();
+        }
+#else
+        throw std::invalid_argument("solver \"Ipopt\" is not available in this build.");
+#endif
+        break;
+    } case SolverName::Scip: {
+#ifdef SCIP_FOUND
+        ScipModel scip_model;
+        if (has_time_limit)
+            set_time_limit(scip_model, time_limit);
+        load(scip_model, model);
+        solve(scip_model);
+        result.solution = get_solution(scip_model);
+        result.found_solution = !result.solution.empty();
+        result.bound = get_bound(scip_model);
+        result.has_bound = true;
+#else
+        throw std::invalid_argument("solver \"SCIP\" is not available in this build.");
+#endif
+        break;
     } default: {
         std::ostringstream solver_name;
         solver_name << solver;
         throw std::invalid_argument(
                 "solver \"" + solver_name.str() + "\" is not supported by this tool "
-                "(only Cbc, HiGHS, XPRESS and Knitro are).");
+                "(only Cbc, HiGHS, XPRESS, Knitro, Ipopt and SCIP are).");
     }
     }
 
@@ -201,7 +237,7 @@ int main(int argc, char* argv[])
         ("help,h", "produce help message")
         ("input,i", po::value<std::string>(), "input model file (required)")
         ("format,f", po::value<FileFormat>(), "input file format: mps, lp, json or nl (guessed from the file extension if not given)")
-        ("solver,s", po::value<SolverName>(), "solver: cbc, highs, xpress or knitro (required)")
+        ("solver,s", po::value<SolverName>(), "solver: cbc, highs, xpress, knitro, ipopt or scip (required)")
         ("dual,d", po::bool_switch(), "solve the dual of the model instead of the model itself (LPs only, see mathoptsolverscmake::dual()); --output then writes the dual solution")
         ("time-limit,t", po::value<double>(), "time limit in seconds (no limit if not given)")
         ("output,o", po::value<std::string>(), "solution output file (see MathOptModel::write_solution())")

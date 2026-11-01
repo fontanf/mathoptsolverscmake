@@ -22,6 +22,8 @@ enum class SolverName
     Highs,
     Xpress,
     Knitro,
+    Ipopt,
+    Scip,
     Dlib,
     ConicBundle,
     Smspp,
