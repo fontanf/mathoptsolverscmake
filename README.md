@@ -24,6 +24,8 @@ Supported solvers:
 * Cbc (MILP) https://github.com/coin-or/Cbc
 * FICO Xpress (MILP) https://www.fico.com/en/products/fico-xpress-optimization
 * Artelys Knitro (all) https://www.artelys.com/solvers/knitro/
+* SCIP (MINLP, solved to global optimality; no black-box functions) https://www.scipopt.org/
+* Ipopt (continuous NLP, local optimality) https://github.com/coin-or/Ipopt
 * Dlib (box-constrained) https://dlib.net/
 * ConicBundle (box-constrained) https://www-user.tu-chemnitz.de/~helmberg/ConicBundle/
 
@@ -61,7 +63,7 @@ target_link_libraries(MyProject_my_target PUBLIC
 
 An optional CLI app reads a model file and solves it directly, no code required.
 It supports the MPS, LP, JSON and .nl formats (guessed from the file extension, or given with `--format`),
-and the Cbc, HiGHS, XPRESS and Knitro solvers (`--solver`), whichever were enabled at configure time.
+and the Cbc, HiGHS, XPRESS, Knitro, Ipopt and SCIP solvers (`--solver`), whichever were enabled at configure time.
 Enable it with `MATHOPTSOLVERSCMAKE_BUILD_APP`, together with the solver(s) it should be able to use:
 ```shell
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DMATHOPTSOLVERSCMAKE_USE_HIGHS=ON

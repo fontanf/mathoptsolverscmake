@@ -19,6 +19,12 @@ endif()
 if(MATHOPTSOLVERSCMAKE_USE_KNITRO)
     target_sources(MathOptSolversCMake_mathopt PRIVATE mathopt_knitro.cpp)
 endif()
+if(MATHOPTSOLVERSCMAKE_USE_IPOPT)
+    target_sources(MathOptSolversCMake_mathopt PRIVATE mathopt_ipopt.cpp)
+endif()
+if(MATHOPTSOLVERSCMAKE_USE_SCIP)
+    target_sources(MathOptSolversCMake_mathopt PRIVATE mathopt_scip.cpp)
+endif()
 if(MATHOPTSOLVERSCMAKE_USE_DLIB)
     target_sources(MathOptSolversCMake_mathopt PRIVATE mathopt_dlib.cpp)
 endif()
@@ -59,6 +65,18 @@ if(MATHOPTSOLVERSCMAKE_USE_KNITRO)
         MathOptSolversCMake_knitro)
     target_compile_definitions(MathOptSolversCMake_mathopt PUBLIC
         KNITRO_FOUND=1)
+endif()
+if(MATHOPTSOLVERSCMAKE_USE_IPOPT)
+    target_link_libraries(MathOptSolversCMake_mathopt PUBLIC
+        MathOptSolversCMake_ipopt)
+    target_compile_definitions(MathOptSolversCMake_mathopt PUBLIC
+        IPOPT_FOUND=1)
+endif()
+if(MATHOPTSOLVERSCMAKE_USE_SCIP)
+    target_link_libraries(MathOptSolversCMake_mathopt PUBLIC
+        libscip)
+    target_compile_definitions(MathOptSolversCMake_mathopt PUBLIC
+        SCIP_FOUND=1)
 endif()
 if(MATHOPTSOLVERSCMAKE_USE_CONICBUNDLE)
     target_link_libraries(MathOptSolversCMake_mathopt PUBLIC

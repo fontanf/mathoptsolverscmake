@@ -462,6 +462,163 @@ if(MATHOPTSOLVERSCMAKE_USE_KNITRO)
     add_library(MathOptSolversCMake::knitro ALIAS MathOptSolversCMake_knitro)
 endif()
 
+# Ipopt
+#
+# Used directly (MATHOPTSOLVERSCMAKE_USE_IPOPT) and/or as the NLP solver of
+# SCIP (MATHOPTSOLVERSCMAKE_SCIP_USE_IPOPT).
+#
+# Ipopt only provides official binaries for Windows. On Linux and MacOS,
+# static libraries (Ipopt + MUMPS + the gfortran runtime) are built by
+# https://github.com/fontanf/coinor-builds (scripts/ipopt_build.sh). BLAS and
+# LAPACK are not bundled and are taken from the system. To use a locally
+# built archive instead, set FETCHCONTENT_SOURCE_DIR_IPOPT to the directory
+# where it has been extracted.
+if(MATHOPTSOLVERSCMAKE_USE_IPOPT OR (MATHOPTSOLVERSCMAKE_USE_SCIP AND MATHOPTSOLVERSCMAKE_SCIP_USE_IPOPT))
+
+    if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(aarch64|arm64|ARM64)$")
+        set(MATHOPTSOLVERSCMAKE_IPOPT_ARCH arm64)
+        if(UNIX AND NOT APPLE)
+            set(MATHOPTSOLVERSCMAKE_IPOPT_ARCH aarch64)
+        endif()
+    else()
+        set(MATHOPTSOLVERSCMAKE_IPOPT_ARCH x86_64)
+    endif()
+
+    if(UNIX AND NOT APPLE)
+        if(MATHOPTSOLVERSCMAKE_IPOPT_ARCH STREQUAL "aarch64")
+            set(MATHOPTSOLVERSCMAKE_IPOPT_SHA256 735a0979a9ffe558942aff2808596c1c3cdf8b6a07715b1fd31dd151257c70a5)
+        else()
+            set(MATHOPTSOLVERSCMAKE_IPOPT_SHA256 f8a7b608f1f7edc2ca00c212708a61b12c4b9b979f5b0aaf0417d831e47950f5)
+        endif()
+        FetchContent_Declare(ipopt
+            URL https://github.com/fontanf/coinor-builds/releases/download/v0.2/Ipopt-3.14.20-linux-${MATHOPTSOLVERSCMAKE_IPOPT_ARCH}-static.tar.gz
+            URL_HASH SHA256=${MATHOPTSOLVERSCMAKE_IPOPT_SHA256}
+            CONFIGURE_COMMAND ""
+            BUILD_COMMAND "")
+        FetchContent_MakeAvailable(ipopt)
+
+        add_library(MathOptSolversCMake_ipopt STATIC IMPORTED GLOBAL)
+        set_target_properties(MathOptSolversCMake_ipopt PROPERTIES
+            IMPORTED_LOCATION "${ipopt_SOURCE_DIR}/lib/libipopt.a")
+        find_package(LAPACK REQUIRED)
+        find_package(BLAS REQUIRED)
+        find_package(Threads REQUIRED)
+        target_link_libraries(MathOptSolversCMake_ipopt INTERFACE
+            "${ipopt_SOURCE_DIR}/lib/libcoinmumps.a"
+            LAPACK::LAPACK
+            BLAS::BLAS
+            "${ipopt_SOURCE_DIR}/lib/libgfortran.a")
+        if(EXISTS "${ipopt_SOURCE_DIR}/lib/libquadmath.a")
+            target_link_libraries(MathOptSolversCMake_ipopt INTERFACE
+                "${ipopt_SOURCE_DIR}/lib/libquadmath.a")
+        endif()
+        target_link_libraries(MathOptSolversCMake_ipopt INTERFACE
+            m
+            ${CMAKE_DL_LIBS}
+            Threads::Threads)
+    endif()
+
+    if(APPLE)
+        if(MATHOPTSOLVERSCMAKE_IPOPT_ARCH STREQUAL "arm64")
+            set(MATHOPTSOLVERSCMAKE_IPOPT_SHA256 0f39cb941ab238b137e37df24fb7d811aa514f63b5fe50a3b826939c8380e76d)
+        else()
+            set(MATHOPTSOLVERSCMAKE_IPOPT_SHA256 6610c5c65cc11ca0191e04a80b1bef9335664a374f7a167fd04ec917a17cc927)
+        endif()
+        FetchContent_Declare(ipopt
+            URL https://github.com/fontanf/coinor-builds/releases/download/v0.2/Ipopt-3.14.20-macos-${MATHOPTSOLVERSCMAKE_IPOPT_ARCH}-static.tar.gz
+            URL_HASH SHA256=${MATHOPTSOLVERSCMAKE_IPOPT_SHA256}
+            CONFIGURE_COMMAND ""
+            BUILD_COMMAND "")
+        FetchContent_MakeAvailable(ipopt)
+
+        add_library(MathOptSolversCMake_ipopt STATIC IMPORTED GLOBAL)
+        set_target_properties(MathOptSolversCMake_ipopt PROPERTIES
+            IMPORTED_LOCATION "${ipopt_SOURCE_DIR}/lib/libipopt.a")
+        target_link_libraries(MathOptSolversCMake_ipopt INTERFACE
+            "${ipopt_SOURCE_DIR}/lib/libcoinmumps.a"
+            "-framework Accelerate"
+            "${ipopt_SOURCE_DIR}/lib/libgfortran.a")
+        if(EXISTS "${ipopt_SOURCE_DIR}/lib/libquadmath.a")
+            target_link_libraries(MathOptSolversCMake_ipopt INTERFACE
+                "${ipopt_SOURCE_DIR}/lib/libquadmath.a")
+        endif()
+    endif()
+
+    if(WIN32)
+        # Shared libraries: the DLLs in ${ipopt_SOURCE_DIR}/bin need to be
+        # found at runtime (e.g. copied next to the executables).
+        FetchContent_Declare(ipopt
+            URL https://github.com/coin-or/Ipopt/releases/download/releases%2F3.14.20/Ipopt-3.14.20-win64-msvs2022-md.zip
+            URL_HASH SHA256=1fd1de97d3e8e48c298f6ccf5ac91cbfc417b42c61262c08d193fd14117e9098
+            CONFIGURE_COMMAND ""
+            BUILD_COMMAND "")
+        FetchContent_MakeAvailable(ipopt)
+
+        add_library(MathOptSolversCMake_ipopt SHARED IMPORTED GLOBAL)
+        set_target_properties(MathOptSolversCMake_ipopt PROPERTIES
+            IMPORTED_LOCATION "${ipopt_SOURCE_DIR}/bin/ipopt-3.dll"
+            IMPORTED_IMPLIB "${ipopt_SOURCE_DIR}/lib/ipopt.dll.lib")
+    endif()
+
+    target_include_directories(MathOptSolversCMake_ipopt INTERFACE
+        "${ipopt_SOURCE_DIR}/include/coin-or")
+    add_library(MathOptSolversCMake::ipopt ALIAS MathOptSolversCMake_ipopt)
+endif()
+
+# SCIP (and SoPlex, its LP solver), built from source.
+#
+# Their options have generic names (SHARED, GMP, ZLIB...), so they are set in
+# a function, to keep them from leaking into the rest of this file.
+function(mathoptsolverscmake_fetch_scip)
+    set(BUILD_SHARED_LIBS OFF)
+    set(BUILD_TESTING OFF)
+    set(CMAKE_POLICY_DEFAULT_CMP0077 NEW)
+    set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+
+    # Optional dependencies, none of which is needed by MathOptSolversCMake.
+    set(ZLIB OFF)
+    set(GMP OFF)
+    set(MPFR OFF)
+    set(BOOST OFF)
+    set(PAPILO OFF)
+    set(EXACTSOLVE OFF)
+
+    # SoPlex
+    FetchContent_Declare(
+        soplex
+        URL https://github.com/scipopt/soplex/archive/refs/tags/v8.1.0.tar.gz
+        EXCLUDE_FROM_ALL)
+    FetchContent_MakeAvailable(soplex)
+
+    # SCIP
+    set(SHARED OFF)
+    set(READLINE OFF)
+    set(ZIMPL OFF)
+    set(AMPL OFF)
+    set(LPS spx)
+    set(SYM snauty)
+    # SoPlex writes its soplex-config.cmake (which refers to the libsoplex
+    # target defined above) to the top-level binary directory.
+    set(SOPLEX_DIR "${CMAKE_BINARY_DIR}")
+    if(MATHOPTSOLVERSCMAKE_SCIP_USE_IPOPT)
+        set(IPOPT ON)
+        # Make SCIP's find_package(IPOPT) find the Ipopt fetched above (see
+        # cmake/FindIPOPT.cmake) instead of searching the system.
+        list(PREPEND CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake")
+    else()
+        set(IPOPT OFF)
+    endif()
+    FetchContent_Declare(
+        scip
+        URL https://github.com/scipopt/scip/archive/refs/tags/v10.1.0.tar.gz
+        EXCLUDE_FROM_ALL)
+    FetchContent_MakeAvailable(scip)
+endfunction()
+
+if(MATHOPTSOLVERSCMAKE_USE_SCIP)
+    mathoptsolverscmake_fetch_scip()
+endif()
+
 # Fetch dlib.
 if(MATHOPTSOLVERSCMAKE_USE_DLIB)
     FetchContent_Declare(

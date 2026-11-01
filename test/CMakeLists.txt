@@ -65,6 +65,30 @@ if(MATHOPTSOLVERSCMAKE_USE_KNITRO)
     gtest_discover_tests(mathopt_knitro_test)
 endif()
 
+if(MATHOPTSOLVERSCMAKE_USE_IPOPT)
+    add_executable(mathopt_ipopt_test
+        mathopt_ipopt_test.cpp)
+    target_link_libraries(mathopt_ipopt_test PRIVATE
+        MathOptSolversCMake_test_models
+        MathOptSolversCMake::mathopt
+        GTest::gtest_main)
+
+    include(GoogleTest)
+    gtest_discover_tests(mathopt_ipopt_test)
+endif()
+
+if(MATHOPTSOLVERSCMAKE_USE_SCIP)
+    add_executable(mathopt_scip_test
+        mathopt_scip_test.cpp)
+    target_link_libraries(mathopt_scip_test PRIVATE
+        MathOptSolversCMake_test_models
+        MathOptSolversCMake::mathopt
+        GTest::gtest_main)
+
+    include(GoogleTest)
+    gtest_discover_tests(mathopt_scip_test)
+endif()
+
 if(MATHOPTSOLVERSCMAKE_USE_SMSPP)
     add_executable(mathopt_smspp_test
         mathopt_smspp_test.cpp)

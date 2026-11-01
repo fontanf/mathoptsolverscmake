@@ -53,6 +53,19 @@ TestModel nonlinear_mixed_integer_model();
 TestModel nonlinear_infeasible_model();
 TestModel nonlinear_mixed_integer_infeasible_model();
 
+/*
+ * A continuous model whose expression trees use every nonlinear operator,
+ * to check derivatives and conversions to solver expressions.
+ */
+TestModel nonlinear_operators_model();
+
+/*
+ * Non-convex models with several local optima: a local solver started from
+ * the origin converges to a local optimum which is not the global one.
+ */
+TestModel nonconvex_continuous_model();
+TestModel nonconvex_mixed_integer_model();
+
 TestModel black_box_continuous_model();
 TestModel black_box_convex_model();
 TestModel black_box_mixed_integer_model();

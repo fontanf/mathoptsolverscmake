@@ -30,6 +30,14 @@ std::istream& mathoptsolverscmake::operator>>(
     } else if (token == "Knitro"
             || token == "knitro") {
         solver_name = SolverName::Knitro;
+    } else if (token == "ipopt"
+            || token == "Ipopt"
+            || token == "IPOPT") {
+        solver_name = SolverName::Ipopt;
+    } else if (token == "scip"
+            || token == "Scip"
+            || token == "SCIP") {
+        solver_name = SolverName::Scip;
     } else if (token == "dlib") {
         solver_name = SolverName::Dlib;
     } else if (token == "ConicBundle"
@@ -60,6 +68,12 @@ std::ostream& mathoptsolverscmake::operator<<(
         break;
     } case SolverName::Knitro: {
         os << "Knitro";
+        break;
+    } case SolverName::Ipopt: {
+        os << "Ipopt";
+        break;
+    } case SolverName::Scip: {
+        os << "SCIP";
         break;
     } case SolverName::Dlib: {
         os << "dlib";
