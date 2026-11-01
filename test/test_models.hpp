@@ -47,6 +47,7 @@ TestModel quadratic_continuous_model();
 TestModel quadratic_mixed_integer_model();
 TestModel quadratic_infeasible_model();
 TestModel quadratic_mixed_integer_infeasible_model();
+TestModel quadratic_constraint_model();
 
 TestModel nonlinear_continuous_model();
 TestModel nonlinear_mixed_integer_model();
@@ -65,6 +66,7 @@ TestModel nonlinear_operators_model();
  */
 TestModel nonconvex_continuous_model();
 TestModel nonconvex_mixed_integer_model();
+TestModel nonconvex_quadratic_model();
 
 TestModel black_box_continuous_model();
 TestModel black_box_convex_model();

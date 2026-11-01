@@ -23,6 +23,8 @@ Supported solvers:
 * HiGHS (MILP) https://highs.dev/
 * Cbc (MILP) https://github.com/coin-or/Cbc
 * FICO Xpress (MILP) https://www.fico.com/en/products/fico-xpress-optimization
+* IBM ILOG CPLEX (MIQP; non-convex quadratic objectives solved to global optimality) https://www.ibm.com/products/ilog-cplex-optimization-studio
+* Gurobi (MINLP, solved to global optimality; no black-box functions) https://www.gurobi.com/
 * Artelys Knitro (all) https://www.artelys.com/solvers/knitro/
 * SCIP (MINLP, solved to global optimality; no black-box functions) https://www.scipopt.org/
 * Ipopt (continuous NLP, local optimality) https://github.com/coin-or/Ipopt
@@ -63,7 +65,7 @@ target_link_libraries(MyProject_my_target PUBLIC
 
 An optional CLI app reads a model file and solves it directly, no code required.
 It supports the MPS, LP, JSON and .nl formats (guessed from the file extension, or given with `--format`),
-and the Cbc, HiGHS, XPRESS, Knitro, Ipopt and SCIP solvers (`--solver`), whichever were enabled at configure time.
+and the Cbc, HiGHS, XPRESS, CPLEX, Gurobi, Knitro, Ipopt and SCIP solvers (`--solver`), whichever were enabled at configure time.
 Enable it with `MATHOPTSOLVERSCMAKE_BUILD_APP`, together with the solver(s) it should be able to use:
 ```shell
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DMATHOPTSOLVERSCMAKE_USE_HIGHS=ON
