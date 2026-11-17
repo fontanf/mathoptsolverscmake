@@ -92,7 +92,9 @@ INSTANTIATE_TEST_SUITE_P(
                 linear_mixed_integer_model(),
                 opposite_objective_direction(linear_mixed_integer_model()),
                 linear_infeasible_model(),
-                linear_mixed_integer_infeasible_model()),
+                opposite_objective_direction(linear_infeasible_model()),
+                linear_mixed_integer_infeasible_model(),
+                opposite_objective_direction(linear_mixed_integer_infeasible_model())),
         [](const testing::TestParamInfo<TestModel>& info)
         {
             return info.param.name;
