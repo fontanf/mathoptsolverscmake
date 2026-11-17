@@ -158,12 +158,37 @@ int mathoptsolverscmake::get_number_of_nodes(
     return get_number_of_nodes(cbc_model.model);
 }
 
+namespace
+{
+
+/**
+ * Get the objective sense of the model: 1 to minimize, -1 to maximize.
+ *
+ * During branchAndBound, Cbc turns a maximization problem into a
+ * minimization problem: the objective sense of the solver is then 1 and the
+ * objective values are negated ('modelFlipped()'). This happens in event
+ * handlers. The model is restored at the end of branchAndBound.
+ *
+ * 'CbcModel::getObjSense()' isn't used since, for a maximization problem, it
+ * is still 1 after branchAndBound.
+ */
+double objective_sense(
+        const ::CbcModel& cbc_model)
+{
+    double solver_objective_sense = cbc_model.solver()->getObjSense();
+    return (cbc_model.modelFlipped())?
+        -solver_objective_sense:
+        solver_objective_sense;
+}
+
+}
+
 double mathoptsolverscmake::get_solution_value(
         const ::CbcModel& cbc_model)
 {
     if (cbc_model.bestSolution() == nullptr)
-        return cbc_model.getObjSense() * std::numeric_limits<double>::infinity();
-    return cbc_model.getObjValue();
+        return objective_sense(cbc_model) * std::numeric_limits<double>::infinity();
+    return cbc_model.trueObjValue(cbc_model.getObjValue());
 }
 
 std::vector<double> mathoptsolverscmake::get_solution(
@@ -179,7 +204,7 @@ std::vector<double> mathoptsolverscmake::get_solution(
 double mathoptsolverscmake::get_bound(
         const ::CbcModel& cbc_model)
 {
-    return cbc_model.getBestPossibleObjValue();
+    return cbc_model.trueObjValue(cbc_model.getBestPossibleObjValue());
 }
 
 int mathoptsolverscmake::get_number_of_nodes(
