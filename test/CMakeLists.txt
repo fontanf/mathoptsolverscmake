@@ -53,6 +53,18 @@ target_link_libraries(mathopt_nl_test PRIVATE
 include(GoogleTest)
 gtest_discover_tests(mathopt_nl_test)
 
+if(MATHOPTSOLVERSCMAKE_USE_HIGHS)
+    add_executable(mathopt_highs_test
+        mathopt_highs_test.cpp)
+    target_link_libraries(mathopt_highs_test PRIVATE
+        MathOptSolversCMake_test_models
+        MathOptSolversCMake::mathopt
+        GTest::gtest_main)
+
+    include(GoogleTest)
+    gtest_discover_tests(mathopt_highs_test)
+endif()
+
 if(MATHOPTSOLVERSCMAKE_USE_CBC)
     add_executable(mathopt_cbc_test
         mathopt_cbc_test.cpp)

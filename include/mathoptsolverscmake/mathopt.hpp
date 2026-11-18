@@ -403,7 +403,16 @@ struct MathOptModel
      * Other parameters
      */
 
+    /**
+     * Feasibility tolerance, used to check solutions and passed to the
+     * solvers. With 0, the solvers keep their own default tolerance.
+     */
     double feasibility_tolerance = 0.0;
+
+    /**
+     * Integrality tolerance, used to check solutions and passed to the
+     * solvers. With 0, the solvers keep their own default tolerance.
+     */
     double integrality_tolerance = 0.0;
 };
 
