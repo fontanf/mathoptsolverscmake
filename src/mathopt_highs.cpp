@@ -92,13 +92,18 @@ void mathoptsolverscmake::load(
         highs_model.setSolution(highs_solution);
     }
 
-    // Set tolerances.
-    highs_model.setOptionValue(
-            "primal_feasibility_tolerance",
-            model.feasibility_tolerance);
-    highs_model.setOptionValue(
-            "mip_feasibility_tolerance",
-            model.integrality_tolerance);
+    // Set tolerances. A tolerance of 0 (the default of the model) means the
+    // default of HiGHS; HiGHS rejects 0.
+    if (model.feasibility_tolerance > 0) {
+        highs_model.setOptionValue(
+                "primal_feasibility_tolerance",
+                model.feasibility_tolerance);
+    }
+    if (model.integrality_tolerance > 0) {
+        highs_model.setOptionValue(
+                "mip_feasibility_tolerance",
+                model.integrality_tolerance);
+    }
 }
 
 void mathoptsolverscmake::reduce_printout(
