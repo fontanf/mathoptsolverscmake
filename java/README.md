@@ -106,6 +106,8 @@ mvn test -Dmathoptmodel.library.path=$PWD/../build_java/src/libmathoptmodel.so
 To bundle native libraries in the jar, put them in
 `java/natives/<platform>/` (`linux-x86-64`, `linux-aarch64`, `macos-x86-64`,
 `macos-aarch64`, `windows-x86-64`) before `mvn package`; this is what
-`.github/workflows/java.yml` does. At run time, the library is loaded from the
+`.github/workflows/java.yml` does. Pushing a `v*` tag publishes the jar to
+Maven Central, with the version of the tag (which must match the Python
+package's `python/mathoptmodel/_version.py`). At run time, the library is loaded from the
 `mathoptmodel.library.path` system property if set, otherwise from the jar,
 otherwise from the system's library path.
