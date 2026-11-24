@@ -1465,10 +1465,12 @@ bool MathOptModel::check(int verbosity_level) const
     }
 
     // Check elements_variables validity and duplicate variables per constraint.
+    // 'seen' is shared by all constraints and reset after each one, so that the
+    // check is linear in the number of elements.
+    std::vector<bool> seen(this->number_of_variables(), false);
     for (int constraint_id = 0; constraint_id < this->number_of_constraints(); ++constraint_id) {
         int start = this->constraints_starts[constraint_id];
         int end = this->constraint_end(constraint_id);
-        std::vector<bool> seen(this->number_of_variables(), false);
         for (int element_id = start; element_id < end; ++element_id) {
             int variable_id = this->elements_variables[element_id];
             if (variable_id < 0 || variable_id >= this->number_of_variables()) {
@@ -1488,6 +1490,11 @@ bool MathOptModel::check(int verbosity_level) const
                 ok = false;
             }
             seen[variable_id] = true;
+        }
+        for (int element_id = start; element_id < end; ++element_id) {
+            int variable_id = this->elements_variables[element_id];
+            if (variable_id >= 0 && variable_id < this->number_of_variables())
+                seen[variable_id] = false;
         }
     }
 
