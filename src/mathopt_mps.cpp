@@ -1,13 +1,13 @@
 #include "mathoptsolverscmake/mathopt_mps.hpp"
 
+#include "text_output.hpp"
+
 #include <cmath>
 #include <cstdlib>
 #include <cctype>
 #include <fstream>
-#include <iomanip>
 #include <limits>
 #include <map>
-#include <set>
 #include <sstream>
 #include <stdexcept>
 #include <unordered_map>
@@ -752,34 +752,40 @@ void mathoptsolverscmake::write_mps(
     int number_of_variables = model.number_of_variables();
     int number_of_constraints = model.number_of_constraints();
 
-    std::vector<std::string> variable_names(number_of_variables);
-    for (int variable_id = 0; variable_id < number_of_variables; ++variable_id) {
-        variable_names[variable_id] = model.variable_name(variable_id);
-        check_mps_name(variable_names[variable_id]);
-    }
-    std::vector<std::string> constraint_names(number_of_constraints);
-    std::set<std::string> used_row_names;
-    for (int constraint_id = 0; constraint_id < number_of_constraints; ++constraint_id) {
-        constraint_names[constraint_id] = model.constraint_name(constraint_id);
-        check_mps_name(constraint_names[constraint_id]);
-        used_row_names.insert(constraint_names[constraint_id]);
-    }
-    // Avoid a name clash with a constraint that happens to be named "COST".
+    // Check the model's names (the default ones, "x<id>" and "c<id>", are
+    // always valid) before writing anything.
+    for (const std::string& name: model.variables_names)
+        check_mps_name(name);
+    for (const std::string& name: model.constraints_names)
+        check_mps_name(name);
+    text_output::Names variable_names(model.variables_names, 'x');
+    text_output::Names constraint_names(model.constraints_names, 'c');
+
+    // Avoid a name clash with a constraint that happens to be named "COST"
+    // (the default constraint names, "c<id>", never clash).
     std::string objective_row_name = "COST";
-    while (used_row_names.count(objective_row_name))
-        objective_row_name += "_";
+    for (bool clash = true; clash; ) {
+        clash = false;
+        for (const std::string& name: model.constraints_names) {
+            if (name == objective_row_name) {
+                objective_row_name += "_";
+                clash = true;
+                break;
+            }
+        }
+    }
 
-    out << std::setprecision(17);
+    text_output::TextOutput output(out);
 
-    out << "NAME\n";
+    output << "NAME\n";
 
     if (model.objective_direction == ObjectiveDirection::Maximize) {
-        out << "OBJSENSE\n"
+        output << "OBJSENSE\n"
             << " MAX\n";
     }
 
     // ROWS.
-    out << "ROWS\n"
+    output << "ROWS\n"
         << " N  " << objective_row_name << "\n";
     std::vector<char> row_types(number_of_constraints);
     for (int constraint_id = 0; constraint_id < number_of_constraints; ++constraint_id) {
@@ -797,130 +803,178 @@ void mathoptsolverscmake::write_mps(
         case ConstraintSense::Free: row_type = 'N'; break;
         }
         row_types[constraint_id] = row_type;
-        out << " " << row_type << "  " << constraint_names[constraint_id] << "\n";
+        output << ' ' << row_type << "  ";
+        constraint_names.write(output, constraint_id);
+        output << '\n';
     }
 
-    // COLUMNS: invert the row-wise matrix into per-column nonzero lists.
-    std::vector<std::vector<std::pair<int, double>>> column_entries(number_of_variables);
-    for (int constraint_id = 0; constraint_id < number_of_constraints; ++constraint_id) {
-        for (int element_id = model.constraints_starts[constraint_id];
-                element_id < model.constraint_end(constraint_id);
-                ++element_id) {
-            double coefficient = model.elements_coefficients[element_id];
-            if (coefficient == 0.0)
-                continue;
-            column_entries[model.elements_variables[element_id]].push_back(
-                    std::make_pair(constraint_id, coefficient));
+    // COLUMNS: transpose the row-wise matrix (its nonzero coefficients),
+    // keeping each column's entries in constraint order.
+    std::vector<int> column_starts(number_of_variables + 1, 0);
+    for (int element_id = 0; element_id < model.number_of_elements(); ++element_id)
+        if (model.elements_coefficients[element_id] != 0.0)
+            ++column_starts[model.elements_variables[element_id] + 1];
+    for (int variable_id = 0; variable_id < number_of_variables; ++variable_id)
+        column_starts[variable_id + 1] += column_starts[variable_id];
+    std::vector<int> column_constraints(column_starts[number_of_variables]);
+    std::vector<double> column_coefficients(column_starts[number_of_variables]);
+    {
+        std::vector<int> positions(column_starts.begin(), column_starts.end() - 1);
+        for (int constraint_id = 0; constraint_id < number_of_constraints; ++constraint_id) {
+            for (int element_id = model.constraints_starts[constraint_id];
+                    element_id < model.constraint_end(constraint_id);
+                    ++element_id) {
+                double coefficient = model.elements_coefficients[element_id];
+                if (coefficient == 0.0)
+                    continue;
+                int position = positions[model.elements_variables[element_id]]++;
+                column_constraints[position] = constraint_id;
+                column_coefficients[position] = coefficient;
+            }
         }
     }
 
-    out << "COLUMNS\n";
+    output << "COLUMNS\n";
     bool in_integer_marker_section = false;
     for (int variable_id = 0; variable_id < number_of_variables; ++variable_id) {
         bool is_integer = (model.variables_types[variable_id] != VariableType::Continuous);
         if (is_integer != in_integer_marker_section) {
-            out << "    MARKER    'MARKER'                 '"
+            output << "    MARKER    'MARKER'                 '"
                 << (is_integer? "INTORG": "INTEND") << "'\n";
             in_integer_marker_section = is_integer;
         }
 
-        // Every variable must appear at least once in COLUMNS, even with
-        // an all-zero column, or read_mps() would not create it at all.
-        std::vector<std::pair<std::string, double>> pairs;
+        // The column's entries: the objective coefficient (if non-zero), then
+        // the constraints' ones, two per line. Every variable must appear at
+        // least once in COLUMNS, even with an all-zero column, or read_mps()
+        // would not create it at all.
         double objective_coefficient = model.objective_coefficients[variable_id];
-        if (objective_coefficient != 0.0)
-            pairs.push_back(std::make_pair(objective_row_name, objective_coefficient));
-        for (const auto& entry: column_entries[variable_id])
-            pairs.push_back(std::make_pair(constraint_names[entry.first], entry.second));
-        if (pairs.empty())
-            pairs.push_back(std::make_pair(objective_row_name, 0.0));
-
-        for (size_t pair_id = 0; pair_id < pairs.size(); pair_id += 2) {
-            out << "    " << variable_names[variable_id]
-                << "  " << pairs[pair_id].first << "  " << pairs[pair_id].second;
-            if (pair_id + 1 < pairs.size())
-                out << "  " << pairs[pair_id + 1].first << "  " << pairs[pair_id + 1].second;
-            out << "\n";
+        bool has_objective = (objective_coefficient != 0.0);
+        int begin = column_starts[variable_id];
+        int end = column_starts[variable_id + 1];
+        int number_of_entries = (has_objective? 1: 0) + (end - begin);
+        if (number_of_entries == 0) {
+            has_objective = true;
+            number_of_entries = 1;
+        }
+        for (int entry_id = 0; entry_id < number_of_entries; ++entry_id) {
+            if (entry_id % 2 == 0) {
+                output << "    ";
+                variable_names.write(output, variable_id);
+            }
+            output << "  ";
+            if (has_objective && entry_id == 0) {
+                output << objective_row_name << "  ";
+                output.number(objective_coefficient);
+            } else {
+                int position = begin + entry_id - (has_objective? 1: 0);
+                constraint_names.write(output, column_constraints[position]);
+                output << "  ";
+                output.number(column_coefficients[position]);
+            }
+            if (entry_id % 2 == 1 || entry_id + 1 == number_of_entries)
+                output << '\n';
         }
     }
     if (in_integer_marker_section)
-        out << "    MARKER    'MARKER'                 'INTEND'\n";
+        output << "    MARKER    'MARKER'                 'INTEND'\n";
 
-    // RHS.
-    out << "RHS\n";
-    std::vector<std::pair<std::string, double>> rhs_pairs;
+    // RHS, two entries per line ('N' rows, free, have none).
+    output << "RHS\n";
+    int number_of_rhs = 0;
     for (int constraint_id = 0; constraint_id < number_of_constraints; ++constraint_id) {
-        double lower = model.constraints_lower_bounds[constraint_id];
-        double upper = model.constraints_upper_bounds[constraint_id];
-        switch (row_types[constraint_id]) {
-        case 'L': rhs_pairs.push_back(std::make_pair(constraint_names[constraint_id], upper)); break;
-        case 'G': rhs_pairs.push_back(std::make_pair(constraint_names[constraint_id], lower)); break;
-        case 'E': rhs_pairs.push_back(std::make_pair(constraint_names[constraint_id], lower)); break;
-        default: break; // 'N': free row, no RHS.
-        }
+        char row_type = row_types[constraint_id];
+        if (row_type == 'N')
+            continue;
+        double value = (row_type == 'L')?
+            model.constraints_upper_bounds[constraint_id]:
+            model.constraints_lower_bounds[constraint_id];
+        output << ((number_of_rhs % 2 == 0)? "    RHS       ": "  ");
+        constraint_names.write(output, constraint_id);
+        output << "  ";
+        output.number(value);
+        if (number_of_rhs % 2 == 1)
+            output << '\n';
+        ++number_of_rhs;
     }
-    for (size_t pair_id = 0; pair_id < rhs_pairs.size(); pair_id += 2) {
-        out << "    RHS       " << rhs_pairs[pair_id].first << "  " << rhs_pairs[pair_id].second;
-        if (pair_id + 1 < rhs_pairs.size())
-            out << "  " << rhs_pairs[pair_id + 1].first << "  " << rhs_pairs[pair_id + 1].second;
-        out << "\n";
-    }
+    if (number_of_rhs % 2 == 1)
+        output << '\n';
 
-    // RANGES: only range constraints need one.
-    std::vector<std::pair<std::string, double>> range_pairs;
+    // RANGES: only range constraints need one, two entries per line.
+    int number_of_ranges = 0;
     for (int constraint_id = 0; constraint_id < number_of_constraints; ++constraint_id) {
         if (model.constraint_sense(constraint_id) != ConstraintSense::Range)
             continue;
+        if (number_of_ranges == 0)
+            output << "RANGES\n";
         double range = model.constraints_upper_bounds[constraint_id] - model.constraints_lower_bounds[constraint_id];
-        range_pairs.push_back(std::make_pair(constraint_names[constraint_id], range));
+        output << ((number_of_ranges % 2 == 0)? "    RNG       ": "  ");
+        constraint_names.write(output, constraint_id);
+        output << "  ";
+        output.number(range);
+        if (number_of_ranges % 2 == 1)
+            output << '\n';
+        ++number_of_ranges;
     }
-    if (!range_pairs.empty()) {
-        out << "RANGES\n";
-        for (size_t pair_id = 0; pair_id < range_pairs.size(); pair_id += 2) {
-            out << "    RNG       " << range_pairs[pair_id].first << "  " << range_pairs[pair_id].second;
-            if (pair_id + 1 < range_pairs.size())
-                out << "  " << range_pairs[pair_id + 1].first << "  " << range_pairs[pair_id + 1].second;
-            out << "\n";
-        }
-    }
+    if (number_of_ranges % 2 == 1)
+        output << '\n';
 
     // BOUNDS: only variables that deviate from the applicable MPS default
     // (continuous [0, +inf), or [0, 1] for a variable wrapped in an
     // INTORG/INTEND marker) need an entry.
-    std::ostringstream bounds_stream;
-    bounds_stream << std::setprecision(17);
     bool has_bounds = false;
     for (int variable_id = 0; variable_id < number_of_variables; ++variable_id) {
         double lower = model.variables_lower_bounds[variable_id];
         double upper = model.variables_upper_bounds[variable_id];
         bool is_integer = (model.variables_types[variable_id] != VariableType::Continuous);
-        const std::string& name = variable_names[variable_id];
 
         if (!is_integer && lower == 0.0 && upper == inf)
             continue;
-        has_bounds = true;
+        if (!has_bounds) {
+            output << "BOUNDS\n";
+            has_bounds = true;
+        }
 
         if (is_integer && lower == 0.0 && upper == 1.0) {
-            bounds_stream << " BV BND       " << name << "\n";
+            output << " BV BND       ";
+            variable_names.write(output, variable_id);
+            output << '\n';
         } else if (lower == -inf && upper == inf) {
-            bounds_stream << " FR BND       " << name << "\n";
+            output << " FR BND       ";
+            variable_names.write(output, variable_id);
+            output << '\n';
         } else if (lower == upper) {
-            bounds_stream << " FX BND       " << name << "  " << lower << "\n";
+            output << " FX BND       ";
+            variable_names.write(output, variable_id);
+            output << "  ";
+            output.number(lower);
+            output << '\n';
         } else {
-            if (lower == -inf)
-                bounds_stream << " MI BND       " << name << "\n";
-            else if (lower != 0.0)
-                bounds_stream << " LO BND       " << name << "  " << lower << "\n";
-            if (upper == inf)
-                bounds_stream << " PL BND       " << name << "\n";
-            else
-                bounds_stream << " UP BND       " << name << "  " << upper << "\n";
+            if (lower == -inf) {
+                output << " MI BND       ";
+                variable_names.write(output, variable_id);
+                output << '\n';
+            } else if (lower != 0.0) {
+                output << " LO BND       ";
+                variable_names.write(output, variable_id);
+                output << "  ";
+                output.number(lower);
+                output << '\n';
+            }
+            if (upper == inf) {
+                output << " PL BND       ";
+                variable_names.write(output, variable_id);
+                output << '\n';
+            } else {
+                output << " UP BND       ";
+                variable_names.write(output, variable_id);
+                output << "  ";
+                output.number(upper);
+                output << '\n';
+            }
         }
     }
-    if (has_bounds) {
-        out << "BOUNDS\n"
-            << bounds_stream.str();
-    }
 
-    out << "ENDATA\n";
+    output << "ENDATA\n";
+    output.flush();
 }

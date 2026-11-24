@@ -1,9 +1,10 @@
 #include "mathoptsolverscmake/mathopt_lp.hpp"
 
+#include "text_output.hpp"
+
 #include <cctype>
 #include <cstdlib>
 #include <fstream>
-#include <iomanip>
 #include <iterator>
 #include <limits>
 #include <stdexcept>
@@ -662,11 +663,12 @@ bool is_valid_number_literal(const std::string& s)
  */
 void check_lp_name(const std::string& name, bool allow_numeric = false)
 {
-    if (allow_numeric && is_valid_number_literal(name))
-        return;
     bool ok = !name.empty() && is_identifier_start(name[0]);
     for (size_t i = 1; ok && i < name.size(); ++i)
         ok = is_identifier_char(name[i]);
+    // Only run the tokenizer for the names that aren't identifiers.
+    if (!ok && allow_numeric && is_valid_number_literal(name))
+        return;
     if (!ok) {
         throw std::invalid_argument(
                 FUNC_SIGNATURE + ": "
@@ -676,32 +678,46 @@ void check_lp_name(const std::string& name, bool allow_numeric = false)
     }
 }
 
-void write_value(std::ostream& out, double value)
+using text_output::TextOutput;
+using text_output::Names;
+
+/** A bound: a number, or "infinity" / "-infinity". */
+void write_value(TextOutput& out, double value)
 {
-    if (value == inf) out << "infinity";
-    else if (value == -inf) out << "-infinity";
-    else out << value;
+    if (value == inf)
+        out << "infinity";
+    else if (value == -inf)
+        out << "-infinity";
+    else
+        out.number(value);
 }
 
-void write_term(std::ostream& out, double coefficient, const std::string& name)
+void write_term(
+        TextOutput& out,
+        double coefficient,
+        const Names& names,
+        int variable_id)
 {
-    out << " ";
+    out << ' ';
     if (coefficient == 1.0) {
-        out << "+";
+        out << '+';
     } else if (coefficient == -1.0) {
-        out << "-";
+        out << '-';
     } else if (coefficient >= 0.0) {
-        out << "+" << coefficient;
+        out << '+';
+        out.number(coefficient);
     } else {
-        out << "-" << -coefficient;
+        out << '-';
+        out.number(-coefficient);
     }
-    out << " " << name;
+    out << ' ';
+    names.write(out, variable_id);
 }
 
 void write_expression(
-        std::ostream& out,
+        TextOutput& out,
         const MathOptModel& model,
-        const std::vector<std::string>& variable_names,
+        const Names& variable_names,
         int start,
         int end)
 {
@@ -709,7 +725,7 @@ void write_expression(
         double coefficient = model.elements_coefficients[element_id];
         if (coefficient == 0.0)
             continue;
-        write_term(out, coefficient, variable_names[model.elements_variables[element_id]]);
+        write_term(out, coefficient, variable_names, model.elements_variables[element_id]);
     }
 }
 
@@ -762,73 +778,78 @@ void mathoptsolverscmake::write_lp(
     int number_of_variables = model.number_of_variables();
     int number_of_constraints = model.number_of_constraints();
 
-    std::vector<std::string> variable_names(number_of_variables);
-    for (int variable_id = 0; variable_id < number_of_variables; ++variable_id) {
-        variable_names[variable_id] = model.variable_name(variable_id);
-        check_lp_name(variable_names[variable_id]);
+    // Check the model's names (the default ones, "x<id>" and "c<id>", are
+    // always valid) before writing anything.
+    if (!model.variables_names.empty()) {
+        for (int variable_id = 0; variable_id < number_of_variables; ++variable_id)
+            check_lp_name(model.variables_names[variable_id]);
     }
-    std::vector<std::string> constraint_names(number_of_constraints);
-    for (int constraint_id = 0; constraint_id < number_of_constraints; ++constraint_id) {
-        constraint_names[constraint_id] = model.constraint_name(constraint_id);
-        check_lp_name(constraint_names[constraint_id], /* allow_numeric = */ true);
+    if (!model.constraints_names.empty()) {
+        for (int constraint_id = 0; constraint_id < number_of_constraints; ++constraint_id)
+            check_lp_name(model.constraints_names[constraint_id], /* allow_numeric = */ true);
     }
+    Names variable_names(model.variables_names, 'x');
+    Names constraint_names(model.constraints_names, 'c');
 
-    out << std::setprecision(17);
+    TextOutput output(out);
 
-    out << (model.objective_direction == ObjectiveDirection::Maximize? "Maximize": "Minimize") << "\n";
-    out << " obj:";
+    output << (model.objective_direction == ObjectiveDirection::Maximize? "Maximize": "Minimize") << "\n";
+    output << " obj:";
     for (int variable_id = 0; variable_id < number_of_variables; ++variable_id) {
         double coefficient = model.objective_coefficients[variable_id];
         if (coefficient != 0.0)
-            write_term(out, coefficient, variable_names[variable_id]);
+            write_term(output, coefficient, variable_names, variable_id);
     }
-    out << "\n";
+    output << "\n";
 
-    out << "Subject To\n";
+    output << "Subject To\n";
     for (int constraint_id = 0; constraint_id < number_of_constraints; ++constraint_id) {
+        ConstraintSense sense = model.constraint_sense(constraint_id);
         // A range needs its lower bound written between the label and the
         // expression, as "name: lo <= expr <= up" (read_lp() expects the
         // label first); every other sense has a single bound written after.
-        out << " " << constraint_names[constraint_id] << ":";
-        if (model.constraint_sense(constraint_id) == ConstraintSense::Range) {
-            out << " ";
-            write_value(out, model.constraints_lower_bounds[constraint_id]);
-            out << " <=";
+        output << ' ';
+        constraint_names.write(output, constraint_id);
+        output << ':';
+        if (sense == ConstraintSense::Range) {
+            output << ' ';
+            write_value(output, model.constraints_lower_bounds[constraint_id]);
+            output << " <=";
         }
         write_expression(
-                out,
+                output,
                 model,
                 variable_names,
                 model.constraints_starts[constraint_id],
                 model.constraint_end(constraint_id));
 
-        switch (model.constraint_sense(constraint_id)) {
+        switch (sense) {
         case ConstraintSense::LessThanOrEqualTo: {
-            out << " <=";
-            write_value(out, model.constraints_upper_bounds[constraint_id]);
+            output << " <=";
+            write_value(output, model.constraints_upper_bounds[constraint_id]);
             break;
         } case ConstraintSense::GreaterThanOrEqualTo: {
-            out << " >=";
-            write_value(out, model.constraints_lower_bounds[constraint_id]);
+            output << " >=";
+            write_value(output, model.constraints_lower_bounds[constraint_id]);
             break;
         } case ConstraintSense::Equality: {
-            out << " =";
-            write_value(out, model.constraints_lower_bounds[constraint_id]);
+            output << " =";
+            write_value(output, model.constraints_lower_bounds[constraint_id]);
             break;
         } case ConstraintSense::Range: {
-            out << " <=";
-            write_value(out, model.constraints_upper_bounds[constraint_id]);
+            output << " <=";
+            write_value(output, model.constraints_upper_bounds[constraint_id]);
             break;
         } case ConstraintSense::Free: {
             // .lp has no direct syntax for an unconstrained row.
-            out << " >= -infinity";
+            output << " >= -infinity";
             break;
         }
         }
-        out << "\n";
+        output << '\n';
     }
 
-    out << "Bounds\n";
+    output << "Bounds\n";
     for (int variable_id = 0; variable_id < number_of_variables; ++variable_id) {
         double lower = model.variables_lower_bounds[variable_id];
         double upper = model.variables_upper_bounds[variable_id];
@@ -839,22 +860,27 @@ void mathoptsolverscmake::write_lp(
             continue;
 
         if (lower == -inf && upper == inf) {
-            out << " " << variable_names[variable_id] << " free\n";
+            output << ' ';
+            variable_names.write(output, variable_id);
+            output << " free\n";
         } else if (lower == upper) {
-            out << " " << variable_names[variable_id] << " =";
-            write_value(out, lower);
-            out << "\n";
+            output << ' ';
+            variable_names.write(output, variable_id);
+            output << " =";
+            write_value(output, lower);
+            output << '\n';
         } else {
             if (lower != 0.0) {
-                write_value(out, lower);
-                out << " <=";
+                write_value(output, lower);
+                output << " <=";
             }
-            out << " " << variable_names[variable_id];
+            output << ' ';
+            variable_names.write(output, variable_id);
             if (upper != inf) {
-                out << " <=";
-                write_value(out, upper);
+                output << " <=";
+                write_value(output, upper);
             }
-            out << "\n";
+            output << '\n';
         }
     }
 
@@ -867,19 +893,26 @@ void mathoptsolverscmake::write_lp(
             has_binary = true;
     }
     if (has_general) {
-        out << "General\n";
+        output << "General\n";
         for (int variable_id = 0; variable_id < number_of_variables; ++variable_id) {
-            if (model.variables_types[variable_id] == VariableType::Integer)
-                out << " " << variable_names[variable_id] << "\n";
+            if (model.variables_types[variable_id] == VariableType::Integer) {
+                output << ' ';
+                variable_names.write(output, variable_id);
+                output << '\n';
+            }
         }
     }
     if (has_binary) {
-        out << "Binary\n";
+        output << "Binary\n";
         for (int variable_id = 0; variable_id < number_of_variables; ++variable_id) {
-            if (model.variables_types[variable_id] == VariableType::Binary)
-                out << " " << variable_names[variable_id] << "\n";
+            if (model.variables_types[variable_id] == VariableType::Binary) {
+                output << ' ';
+                variable_names.write(output, variable_id);
+                output << '\n';
+            }
         }
     }
 
-    out << "End\n";
+    output << "End\n";
+    output.flush();
 }

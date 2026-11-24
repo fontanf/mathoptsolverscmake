@@ -1,11 +1,13 @@
 #include "mathoptsolverscmake/mathopt_nl.hpp"
 
+#include "text_output.hpp"
+
 #include <algorithm>
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
+#include <initializer_list>
 #include <fstream>
-#include <iomanip>
 #include <limits>
 #include <sstream>
 #include <stdexcept>
@@ -604,14 +606,16 @@ struct ExpressionArrays
     const std::vector<int>& number_of_children;
 };
 
+using text_output::TextOutput;
+
 size_t write_subtree(
-        std::ostream& out,
+        TextOutput& out,
         const ExpressionArrays& arrays,
         size_t index,
         const std::vector<int>& variable_remap);
 
 size_t write_nary_multiply(
-        std::ostream& out,
+        TextOutput& out,
         const ExpressionArrays& arrays,
         size_t index,
         int remaining,
@@ -624,24 +628,38 @@ size_t write_nary_multiply(
     return write_nary_multiply(out, arrays, next, remaining - 1, variable_remap);
 }
 
+/** An operator line, "o<opcode>". */
+void write_opcode(TextOutput& out, int opcode)
+{
+    out << 'o';
+    out.integer(opcode);
+    out << '\n';
+}
+
 size_t write_subtree(
-        std::ostream& out,
+        TextOutput& out,
         const ExpressionArrays& arrays,
         size_t index,
         const std::vector<int>& variable_remap)
 {
     char op = arrays.operators[index];
     if (op == 'k') {
-        out << "n" << arrays.values[index] << "\n";
+        out << 'n';
+        out.number(arrays.values[index]);
+        out << '\n';
         return index + 1;
     }
     if (op == 'v') {
-        out << "v" << variable_remap[arrays.variables[index]] << "\n";
+        out << 'v';
+        out.integer(variable_remap[arrays.variables[index]]);
+        out << '\n';
         return index + 1;
     }
     if (op == '+' && arrays.number_of_children[index] > 2) {
         int n = arrays.number_of_children[index];
-        out << "o54\n" << n << "\n";
+        out << "o54\n";
+        out.integer(n);
+        out << '\n';
         size_t next = index + 1;
         for (int i = 0; i < n; ++i)
             next = write_subtree(out, arrays, next, variable_remap);
@@ -650,7 +668,9 @@ size_t write_subtree(
     if (op == 'm' || op == 'M') {
         // MINLIST / MAXLIST: n-ary, with an explicit operand count.
         int n = arrays.number_of_children[index];
-        out << "o" << char_to_opcode(op) << "\n" << n << "\n";
+        write_opcode(out, char_to_opcode(op));
+        out.integer(n);
+        out << '\n';
         size_t next = index + 1;
         for (int i = 0; i < n; ++i)
             next = write_subtree(out, arrays, next, variable_remap);
@@ -660,18 +680,18 @@ size_t write_subtree(
         return write_nary_multiply(out, arrays, index + 1, arrays.number_of_children[index], variable_remap);
     }
     if (arrays.number_of_children[index] == 1) {
-        out << "o" << char_to_opcode(op) << "\n";
+        write_opcode(out, char_to_opcode(op));
         return write_subtree(out, arrays, index + 1, variable_remap);
     }
     // Binary: '+', '-', '*', '/', 'p'.
-    out << "o" << (op == '+'? 0: char_to_opcode(op)) << "\n";
+    write_opcode(out, (op == '+')? 0: char_to_opcode(op));
     size_t next = write_subtree(out, arrays, index + 1, variable_remap);
     return write_subtree(out, arrays, next, variable_remap);
 }
 
 /** Writes the combined (nonlinear tree + folded quadratic terms) expression for one row. */
 void write_combined_expression(
-        std::ostream& out,
+        TextOutput& out,
         const ExpressionArrays& nonlinear,
         size_t nonlinear_start,
         size_t nonlinear_end,
@@ -690,29 +710,46 @@ void write_combined_expression(
         out << "n0\n";
         return;
     }
-    if (term_count > 1)
-        out << "o54\n" << term_count << "\n";
+    if (term_count > 1) {
+        out << "o54\n";
+        out.integer((long long)term_count);
+        out << '\n';
+    }
     if (has_nonlinear)
         write_subtree(out, nonlinear, nonlinear_start, variable_remap);
     for (size_t i = quadratic_start; i < quadratic_end; ++i) {
-        out << "o2\nn" << quadratic_coefficients[i]
-            << "\no2\nv" << variable_remap[quadratic_variables_1[i]]
-            << "\nv" << variable_remap[quadratic_variables_2[i]] << "\n";
+        out << "o2\nn";
+        out.number(quadratic_coefficients[i]);
+        out << "\no2\nv";
+        out.integer(variable_remap[quadratic_variables_1[i]]);
+        out << "\nv";
+        out.integer(variable_remap[quadratic_variables_2[i]]);
+        out << '\n';
     }
 }
 
-void write_bound(std::ostream& out, double lower, double upper)
+void write_bound(TextOutput& out, double lower, double upper)
 {
     if (lower == -inf && upper == inf) {
         out << "3\n";
     } else if (lower == upper) {
-        out << "4 " << lower << "\n";
+        out << "4 ";
+        out.number(lower);
+        out << '\n';
     } else if (lower == -inf) {
-        out << "1 " << upper << "\n";
+        out << "1 ";
+        out.number(upper);
+        out << '\n';
     } else if (upper == inf) {
-        out << "2 " << lower << "\n";
+        out << "2 ";
+        out.number(lower);
+        out << '\n';
     } else {
-        out << "0 " << lower << " " << upper << "\n";
+        out << "0 ";
+        out.number(lower);
+        out << ' ';
+        out.number(upper);
+        out << '\n';
     }
 }
 
@@ -1136,29 +1173,46 @@ void mathoptsolverscmake::write_nl(
             ++nranges;
     }
 
-    out << std::setprecision(17);
+    TextOutput output(out);
+    auto integers = [&output](std::initializer_list<long long> values) {
+        bool first = true;
+        for (long long value: values) {
+            if (!first)
+                output << ' ';
+            output.integer(value);
+            first = false;
+        }
+        output << '\n';
+    };
 
-    out << "g0\n"
-        << n_var << " " << n_con << " 1 " << nranges << " " << n_eqn << "\n"
-        << nlc << " " << nlo << "\n"
-        << "0 0\n"
-        << nlvc << " " << nlvo << " " << nlvb << "\n"
-        << "0 0\n"
-        << nbv << " " << niv << " " << nlvbi << " " << nlvci << " " << nlvoi << "\n"
-        << nzc << " " << nzo << "\n"
-        << "0 0\n"
+    output << "g0\n";
+    output.integer(n_var);
+    output << ' ';
+    output.integer(n_con);
+    output << " 1 ";
+    output.integer(nranges);
+    output << ' ';
+    output.integer(n_eqn);
+    output << '\n';
+    integers({nlc, nlo});
+    output << "0 0\n";
+    integers({nlvc, nlvo, nlvb});
+    output << "0 0\n";
+    integers({nbv, niv, nlvbi, nlvci, nlvoi});
+    integers({nzc, nzo});
+    output << "0 0\n"
         << "0 0 0 0 0\n";
 
-    out << "b\n";
+    output << "b\n";
     for (int new_id = 0; new_id < n_var; ++new_id) {
         int old_id = new_order[new_id];
-        write_bound(out, model.variables_lower_bounds[old_id], model.variables_upper_bounds[old_id]);
+        write_bound(output, model.variables_lower_bounds[old_id], model.variables_upper_bounds[old_id]);
     }
 
-    out << "r\n";
+    output << "r\n";
     for (int new_c = 0; new_c < n_con; ++new_c) {
         int old_c = new_con_order[new_c];
-        write_bound(out, model.constraints_lower_bounds[old_c], model.constraints_upper_bounds[old_c]);
+        write_bound(output, model.constraints_lower_bounds[old_c], model.constraints_upper_bounds[old_c]);
     }
 
     // C segments: one per constraint, in the new (nonlinear-first) order.
@@ -1169,7 +1223,9 @@ void mathoptsolverscmake::write_nl(
         model.nonlinear_elements_number_of_children};
     for (int new_c = 0; new_c < n_con; ++new_c) {
         int old_c = new_con_order[new_c];
-        out << "C" << new_c << "\n";
+        output << 'C';
+        output.integer(new_c);
+        output << '\n';
         size_t nl_start = 0, nl_end = 0;
         if (constraints_have_nonlinear) {
             nl_start = (size_t)model.nonlinear_elements_constraints_starts[old_c];
@@ -1181,28 +1237,34 @@ void mathoptsolverscmake::write_nl(
             q_end = (size_t)model.quadratic_constraint_end(old_c);
         }
         write_combined_expression(
-                out, con_nl_arrays, nl_start, nl_end,
+                output, con_nl_arrays, nl_start, nl_end,
                 model.quadratic_elements_variables_1, model.quadratic_elements_variables_2, model.quadratic_elements_coefficients,
                 q_start, q_end, old_to_new);
     }
 
     // O0 segment: the objective.
-    out << "O0 " << (model.objective_direction == ObjectiveDirection::Maximize? 1: 0) << "\n";
+    output << "O0 " << (model.objective_direction == ObjectiveDirection::Maximize? "1": "0") << "\n";
     ExpressionArrays obj_nl_arrays{
         model.objective_nonlinear_elements_operators,
         model.objective_nonlinear_elements_values,
         model.objective_nonlinear_elements_variables,
         model.objective_nonlinear_elements_number_of_children};
     write_combined_expression(
-            out, obj_nl_arrays, 0, model.objective_nonlinear_elements_operators.size(),
+            output, obj_nl_arrays, 0, model.objective_nonlinear_elements_operators.size(),
             model.objective_quadratic_elements_variables_1, model.objective_quadratic_elements_variables_2,
             model.objective_quadratic_elements_coefficients,
             0, model.objective_quadratic_elements_variables_1.size(), old_to_new);
 
     if (!model.variables_initial_values.empty()) {
-        out << "x" << n_var << "\n";
-        for (int new_id = 0; new_id < n_var; ++new_id)
-            out << new_id << " " << model.variables_initial_values[new_order[new_id]] << "\n";
+        output << 'x';
+        output.integer(n_var);
+        output << '\n';
+        for (int new_id = 0; new_id < n_var; ++new_id) {
+            output.integer(new_id);
+            output << ' ';
+            output.number(model.variables_initial_values[new_order[new_id]]);
+            output << '\n';
+        }
     }
 
     // k segment: cumulative nonzero Jacobian column counts (columns 0..n_var-2).
@@ -1212,40 +1274,58 @@ void mathoptsolverscmake::write_nl(
             if (model.elements_coefficients[e] != 0.0)
                 ++column_nnz[old_to_new[model.elements_variables[e]]];
     if (n_var > 0) {
-        out << "k" << (n_var - 1) << "\n";
+        output << 'k';
+        output.integer(n_var - 1);
+        output << '\n';
         int cumulative = 0;
         for (int v = 0; v < n_var - 1; ++v) {
             cumulative += column_nnz[v];
-            out << cumulative << "\n";
+            output.integer(cumulative);
+            output << '\n';
         }
     }
 
     // J segments: linear part of each constraint, in the new order, sorted by new variable id.
+    std::vector<std::pair<int, double>> pairs;
     for (int new_c = 0; new_c < n_con; ++new_c) {
         int old_c = new_con_order[new_c];
-        std::vector<std::pair<int, double>> pairs;
+        pairs.clear();
         for (int e = model.constraints_starts[old_c]; e < model.constraint_end(old_c); ++e) {
             double coefficient = model.elements_coefficients[e];
             if (coefficient != 0.0)
                 pairs.push_back(std::make_pair(old_to_new[model.elements_variables[e]], coefficient));
         }
         std::sort(pairs.begin(), pairs.end());
-        out << "J" << new_c << " " << pairs.size() << "\n";
-        for (const auto& p: pairs)
-            out << p.first << " " << p.second << "\n";
+        output << 'J';
+        output.integer(new_c);
+        output << ' ';
+        output.integer((long long)pairs.size());
+        output << '\n';
+        for (const auto& p: pairs) {
+            output.integer(p.first);
+            output << ' ';
+            output.number(p.second);
+            output << '\n';
+        }
     }
 
     // G0 segment: linear part of the objective, sorted by new variable id.
-    {
-        std::vector<std::pair<int, double>> pairs;
-        for (int v = 0; v < n_var; ++v) {
-            double coefficient = model.objective_coefficients[v];
-            if (coefficient != 0.0)
-                pairs.push_back(std::make_pair(old_to_new[v], coefficient));
-        }
-        std::sort(pairs.begin(), pairs.end());
-        out << "G0 " << pairs.size() << "\n";
-        for (const auto& p: pairs)
-            out << p.first << " " << p.second << "\n";
+    pairs.clear();
+    for (int v = 0; v < n_var; ++v) {
+        double coefficient = model.objective_coefficients[v];
+        if (coefficient != 0.0)
+            pairs.push_back(std::make_pair(old_to_new[v], coefficient));
     }
+    std::sort(pairs.begin(), pairs.end());
+    output << "G0 ";
+    output.integer((long long)pairs.size());
+    output << '\n';
+    for (const auto& p: pairs) {
+        output.integer(p.first);
+        output << ' ';
+        output.number(p.second);
+        output << '\n';
+    }
+
+    output.flush();
 }

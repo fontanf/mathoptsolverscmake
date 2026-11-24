@@ -1,10 +1,11 @@
 #include "mathoptsolverscmake/mathopt_json.hpp"
 
+#include "text_output.hpp"
+
 #include <cctype>
 #include <cmath>
 #include <cstdio>
 #include <fstream>
-#include <iomanip>
 #include <iterator>
 #include <limits>
 #include <sstream>
@@ -429,58 +430,69 @@ std::string escape_json_string(const std::string& s)
     return result;
 }
 
-void write_double(std::ostream& out, double value)
+using text_output::TextOutput;
+
+void write_double(TextOutput& out, double value)
 {
     if (std::isnan(value))
         out << "NaN";
     else if (std::isinf(value))
         out << (value > 0? "Infinity": "-Infinity");
     else
-        out << value;
+        out.number(value);
 }
 
-void write_double_array(std::ostream& out, const std::vector<double>& values)
+void write_double_array(TextOutput& out, const std::vector<double>& values)
 {
-    out << "[";
+    out << '[';
     for (size_t element_id = 0; element_id < values.size(); ++element_id) {
         if (element_id > 0)
             out << ", ";
         write_double(out, values[element_id]);
     }
-    out << "]";
+    out << ']';
 }
 
-void write_int_array(std::ostream& out, const std::vector<int>& values)
+void write_int_array(TextOutput& out, const std::vector<int>& values)
 {
-    out << "[";
+    out << '[';
     for (size_t element_id = 0; element_id < values.size(); ++element_id) {
         if (element_id > 0)
             out << ", ";
-        out << values[element_id];
+        out.integer(values[element_id]);
     }
-    out << "]";
+    out << ']';
 }
 
-void write_string_array(std::ostream& out, const std::vector<std::string>& values)
+void write_string_array(TextOutput& out, const std::vector<std::string>& values)
 {
-    out << "[";
+    out << '[';
     for (size_t element_id = 0; element_id < values.size(); ++element_id) {
         if (element_id > 0)
             out << ", ";
-        out << "\"" << escape_json_string(values[element_id]) << "\"";
+        out << '"' << escape_json_string(values[element_id]) << '"';
     }
-    out << "]";
+    out << ']';
 }
 
-void write_char_array(std::ostream& out, const std::vector<char>& values)
+void write_char_array(TextOutput& out, const std::vector<char>& values)
 {
-    out << "[";
+    out << '[';
     for (size_t element_id = 0; element_id < values.size(); ++element_id) {
         if (element_id > 0)
             out << ", ";
-        out << "\"" << escape_json_string(std::string(1, values[element_id])) << "\"";
+        out << '"' << escape_json_string(std::string(1, values[element_id])) << '"';
     }
-    out << "]";
+    out << ']';
+}
+
+/** The text of an enum value, as its operator<< writes it. */
+template <typename T>
+std::string to_text(T value)
+{
+    std::ostringstream stream;
+    stream << value;
+    return stream.str();
 }
 
 }
@@ -614,36 +626,38 @@ void mathoptsolverscmake::write_json(
                 "which has no JSON representation.");
     }
 
-    out << std::setprecision(17);
+    TextOutput output(out);
 
     bool first_field = true;
-    auto field = [&](const std::string& name) -> std::ostream&
+    auto field = [&](const std::string& name) -> TextOutput&
     {
         if (!first_field)
-            out << ",\n";
+            output << ",\n";
         first_field = false;
-        out << "  \"" << name << "\": ";
-        return out;
+        output << "  \"" << name << "\": ";
+        return output;
     };
 
-    out << "{\n";
+    output << "{\n";
 
-    {
-        std::ostringstream direction_stream;
-        direction_stream << model.objective_direction;
-        field("objective_direction") << "\"" << direction_stream.str() << "\"";
-    }
+    field("objective_direction") << "\"" << to_text(model.objective_direction) << "\"";
 
     write_double_array(field("variables_lower_bounds"), model.variables_lower_bounds);
     write_double_array(field("variables_upper_bounds"), model.variables_upper_bounds);
     {
-        std::vector<std::string> type_names(model.variables_types.size());
-        for (size_t variable_id = 0; variable_id < type_names.size(); ++variable_id) {
-            std::ostringstream type_stream;
-            type_stream << model.variables_types[variable_id];
-            type_names[variable_id] = type_stream.str();
+        // The type names, computed once per type rather than per variable.
+        const std::string type_names[] = {
+            "\"" + escape_json_string(to_text(VariableType::Continuous)) + "\"",
+            "\"" + escape_json_string(to_text(VariableType::Binary)) + "\"",
+            "\"" + escape_json_string(to_text(VariableType::Integer)) + "\""};
+        TextOutput& types = field("variables_types");
+        types << '[';
+        for (size_t variable_id = 0; variable_id < model.variables_types.size(); ++variable_id) {
+            if (variable_id > 0)
+                types << ", ";
+            types << type_names[(int)model.variables_types[variable_id]];
         }
-        write_string_array(field("variables_types"), type_names);
+        types << ']';
     }
     if (!model.variables_names.empty())
         write_string_array(field("variables_names"), model.variables_names);
@@ -696,5 +710,6 @@ void mathoptsolverscmake::write_json(
     write_double(field("feasibility_tolerance"), model.feasibility_tolerance);
     write_double(field("integrality_tolerance"), model.integrality_tolerance);
 
-    out << "\n}\n";
+    output << "\n}\n";
+    output.flush();
 }
