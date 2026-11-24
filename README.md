@@ -175,7 +175,7 @@ The reported objective value is the dual's, equal to the primal's at optimality,
 
 ## Python package
 
-The solver-independent part of the library — `MathOptModel` and the MPS, LP, JSON and `.nl` readers/writers — is also available as a Python package, `mathoptmodel`, with the model's arrays exposed as read-only NumPy views:
+The solver-independent part of the library — `MathOptModel` and the MPS, LP, JSON and `.nl` readers/writers — is also available as a Python package, `mathoptmodel`, with the model's arrays exposed as read-only NumPy views, and models buildable from Python in batches of NumPy arrays:
 ```shell
 pip install mathoptmodel
 ```

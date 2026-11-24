@@ -326,7 +326,7 @@ struct MathOptModel
             const std::string& solution_file) const;
 
 
-    ObjectiveDirection objective_direction;
+    ObjectiveDirection objective_direction = ObjectiveDirection::Minimize;
 
     /*
      * Variables
