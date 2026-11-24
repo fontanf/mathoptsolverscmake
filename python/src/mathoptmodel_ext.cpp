@@ -14,6 +14,7 @@
  * before a modification must not be used after it.
  */
 #include "mathoptsolverscmake/mathopt.hpp"
+#include "mathoptsolverscmake/mathopt_build.hpp"
 #include "mathoptsolverscmake/mathopt_mps.hpp"
 #include "mathoptsolverscmake/mathopt_lp.hpp"
 #include "mathoptsolverscmake/mathopt_json.hpp"
@@ -231,75 +232,6 @@ void check_size(const Input<T>& in, size_t size, const std::string& name, const 
     }
 }
 
-/** Check that the model's arrays of the given kind can grow by `added`. */
-void check_capacity(size_t current, size_t added, const char* what)
-{
-    if (current + added > (size_t)std::numeric_limits<int>::max())
-        invalid(std::string("too many ") + what + ": MathOptModel indexes them with int.");
-}
-
-/** Check the CSR `starts` of `count` rows over `number_of_elements` elements. */
-void check_starts(
-        const Input<int32_t>& starts,
-        size_t count,
-        size_t number_of_elements,
-        const char* name,
-        const char* elements_name)
-{
-    if (!starts.given) {
-        if (number_of_elements > 0)
-            invalid(std::string(name) + " is required with " + elements_name + ".");
-        return;
-    }
-    if (starts.size != count) {
-        invalid(std::string(name) + " has " + std::to_string(starts.size)
-                + " entries, but there are " + std::to_string(count) + " rows.");
-    }
-    for (size_t i = 0; i < count; ++i) {
-        int32_t start = starts[i];
-        if ((i == 0 && start != 0) || (i > 0 && start < starts[i - 1])
-                || start < 0 || (size_t)start > number_of_elements) {
-            invalid(std::string(name) + "[" + std::to_string(i) + "] = " + std::to_string(start)
-                    + ": starts must begin at 0, be non-decreasing and not exceed the size of "
-                    + elements_name + " (" + std::to_string(number_of_elements) + ").");
-        }
-    }
-}
-
-void check_variables(
-        const Input<int32_t>& variables,
-        int number_of_variables,
-        const char* name)
-{
-    for (size_t i = 0; i < variables.size; ++i) {
-        if (variables[i] < 0 || variables[i] >= number_of_variables) {
-            invalid(std::string(name) + "[" + std::to_string(i) + "] = " + std::to_string(variables[i])
-                    + " is not a variable index (the model has " + std::to_string(number_of_variables)
-                    + " variables).");
-        }
-    }
-}
-
-/** The number of children an expression-tree operator accepts. */
-bool operator_arity(char op, int& min, int& max)
-{
-    switch (op) {
-    case 'v': case 'd': case 'k':
-        min = max = 0; return true;
-    case 'n': case 'e': case 'l': case 'g': case 'q':
-    case 's': case 'c': case 't': case 'h': case 'a':
-        min = max = 1; return true;
-    case '-': case '/': case 'p':
-        min = max = 2; return true;
-    case '+': case '*':
-        min = 2; max = std::numeric_limits<int>::max(); return true;
-    case 'm': case 'M':
-        min = 1; max = std::numeric_limits<int>::max(); return true;
-    default:
-        return false;
-    }
-}
-
 /** An expression-tree batch: operators and the arrays parallel to them. */
 struct TreesInput
 {
@@ -310,6 +242,17 @@ struct TreesInput
 
     size_t size() const { return operators.size; }
     bool given() const { return operators.given; }
+
+    ExpressionTreesBatch batch() const
+    {
+        ExpressionTreesBatch res;
+        res.number_of_nodes = size();
+        res.operators = operators.data;
+        res.values = values.data;
+        res.variables = variables.data;
+        res.number_of_children = number_of_children.data;
+        return res;
+    }
 };
 
 TreesInput trees_input(
@@ -338,95 +281,16 @@ TreesInput trees_input(
     return res;
 }
 
-/**
- * Check that the nodes [begin, end) of `trees` form exactly one well-formed
- * pre-order tree (or nothing, if `allow_empty`), whose variables are below
- * `number_of_variables` and defined variables below `number_of_defined_variables`.
- */
-void check_tree(
-        const TreesInput& trees,
-        size_t begin,
-        size_t end,
-        int number_of_variables,
-        int number_of_defined_variables,
-        bool allow_empty,
-        const std::string& what)
+/** Check that the given arrays of a group of parallel arrays are all given and have the same size. */
+void check_together(
+        const Input<int32_t>& first,
+        const Input<int32_t>* second,
+        const Input<double>& values,
+        const char* names)
 {
-    if (begin == end) {
-        if (!allow_empty)
-            invalid(what + " has an empty expression tree.");
-        return;
-    }
-    long long pending = 1;
-    for (size_t i = begin; i < end; ++i) {
-        if (pending == 0)
-            invalid(what + ": nodes " + std::to_string(i) + " to " + std::to_string(end - 1)
-                    + " are not part of its expression tree (a single root is expected).");
-        --pending;
-        char op = trees.operators[i];
-        int number_of_children = trees.number_of_children[i];
-        int min = 0;
-        int max = 0;
-        if (!operator_arity(op, min, max))
-            invalid(what + ": node " + std::to_string(i) + " has unknown operator code "
-                    + std::to_string((int)(unsigned char)op) + ".");
-        if (number_of_children < min || number_of_children > max)
-            invalid(what + ": node " + std::to_string(i) + " (operator '" + std::string(1, op)
-                    + "') has " + std::to_string(number_of_children) + " children.");
-        if (op == 'v' || op == 'd') {
-            int index = trees.variables.given? trees.variables[i]: -1;
-            int limit = (op == 'v')? number_of_variables: number_of_defined_variables;
-            if (index < 0 || index >= limit)
-                invalid(what + ": node " + std::to_string(i) + " references "
-                        + (op == 'v'? "variable ": "defined variable ") + std::to_string(index)
-                        + ", which is out of range [0, " + std::to_string(limit) + ").");
-        }
-        pending += number_of_children;
-    }
-    if (pending != 0)
-        invalid(what + ": its expression tree is missing " + std::to_string(pending) + " node(s).");
-}
-
-/** Append all the nodes of `trees` to the given model arrays. */
-void append_trees(
-        const TreesInput& trees,
-        std::vector<char>& operators,
-        std::vector<double>& values,
-        std::vector<int>& variables,
-        std::vector<int>& number_of_children)
-{
-    size_t n = trees.size();
-    operators.insert(operators.end(), trees.operators.data, trees.operators.data + n);
-    number_of_children.insert(number_of_children.end(),
-            trees.number_of_children.data, trees.number_of_children.data + n);
-    if (trees.values.given)
-        values.insert(values.end(), trees.values.data, trees.values.data + n);
-    else
-        values.resize(values.size() + n, 0.0);
-    if (trees.variables.given)
-        variables.insert(variables.end(), trees.variables.data, trees.variables.data + n);
-    else
-        variables.resize(variables.size() + n, -1);
-}
-
-/** Append `count` names, giving the existing entries default names if needed. */
-void append_names(
-        std::vector<std::string>& names,
-        int current_count,
-        size_t count,
-        const std::optional<std::vector<std::string>>& new_names,
-        const char* prefix)
-{
-    if (!new_names && names.empty())
-        return;
-    for (int i = (int)names.size(); i < current_count; ++i)
-        names.push_back(prefix + std::to_string(i));
-    for (size_t i = 0; i < count; ++i) {
-        if (new_names)
-            names.push_back((*new_names)[i]);
-        else
-            names.push_back(prefix + std::to_string(current_count + i));
-    }
+    bool given = first.given;
+    if ((second != nullptr && second->given != given) || values.given != given)
+        invalid(std::string(names) + " must be given together.");
 }
 
 using DoubleOrArray = std::variant<double, InputArray<double>>;
@@ -437,7 +301,15 @@ using OptionalNames = std::optional<std::vector<std::string>>;
 
 constexpr double INF = std::numeric_limits<double>::infinity();
 
-int add_variables(
+static_assert(sizeof(int) == sizeof(int32_t), "MathOptModel indexes are int32.");
+
+/*
+ * The functions below parse and check the Python arguments (sizes, arrays
+ * given together); the batch itself is validated and appended by
+ * mathopt_build.hpp, without the GIL.
+ */
+
+int add_variables_py(
         MathOptModel& model,
         std::optional<size_t> number,
         const std::optional<DoubleOrArray>& lower_bounds_arg,
@@ -463,41 +335,27 @@ int add_variables(
         merge_count(count, names->size(), "names");
     if (!count)
         invalid("the number of variables is unknown: give 'number' or an array.");
+    if (!types.array.given && (types.scalar < 0 || types.scalar > (int8_t)VariableType::Integer))
+        invalid("types = " + std::to_string(types.scalar) + " is not a VariableType value.");
+
+    VariablesBatch batch;
+    batch.number = *count;
+    batch.lower_bounds = lower_bounds.array.data;
+    batch.lower_bound = lower_bounds.scalar;
+    batch.upper_bounds = upper_bounds.array.data;
+    batch.upper_bound = upper_bounds.scalar;
+    batch.types = reinterpret_cast<const signed char*>(types.array.data);
+    batch.type = static_cast<VariableType>(types.scalar);
+    batch.objective_coefficients = objective_coefficients.array.data;
+    batch.objective_coefficient = objective_coefficients.scalar;
+    batch.initial_values = initial_values.data;
+    batch.names = names? &*names: nullptr;
 
     nb::gil_scoped_release release;
-    size_t n = *count;
-    int first = model.number_of_variables();
-    check_capacity(first, n, "variables");
-    for (size_t i = 0; i < n; ++i) {
-        int8_t type = types[i];
-        if (type < 0 || type > (int8_t)VariableType::Integer)
-            invalid("types[" + std::to_string(i) + "] = " + std::to_string(type)
-                    + " is not a VariableType value.");
-    }
-
-    model.variables_lower_bounds.reserve(first + n);
-    model.variables_upper_bounds.reserve(first + n);
-    model.variables_types.reserve(first + n);
-    model.objective_coefficients.reserve(first + n);
-    for (size_t i = 0; i < n; ++i) {
-        model.variables_lower_bounds.push_back(lower_bounds[i]);
-        model.variables_upper_bounds.push_back(upper_bounds[i]);
-        model.variables_types.push_back(static_cast<VariableType>(types[i]));
-        model.objective_coefficients.push_back(objective_coefficients[i]);
-    }
-    if (initial_values.given || !model.variables_initial_values.empty()) {
-        model.variables_initial_values.resize(first, 0.0);
-        if (initial_values.given)
-            model.variables_initial_values.insert(model.variables_initial_values.end(),
-                    initial_values.data, initial_values.data + n);
-        else
-            model.variables_initial_values.resize(first + n, 0.0);
-    }
-    append_names(model.variables_names, first, n, names, "x");
-    return first;
+    return add_variables(model, batch);
 }
 
-int add_constraints(
+int add_constraints_py(
         MathOptModel& model,
         std::optional<size_t> number,
         const std::optional<DoubleOrArray>& lower_bounds_arg,
@@ -541,142 +399,59 @@ int add_constraints(
     if (!count)
         invalid("the number of constraints is unknown: give 'number' or an array.");
 
-    // Linear terms.
-    if (variables.given != coefficients.given)
-        invalid("variables and coefficients must be given together.");
+    check_together(variables, nullptr, coefficients, "variables and coefficients");
     check_size(coefficients, variables.size, "coefficients", "variables");
-
-    // Quadratic terms.
-    if (quadratic_variables_1.given != quadratic_variables_2.given
-            || quadratic_variables_1.given != quadratic_coefficients.given)
-        invalid("quadratic_variables_1, quadratic_variables_2 and quadratic_coefficients "
-                "must be given together.");
+    check_together(quadratic_variables_1, &quadratic_variables_2, quadratic_coefficients,
+            "quadratic_variables_1, quadratic_variables_2 and quadratic_coefficients");
     check_size(quadratic_variables_2, quadratic_variables_1.size,
             "quadratic_variables_2", "quadratic_variables_1");
     check_size(quadratic_coefficients, quadratic_variables_1.size,
             "quadratic_coefficients", "quadratic_variables_1");
 
+    ConstraintsBatch batch;
+    batch.number = *count;
+    batch.lower_bounds = lower_bounds.array.data;
+    batch.lower_bound = lower_bounds.scalar;
+    batch.upper_bounds = upper_bounds.array.data;
+    batch.upper_bound = upper_bounds.scalar;
+    batch.starts = starts.data;
+    batch.number_of_elements = variables.size;
+    batch.variables = variables.data;
+    batch.coefficients = coefficients.data;
+    batch.quadratic_starts = quadratic_starts.data;
+    batch.number_of_quadratic_elements = quadratic_variables_1.size;
+    batch.quadratic_variables_1 = quadratic_variables_1.data;
+    batch.quadratic_variables_2 = quadratic_variables_2.data;
+    batch.quadratic_coefficients = quadratic_coefficients.data;
+    batch.nonlinear_starts = nonlinear_starts.data;
+    batch.nonlinear = trees.batch();
+    batch.names = names? &*names: nullptr;
+
     nb::gil_scoped_release release;
-    size_t m = *count;
-    int n = model.number_of_variables();
-    int number_of_defined_variables = model.number_of_defined_variables();
-    int first = model.number_of_constraints();
-    check_capacity(first, m, "constraints");
-    check_capacity(model.number_of_elements(), variables.size, "linear terms");
-    check_capacity(model.quadratic_elements_variables_1.size(), quadratic_variables_1.size,
-            "quadratic terms");
-    check_capacity(model.nonlinear_elements_operators.size(), trees.size(),
-            "nonlinear nodes");
-
-    check_starts(starts, m, variables.size, "starts", "variables");
-    check_variables(variables, n, "variables");
-    check_starts(quadratic_starts, m, quadratic_variables_1.size,
-            "quadratic_starts", "quadratic_variables_1");
-    check_variables(quadratic_variables_1, n, "quadratic_variables_1");
-    check_variables(quadratic_variables_2, n, "quadratic_variables_2");
-    check_starts(nonlinear_starts, m, trees.size(),
-            "nonlinear_starts", "nonlinear_operators");
-    if (nonlinear_starts.given && trees.size() > 0) {
-        for (size_t i = 0; i < m; ++i) {
-            size_t begin = nonlinear_starts[i];
-            size_t end = (i + 1 < m)? (size_t)nonlinear_starts[i + 1]: trees.size();
-            check_tree(trees, begin, end, n, number_of_defined_variables, true,
-                    "constraint " + std::to_string(i) + " of the batch");
-        }
-    }
-
-    // Everything is valid: append.
-    int linear_offset = model.number_of_elements();
-    int quadratic_offset = (int)model.quadratic_elements_variables_1.size();
-    int nonlinear_offset = (int)model.nonlinear_elements_operators.size();
-    model.constraints_lower_bounds.reserve(first + m);
-    model.constraints_upper_bounds.reserve(first + m);
-    model.constraints_starts.reserve(first + m);
-    for (size_t i = 0; i < m; ++i) {
-        model.constraints_lower_bounds.push_back(lower_bounds[i]);
-        model.constraints_upper_bounds.push_back(upper_bounds[i]);
-        model.constraints_starts.push_back(linear_offset + (starts.given? starts[i]: 0));
-    }
-    model.elements_variables.insert(model.elements_variables.end(),
-            variables.data, variables.data + variables.size);
-    model.elements_coefficients.insert(model.elements_coefficients.end(),
-            coefficients.data, coefficients.data + coefficients.size);
-
-    model.quadratic_elements_constraints_starts.resize(first, quadratic_offset);
-    model.quadratic_elements_constraints_starts.reserve(first + m);
-    for (size_t i = 0; i < m; ++i)
-        model.quadratic_elements_constraints_starts.push_back(
-                quadratic_offset + (quadratic_starts.given? quadratic_starts[i]: 0));
-    model.quadratic_elements_variables_1.insert(model.quadratic_elements_variables_1.end(),
-            quadratic_variables_1.data, quadratic_variables_1.data + quadratic_variables_1.size);
-    model.quadratic_elements_variables_2.insert(model.quadratic_elements_variables_2.end(),
-            quadratic_variables_2.data, quadratic_variables_2.data + quadratic_variables_2.size);
-    model.quadratic_elements_coefficients.insert(model.quadratic_elements_coefficients.end(),
-            quadratic_coefficients.data, quadratic_coefficients.data + quadratic_coefficients.size);
-
-    if (trees.size() > 0 || !model.nonlinear_elements_constraints_starts.empty()) {
-        model.nonlinear_elements_constraints_starts.resize(first, nonlinear_offset);
-        model.nonlinear_elements_constraints_starts.reserve(first + m);
-        for (size_t i = 0; i < m; ++i)
-            model.nonlinear_elements_constraints_starts.push_back(
-                    nonlinear_offset + (nonlinear_starts.given? nonlinear_starts[i]: 0));
-        append_trees(trees,
-                model.nonlinear_elements_operators,
-                model.nonlinear_elements_values,
-                model.nonlinear_elements_variables,
-                model.nonlinear_elements_number_of_children);
-    }
-
-    if (!model.constraints_functions.empty())
-        model.constraints_functions.resize(first + m);
-    append_names(model.constraints_names, first, m, names, "c");
-    return first;
+    return add_constraints(model, batch);
 }
 
-int add_defined_variables(
+int add_defined_variables_py(
         MathOptModel& model,
-        const InputArray<int32_t>& starts_arg,
-        const OperatorsInput& operators_arg,
-        const OptionalDoubles& values_arg,
-        const OptionalInts& variables_arg,
-        const OptionalInts& number_of_children_arg)
+        const InputArray<int32_t>& starts,
+        const OperatorsInput& operators,
+        const OptionalDoubles& values,
+        const OptionalInts& variables,
+        const OptionalInts& number_of_children)
 {
-    Input<int32_t> starts = input(std::optional<InputArray<int32_t>>(starts_arg));
     TreesInput trees = trees_input(
-            std::optional<OperatorsInput>(operators_arg), values_arg, variables_arg,
-            number_of_children_arg, "");
+            std::optional<OperatorsInput>(operators), values, variables, number_of_children, "");
+
+    DefinedVariablesBatch batch;
+    batch.number = starts.shape(0);
+    batch.starts = starts.data();
+    batch.trees = trees.batch();
 
     nb::gil_scoped_release release;
-    size_t count = starts.size;
-    int n = model.number_of_variables();
-    int first = model.number_of_defined_variables();
-    check_capacity(first, count, "defined variables");
-    check_capacity(model.defined_variables_elements_operators.size(), trees.size(),
-            "defined-variable nodes");
-    if (count == 0 && trees.size() > 0)
-        invalid("starts is empty, but operators isn't.");
-    check_starts(starts, count, trees.size(), "starts", "operators");
-    for (size_t i = 0; i < count; ++i) {
-        size_t begin = starts[i];
-        size_t end = (i + 1 < count)? (size_t)starts[i + 1]: trees.size();
-        // A defined variable may only reference defined variables with a lower index.
-        check_tree(trees, begin, end, n, first + (int)i, false,
-                "defined variable " + std::to_string(i) + " of the batch (index "
-                + std::to_string(first + i) + ", which may only reference lower indices)");
-    }
-
-    int offset = (int)model.defined_variables_elements_operators.size();
-    for (size_t i = 0; i < count; ++i)
-        model.defined_variables_starts.push_back(offset + starts[i]);
-    append_trees(trees,
-            model.defined_variables_elements_operators,
-            model.defined_variables_elements_values,
-            model.defined_variables_elements_variables,
-            model.defined_variables_elements_number_of_children);
-    return first;
+    return add_defined_variables(model, batch);
 }
 
-void set_objective(
+void set_objective_py(
         MathOptModel& model,
         std::optional<ObjectiveDirection> direction,
         const std::optional<DoubleOrArray>& coefficients_arg,
@@ -696,10 +471,8 @@ void set_objective(
             nonlinear_operators_arg, nonlinear_values_arg, nonlinear_variables_arg,
             nonlinear_number_of_children_arg, "nonlinear_");
 
-    if (quadratic_variables_1.given != quadratic_variables_2.given
-            || quadratic_variables_1.given != quadratic_coefficients.given)
-        invalid("quadratic_variables_1, quadratic_variables_2 and quadratic_coefficients "
-                "must be given together.");
+    check_together(quadratic_variables_1, &quadratic_variables_2, quadratic_coefficients,
+            "quadratic_variables_1, quadratic_variables_2 and quadratic_coefficients");
     check_size(quadratic_variables_2, quadratic_variables_1.size,
             "quadratic_variables_2", "quadratic_variables_1");
     check_size(quadratic_coefficients, quadratic_variables_1.size,
@@ -710,37 +483,22 @@ void set_objective(
     if (coefficients.array.given && coefficients.array.size != (size_t)n)
         invalid("coefficients has " + std::to_string(coefficients.array.size)
                 + " entries, but the model has " + std::to_string(n) + " variables.");
-    check_variables(quadratic_variables_1, n, "quadratic_variables_1");
-    check_variables(quadratic_variables_2, n, "quadratic_variables_2");
-    if (trees.given())
-        check_tree(trees, 0, trees.size(), n, model.number_of_defined_variables(), true,
-                "the objective");
 
+    ObjectiveBatch batch;
+    batch.set_direction = direction.has_value();
     if (direction)
-        model.objective_direction = *direction;
-    if (coefficients_arg) {
-        for (int j = 0; j < n; ++j)
-            model.objective_coefficients[j] = coefficients[j];
-    }
-    if (quadratic_variables_1.given) {
-        model.objective_quadratic_elements_variables_1.assign(
-                quadratic_variables_1.data, quadratic_variables_1.data + quadratic_variables_1.size);
-        model.objective_quadratic_elements_variables_2.assign(
-                quadratic_variables_2.data, quadratic_variables_2.data + quadratic_variables_2.size);
-        model.objective_quadratic_elements_coefficients.assign(
-                quadratic_coefficients.data, quadratic_coefficients.data + quadratic_coefficients.size);
-    }
-    if (trees.given()) {
-        model.objective_nonlinear_elements_operators.clear();
-        model.objective_nonlinear_elements_values.clear();
-        model.objective_nonlinear_elements_variables.clear();
-        model.objective_nonlinear_elements_number_of_children.clear();
-        append_trees(trees,
-                model.objective_nonlinear_elements_operators,
-                model.objective_nonlinear_elements_values,
-                model.objective_nonlinear_elements_variables,
-                model.objective_nonlinear_elements_number_of_children);
-    }
+        batch.direction = *direction;
+    batch.set_coefficients = coefficients_arg.has_value();
+    batch.coefficients = coefficients.array.data;
+    batch.coefficient = coefficients.scalar;
+    batch.set_quadratic = quadratic_variables_1.given;
+    batch.number_of_quadratic_elements = quadratic_variables_1.size;
+    batch.quadratic_variables_1 = quadratic_variables_1.data;
+    batch.quadratic_variables_2 = quadratic_variables_2.data;
+    batch.quadratic_coefficients = quadratic_coefficients.data;
+    batch.set_nonlinear = trees.given();
+    batch.nonlinear = trees.batch();
+    set_objective(model, batch);
 }
 
 }
@@ -800,7 +558,7 @@ NB_MODULE(_core, m)
                 })
 
         // Building.
-        .def("add_variables", &add_variables,
+        .def("add_variables", &add_variables_py,
                 "number"_a = nb::none(),
                 "lower_bounds"_a = nb::none(),
                 "upper_bounds"_a = nb::none(),
@@ -813,7 +571,7 @@ NB_MODULE(_core, m)
                 "lower_bounds, upper_bounds, types and objective_coefficients are each "
                 "a scalar (for every variable) or an array; they default to -inf, +inf, "
                 "VariableType.Continuous and 0. types arrays hold VariableType values.")
-        .def("add_constraints", &add_constraints,
+        .def("add_constraints", &add_constraints_py,
                 "number"_a = nb::none(),
                 "lower_bounds"_a = nb::none(),
                 "upper_bounds"_a = nb::none(),
@@ -842,7 +600,7 @@ NB_MODULE(_core, m)
                 "them (CSR, one entry per constraint, the first one 0). Operators are "
                 "bytes or an int8/uint8 array of char codes; nonlinear_values and "
                 "nonlinear_variables default to 0 and -1.")
-        .def("add_defined_variables", &add_defined_variables,
+        .def("add_defined_variables", &add_defined_variables_py,
                 "starts"_a,
                 "operators"_a,
                 "values"_a = nb::none(),
@@ -852,7 +610,7 @@ NB_MODULE(_core, m)
                 "expression tree each, and return the index of the first one. starts "
                 "gives the offset of each tree in the concatenated arrays. A defined "
                 "variable may only reference defined variables with a lower index.")
-        .def("set_objective", &set_objective,
+        .def("set_objective", &set_objective_py,
                 "direction"_a = nb::none(),
                 "coefficients"_a = nb::none(),
                 "quadratic_variables_1"_a = nb::none(),
