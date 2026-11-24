@@ -122,3 +122,31 @@ if(MATHOPTSOLVERSCMAKE_USE_SMSPP)
         SMSPP_FOUND=1)
 endif()
 add_library(MathOptSolversCMake::mathopt ALIAS MathOptSolversCMake_mathopt)
+
+# C API: a shared library, "mathoptmodel", that the Java bindings load.
+if(MATHOPTSOLVERSCMAKE_BUILD_C_API)
+    add_library(MathOptSolversCMake_mathoptmodel_c SHARED
+        mathoptmodel_c.cpp)
+    target_link_libraries(MathOptSolversCMake_mathoptmodel_c PRIVATE
+        MathOptSolversCMake_mathopt)
+    target_compile_definitions(MathOptSolversCMake_mathoptmodel_c PRIVATE
+        MATHOPTMODEL_C_BUILD)
+    # Only export the mom_* functions.
+    set_target_properties(MathOptSolversCMake_mathoptmodel_c PROPERTIES
+        OUTPUT_NAME mathoptmodel
+        CXX_VISIBILITY_PRESET hidden
+        VISIBILITY_INLINES_HIDDEN ON)
+    if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+        # Don't re-export the symbols of the static libraries linked in, and
+        # don't depend on the build machine's libstdc++ at run time.
+        target_link_options(MathOptSolversCMake_mathoptmodel_c PRIVATE
+            -Wl,--exclude-libs,ALL
+            -static-libstdc++
+            -static-libgcc)
+    endif()
+    add_library(MathOptSolversCMake::mathoptmodel_c ALIAS MathOptSolversCMake_mathoptmodel_c)
+    install(TARGETS MathOptSolversCMake_mathoptmodel_c
+        LIBRARY DESTINATION lib
+        RUNTIME DESTINATION bin
+        ARCHIVE DESTINATION lib)
+endif()
