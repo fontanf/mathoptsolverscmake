@@ -6,10 +6,16 @@ writers.
     >>> model = mom.read("p0033.mps.gz")
     >>> model.number_of_variables, model.number_of_constraints
     (33, 16)
+
+Models can also be built in batches of NumPy arrays: see Model.add_variables,
+Model.add_constraints, Model.add_defined_variables and Model.set_objective.
 """
 import bz2
+import functools
 import gzip
 import os
+
+import numpy as np
 
 from mathoptmodel._version import __version__
 from mathoptmodel._core import (
@@ -37,6 +43,30 @@ __all__ = [
     "read_json_bytes", "read_lp_bytes", "read_mps_bytes", "read_nl_bytes",
     "write_json_string", "write_lp_string", "write_mps_string", "write_nl_string",
 ]
+
+
+def _accept_sequences(method):
+    """Let a Model building method take lists/tuples where it takes arrays
+    (nanobind's array arguments only accept array objects). Lists of str
+    (names) are left as they are."""
+
+    def convert(value):
+        if isinstance(value, (list, tuple)) and not (value and isinstance(value[0], str)):
+            return np.asarray(value)
+        return value
+
+    @functools.wraps(method)
+    def wrapper(self, *args, **kwargs):
+        args = [convert(value) for value in args]
+        kwargs = {key: convert(value) for key, value in kwargs.items()}
+        return method(self, *args, **kwargs)
+
+    return wrapper
+
+
+for _name in ("add_variables", "add_constraints", "add_defined_variables", "set_objective"):
+    setattr(Model, _name, _accept_sequences(getattr(Model, _name)))
+del _name
 
 _READERS = {
     "mps": read_mps_bytes,
