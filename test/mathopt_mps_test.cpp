@@ -245,6 +245,129 @@ TEST(MathOptMps, UnsupportedSectionThrows)
             std::invalid_argument);
 }
 
+namespace
+{
+
+/** minimize x + y + (quadratic objective section) s.t. c1: x + y (+ quadratic row) <= 10. */
+std::string quadratic_mps(const std::string& quadratic_sections)
+{
+    return
+        "NAME          QP\n"
+        "ROWS\n"
+        " N  obj\n"
+        " L  c1\n"
+        " N  free\n"
+        "COLUMNS\n"
+        "    x         obj              1   c1               1\n"
+        "    y         obj              1   c1               1\n"
+        "RHS\n"
+        "    RHS       c1              10\n"
+        "BOUNDS\n"
+        " FR BND       x\n"
+        " FR BND       y\n"
+        + quadratic_sections +
+        "ENDATA\n";
+}
+
+/** The model's objective minus its linear part, at (x, y). */
+double objective_quadratic_part(const MathOptModel& model, double x, double y)
+{
+    return model.evaluate_objective({x, y}) - x - y;
+}
+
+}
+
+TEST(MathOptMps, QuadobjIsHalfOfOneTriangle)
+{
+    // 1/2 [x y] [[2, 1], [1, 4]] [x y]' = x^2 + x y + 2 y^2.
+    MathOptModel model = read(quadratic_mps(
+            "QUADOBJ\n"
+            "    x         x                2   y                1\n"
+            "    y         y                4\n"));
+    EXPECT_TRUE(model.has_quadratic());
+    EXPECT_DOUBLE_EQ(objective_quadratic_part(model, 1.5, -2.0), 1.5 * 1.5 + 1.5 * -2.0 + 2 * 4.0);
+}
+
+TEST(MathOptMps, QmatrixIsHalfOfTheLowerTriangle)
+{
+    // Same matrix, given in full; only the lower triangle is used, like HiGHS.
+    MathOptModel model = read(quadratic_mps(
+            "QMATRIX\n"
+            "    x         x                2   y                1\n"
+            "    y         x                1   y                4\n"));
+    EXPECT_DOUBLE_EQ(objective_quadratic_part(model, 1.5, -2.0), 1.5 * 1.5 + 1.5 * -2.0 + 2 * 4.0);
+}
+
+TEST(MathOptMps, NonSymmetricQmatrixThrows)
+{
+    // HiGHS rejects it too.
+    EXPECT_THROW(
+            read(quadratic_mps(
+                    "QMATRIX\n"
+                    "    x         y                1\n"
+                    "    y         x                7\n")),
+            std::invalid_argument);
+    EXPECT_THROW(
+            read(quadratic_mps(
+                    "QCMATRIX      c1\n"
+                    "    x         y                1\n")),
+            std::invalid_argument);
+}
+
+TEST(MathOptMps, QsectionOnTheObjective)
+{
+    MathOptModel model = read(quadratic_mps(
+            "QSECTION      obj\n"
+            "    x         x                2   y                1\n"
+            "    y         y                4\n"));
+    EXPECT_DOUBLE_EQ(objective_quadratic_part(model, 1.5, -2.0), 1.5 * 1.5 + 1.5 * -2.0 + 2 * 4.0);
+    EXPECT_TRUE(model.quadratic_elements_variables_1.empty());
+}
+
+TEST(MathOptMps, QcmatrixIsTheWholeMatrixOfAConstraint)
+{
+    // [x y] [[1, 0.5], [0.5, 3]] [x y]' = x^2 + x y + 3 y^2, without 1/2.
+    MathOptModel model = read(quadratic_mps(
+            "QCMATRIX      c1\n"
+            "    x         x                1   y              0.5\n"
+            "    y         x              0.5   y                3\n"));
+    EXPECT_FALSE(model.objective_quadratic_elements_variables_1.size() > 0);
+    ASSERT_EQ(model.quadratic_elements_constraints_starts.size(), 1u);
+    double x = 1.5;
+    double y = -2.0;
+    EXPECT_DOUBLE_EQ(model.evaluate_constraint({x, y}, 0), x + y + x * x + x * y + 3 * y * y);
+    EXPECT_EQ(model.constraint_class(0), ConstraintClass::GeneralQuadratic);
+}
+
+TEST(MathOptMps, QsectionOnAConstraintIsHalved)
+{
+    MathOptModel model = read(quadratic_mps(
+            "QSECTION      c1\n"
+            "    x         x                2   y                1\n"));
+    double x = 1.5;
+    double y = -2.0;
+    EXPECT_DOUBLE_EQ(model.evaluate_constraint({x, y}, 0), x + y + x * x + x * y);
+}
+
+TEST(MathOptMps, QuadraticSectionsOfFreeOrUnknownRowsAreSkipped)
+{
+    MathOptModel model = read(quadratic_mps(
+            "QCMATRIX      free\n"
+            "    x         x                1\n"
+            "QCMATRIX      unknown\n"
+            "    y         y                1\n"));
+    EXPECT_FALSE(model.has_quadratic());
+}
+
+TEST(MathOptMps, QuadraticSectionUnknownColumnThrows)
+{
+    EXPECT_THROW(
+            read(quadratic_mps(
+                    "QUADOBJ\n"
+                    "    x         z                1\n")),
+            std::invalid_argument);
+}
+
 TEST(MathOptMps, MissingFileThrows)
 {
     EXPECT_THROW(read_mps("/no/such/file.mps"), std::invalid_argument);

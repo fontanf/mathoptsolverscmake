@@ -578,6 +578,12 @@ MathOptModel mathoptsolverscmake::read_json(std::istream& in)
     model.nonlinear_elements_variables = get_int_array(root, "nonlinear_elements_variables");
     model.nonlinear_elements_number_of_children = get_int_array(root, "nonlinear_elements_number_of_children");
 
+    model.defined_variables_starts = get_int_array(root, "defined_variables_starts");
+    model.defined_variables_elements_operators = get_char_array(root, "defined_variables_elements_operators");
+    model.defined_variables_elements_values = get_double_array(root, "defined_variables_elements_values");
+    model.defined_variables_elements_variables = get_int_array(root, "defined_variables_elements_variables");
+    model.defined_variables_elements_number_of_children = get_int_array(root, "defined_variables_elements_number_of_children");
+
     model.feasibility_tolerance = get_double(root, "feasibility_tolerance", 0.0);
     model.integrality_tolerance = get_double(root, "integrality_tolerance", 0.0);
 
@@ -678,6 +684,13 @@ void mathoptsolverscmake::write_json(
         write_double_array(field("nonlinear_elements_values"), model.nonlinear_elements_values);
         write_int_array(field("nonlinear_elements_variables"), model.nonlinear_elements_variables);
         write_int_array(field("nonlinear_elements_number_of_children"), model.nonlinear_elements_number_of_children);
+    }
+    if (model.has_defined_variables()) {
+        write_int_array(field("defined_variables_starts"), model.defined_variables_starts);
+        write_char_array(field("defined_variables_elements_operators"), model.defined_variables_elements_operators);
+        write_double_array(field("defined_variables_elements_values"), model.defined_variables_elements_values);
+        write_int_array(field("defined_variables_elements_variables"), model.defined_variables_elements_variables);
+        write_int_array(field("defined_variables_elements_number_of_children"), model.defined_variables_elements_number_of_children);
     }
 
     write_double(field("feasibility_tolerance"), model.feasibility_tolerance);

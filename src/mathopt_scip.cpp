@@ -57,6 +57,7 @@ static double from_scip(SCIP* scip, double value)
 static SCIP_EXPR* to_scip_expr(
         SCIP* scip,
         const std::vector<SCIP_VAR*>& scip_variables,
+        const std::vector<SCIP_EXPR*>& defined_expressions,
         const std::vector<char>& operators,
         const std::vector<double>& values,
         const std::vector<int>& variables,
@@ -95,6 +96,11 @@ static SCIP_EXPR* to_scip_expr(
             scip_check(
                     SCIPcreateExprVar(scip, &expr, scip_variables[variables[element_id]], NULL, NULL),
                     FUNC_SIGNATURE, "SCIPcreateExprVar");
+            break;
+        } case 'd': {
+            // Defined variables' expressions are shared, not copied.
+            expr = defined_expressions[variables[element_id]];
+            SCIPcaptureExpr(expr);
             break;
         } case 'n': {
             std::vector<SCIP_EXPR*> operands = pop(1);
@@ -157,6 +163,88 @@ static SCIP_EXPR* to_scip_expr(
                     SCIPcreateExprProduct(scip, &expr, 2, factors.data(), 1.0, NULL, NULL),
                     FUNC_SIGNATURE, "SCIPcreateExprProduct");
             release(factors);
+            release(operands);
+            break;
+        } case 'a': {
+            std::vector<SCIP_EXPR*> operands = pop(1);
+            scip_check(
+                    SCIPcreateExprAbs(scip, &expr, operands[0], NULL, NULL),
+                    FUNC_SIGNATURE, "SCIPcreateExprAbs");
+            release(operands);
+            break;
+        } case 'g': {
+            // log10(a) = log(a) / ln(10).
+            std::vector<SCIP_EXPR*> operands = pop(1);
+            SCIP_EXPR* log_expr = nullptr;
+            scip_check(
+                    SCIPcreateExprLog(scip, &log_expr, operands[0], NULL, NULL),
+                    FUNC_SIGNATURE, "SCIPcreateExprLog");
+            double coefficient = 1.0 / std::log(10.0);
+            scip_check(
+                    SCIPcreateExprSum(scip, &expr, 1, &log_expr, &coefficient, 0.0, NULL, NULL),
+                    FUNC_SIGNATURE, "SCIPcreateExprSum");
+            scip_check(SCIPreleaseExpr(scip, &log_expr), FUNC_SIGNATURE, "SCIPreleaseExpr");
+            release(operands);
+            break;
+        } case 'h': {
+            // tanh(a) = 1 - 2 / (exp(2 a) + 1).
+            std::vector<SCIP_EXPR*> operands = pop(1);
+            SCIP_EXPR* double_expr = nullptr;
+            SCIP_EXPR* exp_expr = nullptr;
+            SCIP_EXPR* denominator_expr = nullptr;
+            SCIP_EXPR* inverse_expr = nullptr;
+            double two = 2.0;
+            double one = 1.0;
+            double minus_two = -2.0;
+            scip_check(
+                    SCIPcreateExprSum(scip, &double_expr, 1, &operands[0], &two, 0.0, NULL, NULL),
+                    FUNC_SIGNATURE, "SCIPcreateExprSum");
+            scip_check(
+                    SCIPcreateExprExp(scip, &exp_expr, double_expr, NULL, NULL),
+                    FUNC_SIGNATURE, "SCIPcreateExprExp");
+            scip_check(
+                    SCIPcreateExprSum(scip, &denominator_expr, 1, &exp_expr, &one, 1.0, NULL, NULL),
+                    FUNC_SIGNATURE, "SCIPcreateExprSum");
+            scip_check(
+                    SCIPcreateExprPow(scip, &inverse_expr, denominator_expr, -1.0, NULL, NULL),
+                    FUNC_SIGNATURE, "SCIPcreateExprPow");
+            scip_check(
+                    SCIPcreateExprSum(scip, &expr, 1, &inverse_expr, &minus_two, 1.0, NULL, NULL),
+                    FUNC_SIGNATURE, "SCIPcreateExprSum");
+            for (SCIP_EXPR** intermediate: {&double_expr, &exp_expr, &denominator_expr, &inverse_expr})
+                scip_check(SCIPreleaseExpr(scip, intermediate), FUNC_SIGNATURE, "SCIPreleaseExpr");
+            release(operands);
+            break;
+        } case 'm':
+          case 'M': {
+            // min(a, b) = (a + b - |a - b|) / 2 and max(a, b) = (a + b + |a - b|) / 2,
+            // folded over the operands.
+            std::vector<SCIP_EXPR*> operands = pop(number_of_children[element_id]);
+            double sign = (operators[element_id] == 'm')? -1.0: 1.0;
+            expr = operands[0];
+            SCIPcaptureExpr(expr);
+            for (size_t operand_pos = 1; operand_pos < operands.size(); ++operand_pos) {
+                SCIP_EXPR* pair[2] = {expr, operands[operand_pos]};
+                double difference_coefficients[2] = {1.0, -1.0};
+                SCIP_EXPR* difference_expr = nullptr;
+                SCIP_EXPR* abs_expr = nullptr;
+                scip_check(
+                        SCIPcreateExprSum(scip, &difference_expr, 2, pair, difference_coefficients, 0.0, NULL, NULL),
+                        FUNC_SIGNATURE, "SCIPcreateExprSum");
+                scip_check(
+                        SCIPcreateExprAbs(scip, &abs_expr, difference_expr, NULL, NULL),
+                        FUNC_SIGNATURE, "SCIPcreateExprAbs");
+                SCIP_EXPR* terms[3] = {expr, operands[operand_pos], abs_expr};
+                double coefficients[3] = {0.5, 0.5, 0.5 * sign};
+                SCIP_EXPR* folded = nullptr;
+                scip_check(
+                        SCIPcreateExprSum(scip, &folded, 3, terms, coefficients, 0.0, NULL, NULL),
+                        FUNC_SIGNATURE, "SCIPcreateExprSum");
+                scip_check(SCIPreleaseExpr(scip, &difference_expr), FUNC_SIGNATURE, "SCIPreleaseExpr");
+                scip_check(SCIPreleaseExpr(scip, &abs_expr), FUNC_SIGNATURE, "SCIPreleaseExpr");
+                scip_check(SCIPreleaseExpr(scip, &expr), FUNC_SIGNATURE, "SCIPreleaseExpr");
+                expr = folded;
+            }
             release(operands);
             break;
         } case '+': {
@@ -342,7 +430,24 @@ void mathoptsolverscmake::load(
 
     // Build the expression of the quadratic and nonlinear terms of a
     // constraint or of the objective. Return nullptr if there are none.
-    auto build_nonlinear_expr = [scip, &scip_model](
+    // Defined variables, in index order (each one only references lower-indexed ones).
+    std::vector<SCIP_EXPR*> defined_expressions;
+    for (int defined_variable_id = 0;
+            defined_variable_id < model.number_of_defined_variables();
+            ++defined_variable_id) {
+        defined_expressions.push_back(to_scip_expr(
+                    scip,
+                    scip_model.variables,
+                    defined_expressions,
+                    model.defined_variables_elements_operators,
+                    model.defined_variables_elements_values,
+                    model.defined_variables_elements_variables,
+                    model.defined_variables_elements_number_of_children,
+                    model.defined_variables_starts[defined_variable_id],
+                    model.defined_variable_end(defined_variable_id)));
+    }
+
+    auto build_nonlinear_expr = [scip, &scip_model, &defined_expressions](
             const std::vector<int>& quadratic_variables_1,
             const std::vector<int>& quadratic_variables_2,
             const std::vector<double>& quadratic_coefficients,
@@ -382,6 +487,7 @@ void mathoptsolverscmake::load(
             terms.push_back(to_scip_expr(
                         scip,
                         scip_model.variables,
+                        defined_expressions,
                         operators,
                         values,
                         variables,
@@ -524,6 +630,9 @@ void mathoptsolverscmake::load(
                 to_scip(scip, model.constraints_lower_bounds[constraint_id]),
                 to_scip(scip, model.constraints_upper_bounds[constraint_id]));
     }
+
+    for (SCIP_EXPR*& expr: defined_expressions)
+        scip_check(SCIPreleaseExpr(scip, &expr), FUNC_SIGNATURE, "SCIPreleaseExpr");
 
     // Initial solution.
     if (!model.variables_initial_values.empty()) {

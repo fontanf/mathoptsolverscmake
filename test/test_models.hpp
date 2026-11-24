@@ -61,6 +61,18 @@ TestModel nonlinear_mixed_integer_infeasible_model();
 TestModel nonlinear_operators_model();
 
 /*
+ * A continuous model using the abs, tanh, log10, min and max operators,
+ * away from the kinks of abs, min and max.
+ */
+TestModel extra_nonlinear_operators_model();
+
+/*
+ * A continuous model whose objective and constraint share defined variables
+ * (common subexpressions), one of which references another.
+ */
+TestModel defined_variables_model();
+
+/*
  * Non-convex models with several local optima: a local solver started from
  * the origin converges to a local optimum which is not the global one.
  */

@@ -23,6 +23,9 @@ option(MATHOPTSOLVERSCMAKE_BUILD_TESTS "Build tests" ON)
 # App option.
 option(MATHOPTSOLVERSCMAKE_BUILD_APP "Build the mathoptsolverscmake_solve CLI app" ON)
 
+# Python bindings option (set by pyproject.toml when building the Python package).
+option(MATHOPTSOLVERSCMAKE_BUILD_PYTHON "Build the Python bindings" OFF)
+
 # Avoid FetchContent warning.
 cmake_policy(SET CMP0135 NEW)
 
@@ -31,6 +34,11 @@ set(CMAKE_CXX_STANDARD 11)
 
 # Enable output of compile commands during generation.
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
+# The static library is linked into the Python extension module.
+if(MATHOPTSOLVERSCMAKE_BUILD_PYTHON)
+    set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+endif()
 
 # Add sub-directories.
 add_subdirectory(extern)
@@ -41,4 +49,7 @@ if(MATHOPTSOLVERSCMAKE_BUILD_TESTS)
 endif()
 if(MATHOPTSOLVERSCMAKE_BUILD_APP)
     add_subdirectory(app)
+endif()
+if(MATHOPTSOLVERSCMAKE_BUILD_PYTHON)
+    add_subdirectory(python)
 endif()

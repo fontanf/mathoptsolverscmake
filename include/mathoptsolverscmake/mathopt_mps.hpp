@@ -17,9 +17,19 @@ namespace mathoptsolverscmake
  * PL, BV, FR, LI, UI) sections of a linear / mixed-integer-linear model.
  * Parsing stops at ENDATA. Rows other than the first 'N' row (the
  * objective) are free rows and are dropped, matching how solvers such as
- * HiGHS treat them. Quadratic and other extension sections (QUADOBJ,
- * QCMATRIX, SOS, SC, SI, ...) are not supported and cause an
- * std::invalid_argument to be thrown.
+ * HiGHS treat them.
+ *
+ * Quadratic terms are read from the QUADOBJ, QMATRIX, QSECTION and QCMATRIX
+ * sections, like HiGHS does: QUADOBJ and QSECTION list one triangle of a
+ * symmetric matrix Q, QMATRIX and QCMATRIX the whole matrix (only its
+ * lower triangle is used; like HiGHS for QMATRIX, a matrix that isn't
+ * symmetric, up to 1e-10, causes an std::invalid_argument to be thrown). QUADOBJ and QMATRIX give the objective's
+ * 1/2 x'Qx; "QSECTION row" gives 1/2 x'Qx for that row (the objective's
+ * name, or a constraint's), "QCMATRIX row" gives x'Qx (no 1/2, following
+ * CPLEX and Gurobi) for a constraint. Sections naming a free or unknown row
+ * are skipped. Unlike HiGHS, which rejects them, quadratic constraints are
+ * kept. Other extension sections (CSECTION, SOS, SC, SI, ...) are not
+ * supported and cause an std::invalid_argument to be thrown.
  *
  * Row/bound/marker conventions (default variable bounds, integer columns
  * defaulting to [0, 1] unless a BOUNDS entry overrides them, RANGES

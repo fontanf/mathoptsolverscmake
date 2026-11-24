@@ -1,10 +1,13 @@
 #include "mathoptsolverscmake/mathopt.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <iomanip>
 #include <iostream>
 #include <fstream>
 #include <sstream>
+#include <unordered_map>
+#include <unordered_set>
 
 using namespace mathoptsolverscmake;
 
@@ -326,6 +329,13 @@ int MathOptModel::nonlinear_constraint_end(int constraint_id) const
         this->nonlinear_elements_constraints_starts[constraint_id + 1];
 }
 
+int MathOptModel::defined_variable_end(int defined_variable_id) const
+{
+    return (defined_variable_id == this->number_of_defined_variables() - 1)?
+        (int)this->defined_variables_elements_operators.size():
+        this->defined_variables_starts[defined_variable_id + 1];
+}
+
 int MathOptModel::number_of_variables(int constraint_id) const
 {
     return this->constraint_end(constraint_id) - this->constraints_starts[constraint_id];
@@ -614,6 +624,7 @@ std::ostream& MathOptModel::format(
             << "Has non-continuous:     " << this->has_non_continuous_variables() << std::endl
             << "Has quadratic:          " << this->has_quadratic() << std::endl
             << "Has nonlinear:          " << this->has_nonlinear() << std::endl
+            << "Defined variables:      " << this->number_of_defined_variables() << std::endl
             << "Has black-box:          " << this->has_black_box() << std::endl
             << "Is LP:                  " << this->is_lp() << std::endl
             << "Is MILP:                " << this->is_milp() << std::endl
@@ -859,7 +870,8 @@ static double evaluate_nonlinear_element(
         const std::vector<int>& number_of_children,
         const std::vector<double>& solution,
         int start,
-        int end)
+        int end,
+        const std::unordered_map<int, double>& defined_variables_values)
 {
     // Evaluate by scanning from the last leaf back to the root (index start).
     // Pre-order storage means this is a post-order traversal: every child is
@@ -872,6 +884,7 @@ static double evaluate_nonlinear_element(
         switch (operators[element_id]) {
         case 'k': stk.push_back(values[element_id]); break;
         case 'v': stk.push_back(solution[variables[element_id]]); break;
+        case 'd': stk.push_back(defined_variables_values.at(variables[element_id])); break;
         case 'n': { double a = stk.back(); stk.pop_back(); stk.push_back(-a); break; }
         case 'e': { double a = stk.back(); stk.pop_back(); stk.push_back(std::exp(a)); break; }
         case 'l': { double a = stk.back(); stk.pop_back(); stk.push_back(std::log(a)); break; }
@@ -879,6 +892,21 @@ static double evaluate_nonlinear_element(
         case 's': { double a = stk.back(); stk.pop_back(); stk.push_back(std::sin(a)); break; }
         case 'c': { double a = stk.back(); stk.pop_back(); stk.push_back(std::cos(a)); break; }
         case 't': { double a = stk.back(); stk.pop_back(); stk.push_back(std::tan(a)); break; }
+        case 'h': { double a = stk.back(); stk.pop_back(); stk.push_back(std::tanh(a)); break; }
+        case 'g': { double a = stk.back(); stk.pop_back(); stk.push_back(std::log10(a)); break; }
+        case 'a': { double a = stk.back(); stk.pop_back(); stk.push_back(std::abs(a)); break; }
+        case 'm': {
+            double min = stk.back(); stk.pop_back();
+            for (int c = 1; c < number_of_children[element_id]; ++c) { min = (std::min)(min, stk.back()); stk.pop_back(); }
+            stk.push_back(min);
+            break;
+        }
+        case 'M': {
+            double max = stk.back(); stk.pop_back();
+            for (int c = 1; c < number_of_children[element_id]; ++c) { max = (std::max)(max, stk.back()); stk.pop_back(); }
+            stk.push_back(max);
+            break;
+        }
         case '+': {
             double sum = 0;
             for (int c = 0; c < number_of_children[element_id]; ++c) { sum += stk.back(); stk.pop_back(); }
@@ -898,6 +926,61 @@ static double evaluate_nonlinear_element(
         }
     }
     return stk.back();
+}
+
+/**
+ * Evaluate the defined variables that the elements [start, end) of a tree
+ * depend on, directly or through other defined variables, in index order
+ * (a defined variable only references lower-indexed ones).
+ */
+static std::unordered_map<int, double> evaluate_defined_variables(
+        const MathOptModel& model,
+        const std::vector<char>& operators,
+        const std::vector<int>& variables,
+        int start,
+        int end,
+        const std::vector<double>& solution)
+{
+    std::unordered_map<int, double> defined_variables_values;
+    if (!model.has_defined_variables())
+        return defined_variables_values;
+
+    // Collect the dependency closure.
+    std::vector<int> needed;
+    std::vector<int> stack;
+    std::unordered_set<int> seen;
+    auto visit = [&](const std::vector<char>& ops, const std::vector<int>& vars, int s, int e)
+    {
+        for (int element_id = s; element_id < e; ++element_id) {
+            if (ops[element_id] == 'd' && seen.insert(vars[element_id]).second) {
+                stack.push_back(vars[element_id]);
+                needed.push_back(vars[element_id]);
+            }
+        }
+    };
+    visit(operators, variables, start, end);
+    while (!stack.empty()) {
+        int defined_variable_id = stack.back();
+        stack.pop_back();
+        visit(model.defined_variables_elements_operators,
+                model.defined_variables_elements_variables,
+                model.defined_variables_starts[defined_variable_id],
+                model.defined_variable_end(defined_variable_id));
+    }
+
+    std::sort(needed.begin(), needed.end());
+    for (int defined_variable_id: needed) {
+        defined_variables_values[defined_variable_id] = evaluate_nonlinear_element(
+                model.defined_variables_elements_operators,
+                model.defined_variables_elements_values,
+                model.defined_variables_elements_variables,
+                model.defined_variables_elements_number_of_children,
+                solution,
+                model.defined_variables_starts[defined_variable_id],
+                model.defined_variable_end(defined_variable_id),
+                defined_variables_values);
+    }
+    return defined_variables_values;
 }
 
 double MathOptModel::evaluate_objective(
@@ -922,6 +1005,7 @@ double MathOptModel::evaluate_objective(
         }
     }
     if (!this->objective_nonlinear_elements_operators.empty()) {
+        int end = (int)this->objective_nonlinear_elements_operators.size();
         value += evaluate_nonlinear_element(
                 this->objective_nonlinear_elements_operators,
                 this->objective_nonlinear_elements_values,
@@ -929,7 +1013,14 @@ double MathOptModel::evaluate_objective(
                 this->objective_nonlinear_elements_number_of_children,
                 solution,
                 0,
-                (int)this->objective_nonlinear_elements_operators.size());
+                end,
+                evaluate_defined_variables(
+                    *this,
+                    this->objective_nonlinear_elements_operators,
+                    this->objective_nonlinear_elements_variables,
+                    0,
+                    end,
+                    solution));
     }
     if (this->objective_function)
         value += this->objective_function(solution).objective_value;
@@ -975,7 +1066,14 @@ double MathOptModel::evaluate_constraint(
                     this->nonlinear_elements_number_of_children,
                     solution,
                     start,
-                    end);
+                    end,
+                    evaluate_defined_variables(
+                        *this,
+                        this->nonlinear_elements_operators,
+                        this->nonlinear_elements_variables,
+                        start,
+                        end,
+                        solution));
         }
     }
     if (!this->constraints_functions.empty()
@@ -1304,6 +1402,43 @@ bool MathOptModel::check(int verbosity_level) const
         }
     }
 
+    // Check defined variable element vector sizes and references.
+    if (this->has_defined_variables()) {
+        size_t size = this->defined_variables_elements_operators.size();
+        if (this->defined_variables_elements_values.size() != size
+                || this->defined_variables_elements_variables.size() != size
+                || this->defined_variables_elements_number_of_children.size() != size) {
+            if (verbosity_level > 0)
+                std::cout << "inconsistent defined_variables_elements_* sizes." << std::endl;
+            ok = false;
+        } else {
+            for (int defined_variable_id = 0;
+                    defined_variable_id < this->number_of_defined_variables();
+                    ++defined_variable_id) {
+                int start = this->defined_variables_starts[defined_variable_id];
+                int end = this->defined_variable_end(defined_variable_id);
+                if (start < 0 || start > end || end > (int)size) {
+                    if (verbosity_level > 0)
+                        std::cout << "defined_variables_starts[" << defined_variable_id
+                            << "] = " << start << " is out of range." << std::endl;
+                    ok = false;
+                    continue;
+                }
+                for (int element_id = start; element_id < end; ++element_id) {
+                    if (this->defined_variables_elements_operators[element_id] == 'd'
+                            && this->defined_variables_elements_variables[element_id] >= defined_variable_id) {
+                        if (verbosity_level > 0)
+                            std::cout << "defined variable " << defined_variable_id
+                                << " references defined variable "
+                                << this->defined_variables_elements_variables[element_id]
+                                << ", which doesn't have a lower index." << std::endl;
+                        ok = false;
+                    }
+                }
+            }
+        }
+    }
+
     // Stop here if sizes are wrong to avoid out-of-bounds access below.
     if (!ok)
         return false;
@@ -1385,4 +1520,116 @@ void MathOptModel::write_solution(
         file << this->constraint_name(constraint_id)
              << " " << this->evaluate_constraint(solution, constraint_id) << "\n";
     }
+}
+
+namespace
+{
+
+/** Pre-order expression-tree arrays (see mathopt.hpp). */
+struct TreeArrays
+{
+    std::vector<char> operators;
+    std::vector<double> values;
+    std::vector<int> variables;
+    std::vector<int> number_of_children;
+};
+
+/**
+ * Append the elements [start, end) of a tree to "out", replacing each 'd'
+ * node by the (already expanded) tree of its defined variable.
+ */
+void append_expanded(
+        const std::vector<char>& operators,
+        const std::vector<double>& values,
+        const std::vector<int>& variables,
+        const std::vector<int>& number_of_children,
+        int start,
+        int end,
+        const std::vector<TreeArrays>& expanded,
+        TreeArrays& out)
+{
+    for (int element_id = start; element_id < end; ++element_id) {
+        if (operators[element_id] == 'd') {
+            const TreeArrays& tree = expanded[variables[element_id]];
+            out.operators.insert(out.operators.end(), tree.operators.begin(), tree.operators.end());
+            out.values.insert(out.values.end(), tree.values.begin(), tree.values.end());
+            out.variables.insert(out.variables.end(), tree.variables.begin(), tree.variables.end());
+            out.number_of_children.insert(out.number_of_children.end(),
+                    tree.number_of_children.begin(), tree.number_of_children.end());
+        } else {
+            out.operators.push_back(operators[element_id]);
+            out.values.push_back(values[element_id]);
+            out.variables.push_back(variables[element_id]);
+            out.number_of_children.push_back(number_of_children[element_id]);
+        }
+    }
+}
+
+}
+
+MathOptModel mathoptsolverscmake::expand_defined_variables(const MathOptModel& model)
+{
+    MathOptModel expanded_model = model;
+    expanded_model.defined_variables_starts.clear();
+    expanded_model.defined_variables_elements_operators.clear();
+    expanded_model.defined_variables_elements_values.clear();
+    expanded_model.defined_variables_elements_variables.clear();
+    expanded_model.defined_variables_elements_number_of_children.clear();
+    if (!model.has_defined_variables())
+        return expanded_model;
+
+    // Expand the defined variables themselves, in index order (each one
+    // only references lower-indexed, already expanded, ones).
+    std::vector<TreeArrays> expanded(model.number_of_defined_variables());
+    for (int defined_variable_id = 0;
+            defined_variable_id < model.number_of_defined_variables();
+            ++defined_variable_id) {
+        append_expanded(
+                model.defined_variables_elements_operators,
+                model.defined_variables_elements_values,
+                model.defined_variables_elements_variables,
+                model.defined_variables_elements_number_of_children,
+                model.defined_variables_starts[defined_variable_id],
+                model.defined_variable_end(defined_variable_id),
+                expanded,
+                expanded[defined_variable_id]);
+    }
+
+    // Objective.
+    TreeArrays objective;
+    append_expanded(
+            model.objective_nonlinear_elements_operators,
+            model.objective_nonlinear_elements_values,
+            model.objective_nonlinear_elements_variables,
+            model.objective_nonlinear_elements_number_of_children,
+            0,
+            (int)model.objective_nonlinear_elements_operators.size(),
+            expanded,
+            objective);
+    expanded_model.objective_nonlinear_elements_operators = std::move(objective.operators);
+    expanded_model.objective_nonlinear_elements_values = std::move(objective.values);
+    expanded_model.objective_nonlinear_elements_variables = std::move(objective.variables);
+    expanded_model.objective_nonlinear_elements_number_of_children = std::move(objective.number_of_children);
+
+    // Constraints.
+    if (!model.nonlinear_elements_operators.empty()) {
+        TreeArrays constraints;
+        for (int constraint_id = 0; constraint_id < model.number_of_constraints(); ++constraint_id) {
+            expanded_model.nonlinear_elements_constraints_starts[constraint_id] = (int)constraints.operators.size();
+            append_expanded(
+                    model.nonlinear_elements_operators,
+                    model.nonlinear_elements_values,
+                    model.nonlinear_elements_variables,
+                    model.nonlinear_elements_number_of_children,
+                    model.nonlinear_elements_constraints_starts[constraint_id],
+                    model.nonlinear_constraint_end(constraint_id),
+                    expanded,
+                    constraints);
+        }
+        expanded_model.nonlinear_elements_operators = std::move(constraints.operators);
+        expanded_model.nonlinear_elements_values = std::move(constraints.values);
+        expanded_model.nonlinear_elements_variables = std::move(constraints.variables);
+        expanded_model.nonlinear_elements_number_of_children = std::move(constraints.number_of_children);
+    }
+    return expanded_model;
 }

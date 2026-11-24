@@ -172,3 +172,17 @@ Feasible:         1
 
 For a linear program, `--dual` solves its dual (built with `mathoptsolverscmake::dual()`) instead of the model itself.
 The reported objective value is the dual's, equal to the primal's at optimality, and `--output` writes the dual solution.
+
+## Python package
+
+The solver-independent part of the library — `MathOptModel` and the MPS, LP, JSON and `.nl` readers/writers — is also available as a Python package, `mathoptmodel`, with the model's arrays exposed as read-only NumPy views:
+```shell
+pip install mathoptmodel
+```
+```python
+import mathoptmodel as mom
+
+model = mom.read("data/miplib3/p0033.mps")  # also .gz / .bz2
+print(model.number_of_variables, model.constraint_class(0))
+```
+See [`python/README.md`](python/README.md) for details. The wheels are built by `.github/workflows/python.yml` and published to PyPI when a `v*` tag is pushed.

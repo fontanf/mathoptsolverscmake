@@ -186,6 +186,12 @@ struct MathOptModel
     /** Get the end nonlinear element of a constraint. */
     int nonlinear_constraint_end(int constraint_id) const;
 
+    /** Get the number of defined variables (common subexpressions). */
+    int number_of_defined_variables() const { return defined_variables_starts.size(); }
+
+    /** Get the end element of a defined variable. */
+    int defined_variable_end(int defined_variable_id) const;
+
     /** Get the number of variables involved in a given constraint. */
     int number_of_variables(int constraint_id) const;
 
@@ -272,6 +278,9 @@ struct MathOptModel
         return !this->objective_quadratic_elements_variables_1.empty()
             || !this->quadratic_elements_variables_1.empty();
     }
+
+    /** Return true if the model has defined variables (common subexpressions). */
+    bool has_defined_variables() const { return !this->defined_variables_starts.empty(); }
 
     /** Return true if the model has any nonlinear expression tree terms (objective or constraints). */
     bool has_nonlinear() const
@@ -367,10 +376,15 @@ struct MathOptModel
      *   '*'                — multiplication (n-ary, n >= 2)
      *   '/'                — division       (binary: left / right)
      *   'n'                — unary negation
-     *   'e'                — exp, 'l' — log (natural), 'q' — sqrt
-     *   's'                — sin, 'c' — cos, 't' — tan
+     *   'e'                — exp, 'l' — log (natural), 'g' — log10, 'q' — sqrt
+     *   's'                — sin, 'c' — cos, 't' — tan, 'h' — tanh
+     *   'a'                — absolute value
      *   'p'                — pow (binary: left ^ right)
+     *   'm'                — minimum        (n-ary, n >= 1)
+     *   'M'                — maximum        (n-ary, n >= 1)
      *   'v'                — variable (index stored in *_elements_variables)
+     *   'd'                — defined variable (index stored in *_elements_variables;
+     *                        see "Defined variables" below)
      *   'k'                — constant  (value  stored in *_elements_values)
      *
      * Trees are stored in DFS pre-order: root first (index = range start),
@@ -391,6 +405,26 @@ struct MathOptModel
     std::vector<double> nonlinear_elements_values;
     std::vector<int> nonlinear_elements_variables;
     std::vector<int> nonlinear_elements_number_of_children;
+
+    /*
+     * Defined variables (common subexpressions).
+     *
+     * A defined variable is an expression tree, stored like the ones above,
+     * that the objective's, the constraints' and other defined variables'
+     * trees reference with a 'd' node (whose *_elements_variables entry is
+     * the defined variable's index). It lets a subexpression shared by
+     * several constraints, or appearing several times in one, be stored once,
+     * as AMPL .nl files do. A defined variable's tree may only reference
+     * defined variables with a lower index, so evaluating them in index
+     * order is always possible. expand_defined_variables() returns an
+     * equivalent model without them.
+     */
+
+    std::vector<int> defined_variables_starts;
+    std::vector<char> defined_variables_elements_operators;
+    std::vector<double> defined_variables_elements_values;
+    std::vector<int> defined_variables_elements_variables;
+    std::vector<int> defined_variables_elements_number_of_children;
 
     /*
      * Black-box structures
@@ -415,5 +449,13 @@ struct MathOptModel
      */
     double integrality_tolerance = 0.0;
 };
+
+/**
+ * Return an equivalent model without defined variables: every 'd' node of
+ * the objective's and the constraints' expression trees is replaced by (a
+ * copy of) the defined variable's own tree, recursively. The result can be
+ * much larger than the input when defined variables are shared a lot.
+ */
+MathOptModel expand_defined_variables(const MathOptModel& model);
 
 }
