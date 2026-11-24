@@ -3,6 +3,12 @@ name: Java
 # Builds the "mathoptmodel" native library (the C API) on every platform,
 # tests the Java bindings against it with the oldest supported Java (22),
 # then packages a jar bundling the native libraries of all the platforms.
+#
+# Pushing a "v*" tag also publishes the jar to Maven Central, with the version
+# of the tag, from the "maven-central" environment of this repository, whose
+# secrets are the Central Portal token (MAVEN_CENTRAL_USERNAME and
+# MAVEN_CENTRAL_PASSWORD) and the ASCII-armored signing key (GPG_PRIVATE_KEY,
+# without passphrase).
 
 on:
   push:
@@ -117,3 +123,45 @@ jobs:
         with:
           name: jar
           path: java/target/*.jar
+
+  publish:
+    name: Publish to Maven Central
+    needs: jar
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    environment: maven-central
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: natives-*
+          path: java/natives
+          merge-multiple: true
+      # Writes Maven's settings.xml with the "central" server, whose
+      # credentials are read from the environment variables named here.
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "22"
+          cache: maven
+          server-id: central
+          server-username: MAVEN_CENTRAL_USERNAME
+          server-password: MAVEN_CENTRAL_PASSWORD
+      # The Python package is published from the same tag, with the version of
+      # python/mathoptmodel/_version.py: both must match.
+      - name: Check the version
+        run: |
+          python_version=$(sed -n 's/^__version__ = "\(.*\)"$/\1/p' python/mathoptmodel/_version.py)
+          if [ "${GITHUB_REF_NAME#v}" != "$python_version" ]; then
+            echo "Tag $GITHUB_REF_NAME doesn't match python/mathoptmodel/_version.py ($python_version)."
+            exit 1
+          fi
+      - name: Publish
+        working-directory: java
+        env:
+          MAVEN_CENTRAL_USERNAME: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
+          MAVEN_CENTRAL_PASSWORD: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}
+          MAVEN_GPG_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+        run: |
+          mvn -B -ntp versions:set -DnewVersion="${GITHUB_REF_NAME#v}" -DgenerateBackupPoms=false
+          mvn -B -ntp -Prelease deploy
