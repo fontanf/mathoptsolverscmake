@@ -186,3 +186,13 @@ model = mom.read("data/miplib3/p0033.mps")  # also .gz / .bz2
 print(model.number_of_variables, model.constraint_class(0))
 ```
 See [`python/README.md`](python/README.md) for details. The wheels are built by `.github/workflows/python.yml` and published to PyPI when a `v*` tag is pushed.
+
+## Java bindings
+
+The same part of the library is available from Java 22+, through the C API `include/mathoptsolverscmake/mathoptmodel_c.h` (the `mathoptmodel` shared library, built with `-DMATHOPTSOLVERSCMAKE_BUILD_C_API=ON`) and the Foreign Function & Memory API:
+```java
+try (Model model = Model.read(Path.of("data/miplib3/p0033.mps"))) {
+    System.out.println(model.numberOfVariables() + " " + model.constraintClass(0));
+}
+```
+See [`java/README.md`](java/README.md) for details. `.github/workflows/java.yml` builds the native library for each platform, tests the bindings and packages a jar bundling all of them.

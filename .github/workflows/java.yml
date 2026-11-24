@@ -1,0 +1,119 @@
+name: Java
+
+# Builds the "mathoptmodel" native library (the C API) on every platform,
+# tests the Java bindings against it with the oldest supported Java (22),
+# then packages a jar bundling the native libraries of all the platforms.
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  native:
+    name: Native library on ${{ matrix.platform }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            platform: linux-x86-64
+            manylinux: quay.io/pypa/manylinux_2_28_x86_64
+          - os: ubuntu-24.04-arm
+            platform: linux-aarch64
+            manylinux: quay.io/pypa/manylinux_2_28_aarch64
+          - os: macos-15-intel
+            platform: macos-x86-64
+          - os: macos-latest
+            platform: macos-aarch64
+          - os: windows-latest
+            platform: windows-x86-64
+    env:
+      CMAKE_FLAGS: >-
+        -DCMAKE_BUILD_TYPE=Release
+        -DMATHOPTSOLVERSCMAKE_BUILD_C_API=ON
+        -DMATHOPTSOLVERSCMAKE_BUILD_TESTS=OFF
+        -DMATHOPTSOLVERSCMAKE_BUILD_APP=OFF
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      # Linux: built in a manylinux container, so that the library only needs
+      # glibc 2.28 (libstdc++ is linked statically).
+      - name: Build (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          docker run --rm -v "$PWD:/io" -w /io ${{ matrix.manylinux }} bash -c \
+            "cmake -S . -B build_java $CMAKE_FLAGS && cmake --build build_java -j4"
+          mkdir -p java/natives/${{ matrix.platform }}
+          cp build_java/src/libmathoptmodel.so java/natives/${{ matrix.platform }}/
+
+      - name: Build (macOS)
+        if: runner.os == 'macOS'
+        env:
+          MACOSX_DEPLOYMENT_TARGET: "11.0"
+        run: |
+          cmake -S . -B build_java $CMAKE_FLAGS
+          cmake --build build_java -j4
+          mkdir -p java/natives/${{ matrix.platform }}
+          cp build_java/src/libmathoptmodel.dylib java/natives/${{ matrix.platform }}/
+
+      # Windows: with the static MSVC runtime, so that the DLL doesn't need
+      # the Visual C++ redistributable.
+      - name: Build (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          cmake -S . -B build_java $CMAKE_FLAGS -DCMAKE_MSVC_RUNTIME_LIBRARY=MultiThreaded
+          cmake --build build_java --config Release -j4
+          mkdir -p java/natives/${{ matrix.platform }}
+          cp build_java/src/Release/mathoptmodel.dll java/natives/${{ matrix.platform }}/
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "22"
+          cache: maven
+
+      - name: Test
+        working-directory: java
+        run: >
+          mvn -B -ntp test
+          "-Dmathoptmodel.library.path=${{ github.workspace }}/java/natives/${{ matrix.platform }}/${{ runner.os == 'Windows' && 'mathoptmodel.dll' || (runner.os == 'macOS' && 'libmathoptmodel.dylib' || 'libmathoptmodel.so') }}"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: natives-${{ matrix.platform }}
+          path: java/natives/
+
+  jar:
+    name: Jar
+    needs: native
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: natives-*
+          path: java/natives
+          merge-multiple: true
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "22"
+          cache: maven
+      # The tests run again, against the library bundled in the jar's resources.
+      - name: Package
+        working-directory: java
+        run: |
+          find natives -type f
+          mvn -B -ntp package
+          unzip -l target/mathoptmodel-*[0-9T].jar | grep native/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: jar
+          path: java/target/*.jar
