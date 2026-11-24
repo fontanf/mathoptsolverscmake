@@ -99,6 +99,8 @@ final class Native {
             ADDRESS, JAVA_LONG, JAVA_INT, ADDRESS, ADDRESS, JAVA_LONG);
     static final MethodHandle WRITE = handle("mom_write", false, JAVA_INT,
             ADDRESS, JAVA_INT, ADDRESS, ADDRESS, ADDRESS, JAVA_LONG);
+    static final MethodHandle WRITE_FILE = handle("mom_write_file", false, JAVA_INT,
+            ADDRESS, JAVA_INT, ADDRESS, ADDRESS, JAVA_LONG);
     static final MethodHandle FORMAT = handle("mom_format", false, JAVA_INT,
             ADDRESS, JAVA_INT, ADDRESS, ADDRESS, ADDRESS, JAVA_LONG);
     static final MethodHandle FORMAT_CONSTRAINT = handle("mom_format_constraint", false, JAVA_INT,

@@ -82,6 +82,20 @@ class ModelTest {
     }
 
     @Test
+    void writeFileMatchesString(@TempDir Path directory) throws IOException {
+        // Uncompressed files are written by the native library directly,
+        // compressed ones through writeString: both must give the same contents.
+        try (Model model = Model.read(LP.getBytes(), Format.LP)) {
+            for (Format format : Format.values()) {
+                Path path = directory.resolve("model é." + format.extension());
+                model.write(path);
+                assertEquals(model.writeString(format), Files.readString(path), format.toString());
+            }
+            assertThrows(IOException.class, () -> model.write(directory.resolve("missing").resolve("model.lp")));
+        }
+    }
+
+    @Test
     void readGzipAndWriteRoundTrip(@TempDir Path directory) throws IOException {
         try (Model model = Model.read(LP.getBytes(), Format.LP)) {
             Path path = directory.resolve("model.mps.gz");

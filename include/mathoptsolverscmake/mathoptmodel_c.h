@@ -144,6 +144,18 @@ MOM_API int mom_write(
         char* error_message,
         size_t error_message_size);
 
+/**
+ * Write a model to a file (uncompressed) in the given format. 'path' is
+ * passed to the C++ standard library as is (UTF-8 on Linux and macOS; the
+ * active code page on Windows).
+ */
+MOM_API int mom_write_file(
+        const mom_model* model,
+        int format,
+        const char* path,
+        char* error_message,
+        size_t error_message_size);
+
 /** Format the model (MathOptModel::format); release '*data' with mom_free(). */
 MOM_API int mom_format(
         const mom_model* model,
