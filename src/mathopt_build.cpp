@@ -1,5 +1,6 @@
 #include "mathoptsolverscmake/mathopt_build.hpp"
 
+#include <algorithm>
 #include <limits>
 #include <stdexcept>
 
@@ -208,6 +209,20 @@ void append_names(
     }
 }
 
+/**
+ * Make room for 'size' entries, keeping the geometric growth of std::vector:
+ * reserving exactly 'size' on every batch would reallocate (and copy) the
+ * whole vector each time, making a model built one entry at a time quadratic.
+ */
+template <typename T>
+void grow(
+        std::vector<T>& vector,
+        std::size_t size)
+{
+    if (size > vector.capacity())
+        vector.reserve(std::max(size, 2 * vector.capacity()));
+}
+
 template <typename T>
 void append(
         std::vector<T>& vector,
@@ -237,10 +252,10 @@ int mathoptsolverscmake::add_variables(
                     + " is not a VariableType value.");
     }
 
-    model.variables_lower_bounds.reserve(first + n);
-    model.variables_upper_bounds.reserve(first + n);
-    model.variables_types.reserve(first + n);
-    model.objective_coefficients.reserve(first + n);
+    grow(model.variables_lower_bounds, first + n);
+    grow(model.variables_upper_bounds, first + n);
+    grow(model.variables_types, first + n);
+    grow(model.objective_coefficients, first + n);
     for (std::size_t i = 0; i < n; ++i) {
         model.variables_lower_bounds.push_back(
                 (batch.lower_bounds != nullptr)? batch.lower_bounds[i]: batch.lower_bound);
@@ -318,9 +333,9 @@ int mathoptsolverscmake::add_constraints(
     int linear_offset = model.number_of_elements();
     int quadratic_offset = (int)model.quadratic_elements_variables_1.size();
     int nonlinear_offset = (int)model.nonlinear_elements_operators.size();
-    model.constraints_lower_bounds.reserve(first + m);
-    model.constraints_upper_bounds.reserve(first + m);
-    model.constraints_starts.reserve(first + m);
+    grow(model.constraints_lower_bounds, first + m);
+    grow(model.constraints_upper_bounds, first + m);
+    grow(model.constraints_starts, first + m);
     for (std::size_t i = 0; i < m; ++i) {
         model.constraints_lower_bounds.push_back(
                 (batch.lower_bounds != nullptr)? batch.lower_bounds[i]: batch.lower_bound);
@@ -333,7 +348,7 @@ int mathoptsolverscmake::add_constraints(
     append(model.elements_coefficients, batch.coefficients, batch.number_of_elements);
 
     model.quadratic_elements_constraints_starts.resize(first, quadratic_offset);
-    model.quadratic_elements_constraints_starts.reserve(first + m);
+    grow(model.quadratic_elements_constraints_starts, first + m);
     for (std::size_t i = 0; i < m; ++i) {
         model.quadratic_elements_constraints_starts.push_back(
                 quadratic_offset + ((batch.quadratic_starts != nullptr)? batch.quadratic_starts[i]: 0));
@@ -348,7 +363,7 @@ int mathoptsolverscmake::add_constraints(
     // The nonlinear starts are only stored once the model has expression trees.
     if (trees.number_of_nodes > 0 || !model.nonlinear_elements_constraints_starts.empty()) {
         model.nonlinear_elements_constraints_starts.resize(first, nonlinear_offset);
-        model.nonlinear_elements_constraints_starts.reserve(first + m);
+        grow(model.nonlinear_elements_constraints_starts, first + m);
         for (std::size_t i = 0; i < m; ++i) {
             model.nonlinear_elements_constraints_starts.push_back(
                     nonlinear_offset + ((batch.nonlinear_starts != nullptr)? batch.nonlinear_starts[i]: 0));
