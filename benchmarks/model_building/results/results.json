@@ -1,0 +1,239 @@
+[
+ {
+  "language": "python",
+  "tool": "mathoptmodel-batch",
+  "n": 10000,
+  "build": 0.00020223698811605573,
+  "write": 0.017970649001654238,
+  "peak_memory_mb": 30.0625,
+  "check": "ok"
+ },
+ {
+  "language": "python",
+  "tool": "mathoptmodel-batch",
+  "n": 100000,
+  "build": 0.0016476280288770795,
+  "write": 0.16862174100242555,
+  "peak_memory_mb": 74.77734375
+ },
+ {
+  "language": "python",
+  "tool": "mathoptmodel-batch",
+  "n": 1000000,
+  "build": 0.0367473250371404,
+  "write": 2.4710282729938626,
+  "peak_memory_mb": 421.98828125
+ },
+ {
+  "language": "python",
+  "tool": "mathoptmodel-row",
+  "n": 10000,
+  "build": 0.017337938013952225,
+  "write": 0.01824838196625933,
+  "peak_memory_mb": 44.66796875,
+  "check": "ok"
+ },
+ {
+  "language": "python",
+  "tool": "mathoptmodel-row",
+  "n": 100000,
+  "build": 0.16551117901690304,
+  "write": 0.1716911270050332,
+  "peak_memory_mb": 112.0390625
+ },
+ {
+  "language": "python",
+  "tool": "mathoptmodel-row",
+  "n": 1000000,
+  "build": 2.115496237995103,
+  "write": 2.20299455197528,
+  "peak_memory_mb": 835.28515625
+ },
+ {
+  "language": "python",
+  "tool": "pyomo",
+  "n": 10000,
+  "build": 0.09544135798932984,
+  "write": 0.09118346497416496,
+  "peak_memory_mb": 70.078125,
+  "check": "ok"
+ },
+ {
+  "language": "python",
+  "tool": "pyomo",
+  "n": 100000,
+  "build": 1.3032984369783662,
+  "write": 1.3873890260001644,
+  "peak_memory_mb": 282.65625
+ },
+ {
+  "language": "python",
+  "tool": "pyomo",
+  "n": 1000000,
+  "build": 14.712391612993088,
+  "write": 18.869458905013744,
+  "peak_memory_mb": 2114.66015625
+ },
+ {
+  "language": "python",
+  "tool": "pyoptinterface-row",
+  "n": 10000,
+  "build": 0.12682794901775196,
+  "write": 0.018662072950974107,
+  "peak_memory_mb": 61.08203125,
+  "check": "ok"
+ },
+ {
+  "language": "python",
+  "tool": "pyoptinterface-row",
+  "n": 100000,
+  "build": 1.268286609032657,
+  "write": 0.22446406801464036,
+  "peak_memory_mb": 153.2421875
+ },
+ {
+  "language": "python",
+  "tool": "pyoptinterface-row",
+  "n": 1000000,
+  "build": 13.262298810004722,
+  "write": 3.805509337980766,
+  "peak_memory_mb": 1184.6171875
+ },
+ {
+  "language": "python",
+  "tool": "pyoptinterface-matrix",
+  "n": 10000,
+  "build": 0.14591652498347685,
+  "write": 0.01843505899887532,
+  "peak_memory_mb": 63.125,
+  "check": "ok"
+ },
+ {
+  "language": "python",
+  "tool": "pyoptinterface-matrix",
+  "n": 100000,
+  "build": 1.4920511729433201,
+  "write": 0.2166973349521868,
+  "peak_memory_mb": 126.27734375
+ },
+ {
+  "language": "python",
+  "tool": "pyoptinterface-matrix",
+  "n": 1000000,
+  "build": 15.981389024993405,
+  "write": 3.733937748998869,
+  "peak_memory_mb": 721.96484375
+ },
+ {
+  "language": "java",
+  "tool": "mathoptmodel-batch",
+  "n": 10000,
+  "build": 0.000578,
+  "write": 0.013188,
+  "peak_memory_mb": 79.7,
+  "jvm": "25.0.5.1+2-LTS",
+  "check": "ok"
+ },
+ {
+  "language": "java",
+  "tool": "mathoptmodel-batch",
+  "n": 100000,
+  "build": 0.002089,
+  "write": 0.150699,
+  "peak_memory_mb": 147.2,
+  "jvm": "25.0.5.1+2-LTS"
+ },
+ {
+  "language": "java",
+  "tool": "mathoptmodel-batch",
+  "n": 1000000,
+  "build": 0.037887,
+  "write": 2.064473,
+  "peak_memory_mb": 767.3,
+  "jvm": "25.0.5.1+2-LTS"
+ },
+ {
+  "language": "java",
+  "tool": "mathoptmodel-row",
+  "n": 10000,
+  "build": 0.003847,
+  "write": 0.013495,
+  "peak_memory_mb": 92.1,
+  "jvm": "25.0.5.1+2-LTS",
+  "check": "ok"
+ },
+ {
+  "language": "java",
+  "tool": "mathoptmodel-row",
+  "n": 100000,
+  "build": 0.018446,
+  "write": 0.150979,
+  "peak_memory_mb": 183.7,
+  "jvm": "25.0.5.1+2-LTS"
+ },
+ {
+  "language": "java",
+  "tool": "mathoptmodel-row",
+  "n": 1000000,
+  "build": 0.2468,
+  "write": 2.039413,
+  "peak_memory_mb": 944.1,
+  "jvm": "25.0.5.1+2-LTS"
+ },
+ {
+  "language": "java",
+  "tool": "ortools-modelbuilder",
+  "n": 10000,
+  "build": 0.00905,
+  "write": 0.009042,
+  "peak_memory_mb": 109.6,
+  "jvm": "25.0.5.1+2-LTS",
+  "check": "ok"
+ },
+ {
+  "language": "java",
+  "tool": "ortools-modelbuilder",
+  "n": 100000,
+  "build": 0.10704,
+  "write": 0.104628,
+  "peak_memory_mb": 249.9,
+  "jvm": "25.0.5.1+2-LTS"
+ },
+ {
+  "language": "java",
+  "tool": "ortools-modelbuilder",
+  "n": 1000000,
+  "build": 1.012425,
+  "write": 1.759698,
+  "peak_memory_mb": 1355.9,
+  "jvm": "25.0.5.1+2-LTS"
+ },
+ {
+  "language": "java",
+  "tool": "ortools-mpsolver",
+  "n": 10000,
+  "build": 0.00764,
+  "write": 0.016047,
+  "peak_memory_mb": 114.7,
+  "jvm": "25.0.5.1+2-LTS",
+  "check": "ok"
+ },
+ {
+  "language": "java",
+  "tool": "ortools-mpsolver",
+  "n": 100000,
+  "build": 0.118426,
+  "write": 0.280571,
+  "peak_memory_mb": 332.6,
+  "jvm": "25.0.5.1+2-LTS"
+ },
+ {
+  "language": "java",
+  "tool": "ortools-mpsolver",
+  "n": 1000000,
+  "build": 1.897865,
+  "write": 4.404394,
+  "peak_memory_mb": 2236.5,
+  "jvm": "25.0.5.1+2-LTS"
+ }
+]
