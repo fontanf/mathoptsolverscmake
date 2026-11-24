@@ -2,6 +2,7 @@ add_library(MathOptSolversCMake_mathopt)
 target_sources(MathOptSolversCMake_mathopt PRIVATE
     mathopt.cpp
     mathopt_nonlinear.cpp
+    mathopt_build.cpp
     mathopt_mps.cpp
     mathopt_json.cpp
     mathopt_lp.cpp
