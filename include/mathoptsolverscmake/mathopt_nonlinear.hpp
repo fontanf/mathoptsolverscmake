@@ -33,6 +33,8 @@ using NonlinearExpression = std::function<void(
 NonlinearExpression nonlinear_variable(int variable_id);
 /** A constant value. */
 NonlinearExpression nonlinear_constant(double value);
+/** A reference to a defined variable, by index (see add_defined_variable()). */
+NonlinearExpression nonlinear_defined_variable(int defined_variable_id);
 
 NonlinearExpression nonlinear_negate(NonlinearExpression operand);
 NonlinearExpression nonlinear_exp(NonlinearExpression operand);
@@ -41,6 +43,9 @@ NonlinearExpression nonlinear_sqrt(NonlinearExpression operand);
 NonlinearExpression nonlinear_sin(NonlinearExpression operand);
 NonlinearExpression nonlinear_cos(NonlinearExpression operand);
 NonlinearExpression nonlinear_tan(NonlinearExpression operand);
+NonlinearExpression nonlinear_tanh(NonlinearExpression operand);
+NonlinearExpression nonlinear_log10(NonlinearExpression operand);
+NonlinearExpression nonlinear_abs(NonlinearExpression operand);
 
 /** n-ary sum (n >= 2 terms). */
 NonlinearExpression nonlinear_sum(std::vector<NonlinearExpression> terms);
@@ -52,9 +57,22 @@ NonlinearExpression nonlinear_subtract(NonlinearExpression left, NonlinearExpres
 NonlinearExpression nonlinear_divide(NonlinearExpression left, NonlinearExpression right);
 /** Binary: base ^ exponent. */
 NonlinearExpression nonlinear_power(NonlinearExpression base, NonlinearExpression exponent);
+/** n-ary minimum (n >= 1 operands). */
+NonlinearExpression nonlinear_min(std::vector<NonlinearExpression> operands);
+/** n-ary maximum (n >= 1 operands). */
+NonlinearExpression nonlinear_max(std::vector<NonlinearExpression> operands);
 
 /** Install a built expression as the model's nonlinear objective term. */
 void set_objective_nonlinear_expression(
+        MathOptModel& model,
+        const NonlinearExpression& expression);
+
+/**
+ * Add a defined variable (common subexpression) with the given expression,
+ * which may only reference already added defined variables, and return its
+ * index, for use with nonlinear_defined_variable().
+ */
+int add_defined_variable(
         MathOptModel& model,
         const NonlinearExpression& expression);
 

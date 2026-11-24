@@ -10,21 +10,24 @@ namespace mathoptsolverscmake
 {
 
 /**
- * Build a MathOptModel from an AMPL .nl file (ASCII "g" format only; the
- * "b"/"h" binary encodings are not supported and cause an
- * std::invalid_argument to be thrown).
+ * Build a MathOptModel from an AMPL .nl file, in either the text ("g") or
+ * the binary ("b") encoding (both little- and big-endian, per the header's
+ * "arith" field). The obsolete "h" encoding is not supported and causes an
+ * std::invalid_argument to be thrown.
  *
  * Unlike MPS/LP, .nl is expression-tree-native, so linear, quadratic and
  * general nonlinear objectives/constraints are all supported: its
  * "o<opcode>"/"v<index>"/"n<value>" prefix-notation opcodes are translated
  * to/from MathOptModel's own char-opcode tree (see mathopt.hpp), for
  * exactly the operators MathOptModel itself supports (+, -, *, /, unary
- * negate, exp, log, sqrt, sin, cos, tan, pow -- both o0/o54 forms of +).
- * Any other opcode (min/max, floor/ceil, logical/comparison operators,
- * piecewise-linear terms, ...) causes an std::invalid_argument to be
- * thrown, as does a nonzero header count for anything else unsupported:
- * user-defined functions, common subexpressions, logical or
- * complementarity constraints, and network ("arc") variables. Suffix
+ * negate, exp, log, log10, sqrt, sin, cos, tan, tanh, abs, pow, n-ary min
+ * and max -- both o0/o54 forms of +). Any other opcode (floor/ceil,
+ * logical/comparison operators, piecewise-linear terms, ...) causes an
+ * std::invalid_argument to be thrown, as does a nonzero header count for
+ * anything else unsupported: user-defined functions, logical or
+ * complementarity constraints, and network ("arc") variables. Common
+ * subexpressions ('V' segments) are read as MathOptModel defined variables,
+ * numbered in the order they are defined in the file. Suffix
  * ('S') segments are skipped, not stored, and so are initial dual values
  * ('d'); initial primal values ('x') populate variables_initial_values
  * (a variable not covered by a sparse 'x' segment defaults to 0).
@@ -44,7 +47,8 @@ MathOptModel read_nl(std::istream& in);
  * Write a MathOptModel as an AMPL .nl file (ASCII "g" format).
  *
  * Unlike MPS/LP, quadratic and nonlinear terms are supported (they are
- * .nl's native structure); only a black-box objective/constraint function
+ * .nl's native structure); defined variables are expanded (see
+ * expand_defined_variables()) rather than written as 'V' segments; only a black-box objective/constraint function
  * is unsupported (throws std::invalid_argument, i.e. unless
  * !model.has_black_box()). A quadratic term is folded into the written
  * nonlinear expression as a product (.nl has no separate quadratic

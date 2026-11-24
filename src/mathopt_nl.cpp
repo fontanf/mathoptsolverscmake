@@ -1,7 +1,9 @@
 #include "mathoptsolverscmake/mathopt_nl.hpp"
 
 #include <algorithm>
+#include <cstdint>
 #include <cstdlib>
+#include <cstring>
 #include <fstream>
 #include <iomanip>
 #include <limits>
@@ -21,8 +23,8 @@ const double inf = std::numeric_limits<double>::infinity();
  * opcodes and MathOptModel's own char-opcode tree (see the "Nonlinear
  * structures" comment on MathOptModel in mathopt.hpp), for exactly the
  * operators MathOptModel supports. Arity is 1 (unary), 2 (binary) or -1
- * (n-ary, with an explicit child count following the opcode -- only used
- * by OPSUMLIST, .nl's n-ary '+').
+ * (n-ary, with an explicit child count following the opcode: MINLIST,
+ * MAXLIST and OPSUMLIST, .nl's n-ary '+').
  */
 
 struct OpcodeInfo
@@ -38,10 +40,15 @@ const OpcodeInfo kOpcodeTable[] = {
     {2, '*', 2},    // OPMULT
     {3, '/', 2},    // OPDIV
     {5, 'p', 2},    // OPPOW
+    {11, 'm', -1},  // MINLIST
+    {12, 'M', -1},  // MAXLIST
+    {15, 'a', 1},   // ABS
     {16, 'n', 1},   // OPUMINUS
+    {37, 'h', 1},   // OP_tanh
     {38, 't', 1},   // OP_tan
     {39, 'q', 1},   // OP_sqrt
     {41, 's', 1},   // OP_sin
+    {42, 'g', 1},   // OP_log10
     {43, 'l', 1},   // OP_log
     {44, 'e', 1},   // OP_exp
     {46, 'c', 1},   // OP_cos
@@ -67,10 +74,15 @@ int char_to_opcode(char op)
     case '*': return 2;
     case '/': return 3;
     case 'p': return 5;
+    case 'm': return 11;
+    case 'M': return 12;
+    case 'a': return 15;
     case 'n': return 16;
+    case 'h': return 37;
     case 't': return 38;
     case 'q': return 39;
     case 's': return 41;
+    case 'g': return 42;
     case 'l': return 43;
     case 'e': return 44;
     case 'c': return 46;
@@ -95,7 +107,8 @@ struct NlHeader
     int nlc = 0, nlo = 0, n_cc = 0, nlcc = 0, ndcc = 0, nzlb = 0;
     int nlnc = 0, lnc = 0;
     int nlvc = 0, nlvo = 0, nlvb = 0;
-    int nwv = 0, nfunc = 0;
+    int nwv = 0, nfunc = 0, arith = 0;
+    bool binary = false;
     int nbv = 0, niv = 0, nlvbi = 0, nlvci = 0, nlvoi = 0;
     int comb = 0, comc = 0, como = 0, comc1 = 0, como1 = 0;
 };
@@ -139,17 +152,17 @@ NlHeader read_nl_header(std::istream& in, std::string& first_data_line)
                 FUNC_SIGNATURE + ": "
                 "empty .nl input.");
     }
-    if (line.empty() || (line[0] != 'g' && line[0] != 'G')) {
+    if (line.empty() || (line[0] != 'g' && line[0] != 'G' && line[0] != 'b' && line[0] != 'B')) {
         throw std::invalid_argument(
                 FUNC_SIGNATURE + ": "
-                "unsupported .nl format: only the ASCII \"g\" format is supported "
-                "(binary \"b\"/\"h\" formats are not).");
+                "unsupported .nl format: only the text \"g\" and binary \"b\" formats are supported.");
     }
     // Skip the trailing "k opt1 .. optk" AMPL-internal option list, if any:
     // 'k' (how many options follow) is glued right after 'g', the options
     // themselves are whitespace-separated on the same line.
 
     NlHeader header;
+    header.binary = (line[0] == 'b' || line[0] == 'B');
 
     std::getline(in, line);
     std::vector<long> l2 = split_ints(strip_comment(line));
@@ -187,6 +200,7 @@ NlHeader read_nl_header(std::istream& in, std::string& first_data_line)
     std::vector<long> l6 = split_ints(strip_comment(line));
     header.nwv = (int)field(l6, 0);
     header.nfunc = (int)field(l6, 1);
+    header.arith = (int)field(l6, 2);
 
     if (header.nlvb < 0) {
         throw std::invalid_argument(
@@ -222,8 +236,6 @@ NlHeader read_nl_header(std::istream& in, std::string& first_data_line)
     require_zero(header.nlnc + header.lnc, "network constraints");
     require_zero(header.nwv, "network (\"arc\") variables");
     require_zero(header.nfunc, "user-defined functions");
-    require_zero(header.comb + header.comc + header.como + header.comc1 + header.como1,
-            "common subexpressions");
     if (header.n_obj > 1) {
         throw std::invalid_argument(
                 FUNC_SIGNATURE + ": "
@@ -236,13 +248,24 @@ NlHeader read_nl_header(std::istream& in, std::string& first_data_line)
 }
 
 /*
- * Body parsing: everything after the header is tokenized as a flat,
- * whitespace-separated stream (newlines carry no meaning beyond
- * separating tokens here), since every segment either gives its own
- * element count up front or has a statically-known one. A marker token
- * such as "C3", "o16" or "x7" is a single letter immediately followed
- * (no space) by an integer; segments below read that glued integer via
- * expect_marker().
+ * Body parsing. Both encodings have the same segment / expression-graph
+ * layout and only differ in how values are written:
+ *
+ * - text ("g"): everything after the header is tokenized as a flat,
+ *   whitespace-separated stream (newlines carry no meaning beyond
+ *   separating tokens), since every segment either gives its own element
+ *   count up front or has a statically-known one. A segment key or
+ *   expression node such as "C3", "o16" or "n1.5" is a single letter
+ *   immediately followed (no space) by its number;
+ * - binary ("b"): each segment key or expression node kind is one ASCII
+ *   byte, followed by its values as raw binary numbers: 4-byte ints,
+ *   8-byte doubles ('n' constants), 2-byte or 4-byte integer constants
+ *   ('s' and 'l' nodes, binary only), and length-prefixed strings. A bound
+ *   type is a single ASCII digit. The byte order is given by the header's
+ *   "arith" field (1: little-endian, 2: big-endian IEEE).
+ *
+ * The segment loop and read_expression() only use the typed accessors
+ * below, so they work unchanged on either encoding.
  */
 
 class NlBodyParser
@@ -250,8 +273,27 @@ class NlBodyParser
 
 public:
 
-    explicit NlBodyParser(const std::string& content)
+    NlBodyParser(
+            const std::string& content,
+            const NlHeader& header):
+        binary_(header.binary),
+        number_of_variables_(header.n_var),
+        defined_variable_ids_(
+                header.comb + header.comc + header.como + header.comc1 + header.como1, -1)
     {
+        if (binary_) {
+            content_ = content;
+            if (header.arith != 1 && header.arith != 2) {
+                throw std::invalid_argument(
+                        FUNC_SIGNATURE + ": "
+                        "unsupported number format in binary .nl file "
+                        "(arith = " + std::to_string(header.arith) + ").");
+            }
+            uint16_t probe = 1;
+            bool host_little_endian = (*reinterpret_cast<unsigned char*>(&probe) == 1);
+            swap_bytes_ = (header.arith == 1) != host_little_endian;
+            return;
+        }
         std::string stripped;
         stripped.reserve(content.size());
         std::istringstream lines(content);
@@ -266,47 +308,109 @@ public:
             tokens_.push_back(token);
     }
 
-    bool at_end() const { return pos_ >= tokens_.size(); }
-
-    const std::string& peek() const
+    bool at_end() const
     {
-        if (at_end()) {
+        return binary_? pos_ >= content_.size(): pos_ >= tokens_.size();
+    }
+
+    /**
+     * Reads a segment key, and for every segment but 'b' and 'r' (which
+     * have none) the integer that comes with it (an index or a count).
+     */
+    char next_segment(long& argument)
+    {
+        argument = 0;
+        if (binary_) {
+            char key = read_char();
+            if (key != 'b' && key != 'r')
+                argument = read_binary<int32_t>();
+            return key;
+        }
+        const std::string& token = next_token();
+        char key = token[0];
+        if (key != 'b' && key != 'r') {
+            if (token.size() < 2) {
+                throw std::invalid_argument(
+                        FUNC_SIGNATURE + ": "
+                        "expected a \"" + std::string(1, key) + "<number>\" token, got \"" + token + "\".");
+            }
+            argument = std::strtol(token.c_str() + 1, nullptr, 10);
+        }
+        return key;
+    }
+
+    long read_int()
+    {
+        if (binary_)
+            return read_binary<int32_t>();
+        return std::strtol(next_token().c_str(), nullptr, 10);
+    }
+
+    double read_double()
+    {
+        if (binary_)
+            return read_binary<double>();
+        return std::strtod(next_token().c_str(), nullptr);
+    }
+
+    std::string read_string()
+    {
+        if (!binary_)
+            return next_token();
+        int32_t length = read_binary<int32_t>();
+        if (length < 0 || pos_ + length > content_.size())
+            throw_unexpected_end();
+        std::string result = content_.substr(pos_, length);
+        pos_ += length;
+        return result;
+    }
+
+    /** Reads the type code (0 to 5) starting a bound line of a 'b' or 'r' segment. */
+    int read_bound_type()
+    {
+        if (!binary_)
+            return (int)read_int();
+        char c = read_char();
+        if (c < '0' || c > '9') {
             throw std::invalid_argument(
                     FUNC_SIGNATURE + ": "
-                    "unexpected end of .nl input.");
+                    "invalid bound type '" + std::string(1, c) + "' in binary .nl file.");
         }
-        return tokens_[pos_];
+        return c - '0';
     }
 
-    std::string advance()
+    /**
+     * Reads one expression node's kind and value: 'n' with its constant
+     * (also for the binary-only 's'/'l' integer constants), 'v' with its
+     * variable index, 'o' with its opcode.
+     */
+    char read_node(double& value)
     {
-        const std::string& token = peek();
-        ++pos_;
-        return token;
-    }
-
-    long advance_int()
-    {
-        const std::string& token = advance();
-        return std::strtol(token.c_str(), nullptr, 10);
-    }
-
-    double advance_double()
-    {
-        const std::string& token = advance();
-        return std::strtod(token.c_str(), nullptr);
-    }
-
-    /** Reads a token required to start with 'marker', returning the glued integer that follows. */
-    long expect_marker(char marker)
-    {
-        std::string token = advance();
-        if (token.empty() || token[0] != marker || token.size() < 2) {
+        value = 0.0;
+        if (binary_) {
+            char kind = read_char();
+            switch (kind) {
+            case 'n': value = read_binary<double>(); return 'n';
+            case 's': value = read_binary<int16_t>(); return 'n';
+            case 'l': value = read_binary<int32_t>(); return 'n';
+            case 'v': case 'o': value = read_binary<int32_t>(); return kind;
+            default:
+                throw std::invalid_argument(
+                        FUNC_SIGNATURE + ": "
+                        "expected an 'n', 's', 'l', 'v' or 'o' expression node, got '" + std::string(1, kind) + "'.");
+            }
+        }
+        const std::string& token = next_token();
+        char kind = token[0];
+        if (kind != 'n' && kind != 'v' && kind != 'o') {
             throw std::invalid_argument(
                     FUNC_SIGNATURE + ": "
-                    "expected a \"" + std::string(1, marker) + "<number>\" token, got \"" + token + "\".");
+                    "expected an 'n', 'v' or 'o' expression token, got \"" + token + "\".");
         }
-        return std::strtol(token.c_str() + 1, nullptr, 10);
+        value = (kind == 'n')?
+            std::strtod(token.c_str() + 1, nullptr):
+            (double)std::strtol(token.c_str() + 1, nullptr, 10);
+        return kind;
     }
 
     /**
@@ -320,33 +424,20 @@ public:
             std::vector<int>& variables,
             std::vector<int>& number_of_children)
     {
-        std::string token = advance();
-        if (token.empty()) {
-            throw std::invalid_argument(
-                    FUNC_SIGNATURE + ": "
-                    "expected an expression token.");
-        }
-        char kind = token[0];
+        double value;
+        char kind = read_node(value);
         if (kind == 'n') {
             operators.push_back('k');
-            values.push_back(std::strtod(token.c_str() + 1, nullptr));
+            values.push_back(value);
             variables.push_back(-1);
             number_of_children.push_back(0);
             return;
         }
         if (kind == 'v') {
-            operators.push_back('v');
-            values.push_back(0.0);
-            variables.push_back((int)std::strtol(token.c_str() + 1, nullptr, 10));
-            number_of_children.push_back(0);
+            push_variable((int)value, operators, values, variables, number_of_children);
             return;
         }
-        if (kind != 'o') {
-            throw std::invalid_argument(
-                    FUNC_SIGNATURE + ": "
-                    "expected an 'n', 'v' or 'o' expression token, got \"" + token + "\".");
-        }
-        int opcode = (int)std::strtol(token.c_str() + 1, nullptr, 10);
+        int opcode = (int)value;
         char op;
         int arity;
         if (!opcode_to_char(opcode, op, arity)) {
@@ -368,7 +459,7 @@ public:
             read_expression(operators, values, variables, number_of_children);
             read_expression(operators, values, variables, number_of_children);
         } else {
-            int count = (int)advance_int();
+            int count = (int)read_int();
             operators.push_back(op);
             values.push_back(0.0);
             variables.push_back(-1);
@@ -378,22 +469,112 @@ public:
         }
     }
 
+    /**
+     * Records that the .nl defined variable of index "nl_index" (>= the
+     * number of variables) is MathOptModel's defined variable
+     * "defined_variable_id".
+     */
+    void define_variable(int nl_index, int defined_variable_id)
+    {
+        int offset = nl_index - number_of_variables_;
+        if (offset < 0 || offset >= (int)defined_variable_ids_.size()) {
+            throw std::invalid_argument(
+                    FUNC_SIGNATURE + ": "
+                    "defined variable index " + std::to_string(nl_index) + " out of range in 'V' segment.");
+        }
+        defined_variable_ids_[offset] = defined_variable_id;
+    }
+
+    /**
+     * Appends a leaf for .nl variable "nl_index": a 'v' node for a decision
+     * variable, a 'd' node for an (already read) defined variable.
+     */
+    void push_variable(
+            int nl_index,
+            std::vector<char>& operators,
+            std::vector<double>& values,
+            std::vector<int>& variables,
+            std::vector<int>& number_of_children) const
+    {
+        values.push_back(0.0);
+        number_of_children.push_back(0);
+        if (nl_index < number_of_variables_) {
+            operators.push_back('v');
+            variables.push_back(nl_index);
+            return;
+        }
+        int offset = nl_index - number_of_variables_;
+        if (offset >= (int)defined_variable_ids_.size() || defined_variable_ids_[offset] < 0) {
+            throw std::invalid_argument(
+                    FUNC_SIGNATURE + ": "
+                    "reference to variable " + std::to_string(nl_index) + ", "
+                    "which is neither a variable nor an already defined variable.");
+        }
+        operators.push_back('d');
+        variables.push_back(defined_variable_ids_[offset]);
+    }
+
 private:
 
+    [[noreturn]] static void throw_unexpected_end()
+    {
+        throw std::invalid_argument(
+                FUNC_SIGNATURE + ": "
+                "unexpected end of .nl input.");
+    }
+
+    const std::string& next_token()
+    {
+        if (pos_ >= tokens_.size())
+            throw_unexpected_end();
+        return tokens_[pos_++];
+    }
+
+    char read_char()
+    {
+        if (pos_ >= content_.size())
+            throw_unexpected_end();
+        return content_[pos_++];
+    }
+
+    template <typename T>
+    T read_binary()
+    {
+        if (pos_ + sizeof(T) > content_.size())
+            throw_unexpected_end();
+        char bytes[sizeof(T)];
+        std::memcpy(bytes, content_.data() + pos_, sizeof(T));
+        if (swap_bytes_)
+            std::reverse(bytes, bytes + sizeof(T));
+        pos_ += sizeof(T);
+        T value;
+        std::memcpy(&value, bytes, sizeof(T));
+        return value;
+    }
+
+    bool binary_;
+    bool swap_bytes_ = false;
+    int number_of_variables_;
+    /** MathOptModel index of each .nl defined variable (by index - n_var), -1 until read. */
+    std::vector<int> defined_variable_ids_;
+    /** Text format: the body's tokens. */
     std::vector<std::string> tokens_;
+    /** Binary format: the raw body. */
+    std::string content_;
+    /** Position in tokens_ (text) or content_ (binary). */
     size_t pos_ = 0;
 
 };
 
 void read_bound(NlBodyParser& parser, double& lower, double& upper)
 {
-    int type = (int)parser.advance_int();
+    int type = parser.read_bound_type();
     switch (type) {
-    case 0: lower = parser.advance_double(); upper = parser.advance_double(); break;
-    case 1: lower = -inf; upper = parser.advance_double(); break;
-    case 2: lower = parser.advance_double(); upper = inf; break;
+    case 0: lower = parser.read_double(); upper = parser.read_double(); break;
+    case 1: lower = -inf; upper = parser.read_double(); break;
+    case 2: lower = parser.read_double(); upper = inf; break;
     case 3: lower = -inf; upper = inf; break;
-    case 4: lower = parser.advance_double(); upper = lower; break;
+    case 4: lower = parser.read_double(); upper = lower; break;
     default:
         throw std::invalid_argument(
                 FUNC_SIGNATURE + ": "
@@ -466,6 +647,15 @@ size_t write_subtree(
             next = write_subtree(out, arrays, next, variable_remap);
         return next;
     }
+    if (op == 'm' || op == 'M') {
+        // MINLIST / MAXLIST: n-ary, with an explicit operand count.
+        int n = arrays.number_of_children[index];
+        out << "o" << char_to_opcode(op) << "\n" << n << "\n";
+        size_t next = index + 1;
+        for (int i = 0; i < n; ++i)
+            next = write_subtree(out, arrays, next, variable_remap);
+        return next;
+    }
     if (op == '*' && arrays.number_of_children[index] > 2) {
         return write_nary_multiply(out, arrays, index + 1, arrays.number_of_children[index], variable_remap);
     }
@@ -530,7 +720,8 @@ void write_bound(std::ostream& out, double lower, double upper)
 
 MathOptModel mathoptsolverscmake::read_nl(const std::string& file_path)
 {
-    std::ifstream file(file_path);
+    // Binary mode: a binary-encoded body must not go through newline translation.
+    std::ifstream file(file_path, std::ios::in | std::ios::binary);
     if (!file.good()) {
         throw std::invalid_argument(
                 FUNC_SIGNATURE + ": "
@@ -567,17 +758,17 @@ MathOptModel mathoptsolverscmake::read_nl(std::istream& in)
     model.nonlinear_elements_constraints_starts.assign(n_con, 0);
 
     std::string body((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
-    NlBodyParser parser(body);
+    NlBodyParser parser(body, header);
 
     std::vector<std::vector<std::pair<int, double>>> constraint_linear_terms(n_con);
     bool have_x0 = false;
 
     while (!parser.at_end()) {
-        const std::string& token = parser.peek();
-        char kind = token[0];
+        long argument;
+        char kind = parser.next_segment(argument);
         switch (kind) {
         case 'C': {
-            int constraint_id = (int)parser.expect_marker('C');
+            int constraint_id = (int)argument;
             if (constraint_id < 0 || constraint_id >= n_con) {
                 throw std::invalid_argument(
                         FUNC_SIGNATURE + ": "
@@ -599,13 +790,13 @@ MathOptModel mathoptsolverscmake::read_nl(std::istream& in)
             }
             break;
         } case 'O': {
-            int objective_id = (int)parser.expect_marker('O');
+            int objective_id = (int)argument;
             if (objective_id != 0) {
                 throw std::invalid_argument(
                         FUNC_SIGNATURE + ": "
                         "unsupported .nl file: objective index " + std::to_string(objective_id) + " != 0.");
             }
-            long sense = parser.advance_int();
+            long sense = parser.read_int();
             model.objective_direction = (sense == 1)? ObjectiveDirection::Maximize: ObjectiveDirection::Minimize;
             size_t start = model.objective_nonlinear_elements_operators.size();
             parser.read_expression(
@@ -620,77 +811,131 @@ MathOptModel mathoptsolverscmake::read_nl(std::istream& in)
                 model.objective_nonlinear_elements_number_of_children.resize(start);
             }
             break;
+        } case 'V': {
+            // Defined variable: linear terms, then a nonlinear expression,
+            // stored as a single tree (a sum when it has several parts).
+            long number_of_linear_terms = parser.read_int();
+            parser.read_int(); // kind, unused.
+            std::vector<std::pair<int, double>> linear_terms;
+            for (long i = 0; i < number_of_linear_terms; ++i) {
+                int variable_id = (int)parser.read_int();
+                double coefficient = parser.read_double();
+                linear_terms.push_back(std::make_pair(variable_id, coefficient));
+            }
+            std::vector<char> operators;
+            std::vector<double> values;
+            std::vector<int> variables;
+            std::vector<int> number_of_children;
+            parser.read_expression(operators, values, variables, number_of_children);
+            bool has_nonlinear_part = !is_trivial_zero(operators, values, 0);
+
+            int defined_variable_id = model.number_of_defined_variables();
+            model.defined_variables_starts.push_back((int)model.defined_variables_elements_operators.size());
+            std::vector<char>& out_operators = model.defined_variables_elements_operators;
+            std::vector<double>& out_values = model.defined_variables_elements_values;
+            std::vector<int>& out_variables = model.defined_variables_elements_variables;
+            std::vector<int>& out_number_of_children = model.defined_variables_elements_number_of_children;
+            int number_of_parts = (int)linear_terms.size() + (has_nonlinear_part? 1: 0);
+            if (number_of_parts == 0) {
+                out_operators.push_back('k');
+                out_values.push_back(0.0);
+                out_variables.push_back(-1);
+                out_number_of_children.push_back(0);
+            } else if (number_of_parts > 1) {
+                out_operators.push_back('+');
+                out_values.push_back(0.0);
+                out_variables.push_back(-1);
+                out_number_of_children.push_back(number_of_parts);
+            }
+            for (const auto& term: linear_terms) {
+                if (term.second != 1.0) {
+                    out_operators.push_back('*');
+                    out_values.push_back(0.0);
+                    out_variables.push_back(-1);
+                    out_number_of_children.push_back(2);
+                    out_operators.push_back('k');
+                    out_values.push_back(term.second);
+                    out_variables.push_back(-1);
+                    out_number_of_children.push_back(0);
+                }
+                parser.push_variable(term.first, out_operators, out_values, out_variables, out_number_of_children);
+            }
+            if (has_nonlinear_part) {
+                out_operators.insert(out_operators.end(), operators.begin(), operators.end());
+                out_values.insert(out_values.end(), values.begin(), values.end());
+                out_variables.insert(out_variables.end(), variables.begin(), variables.end());
+                out_number_of_children.insert(out_number_of_children.end(),
+                        number_of_children.begin(), number_of_children.end());
+            }
+            parser.define_variable((int)argument, defined_variable_id);
+            break;
         } case 'J': {
-            int constraint_id = (int)parser.expect_marker('J');
-            long count = parser.advance_int();
+            int constraint_id = (int)argument;
+            long count = parser.read_int();
             if (constraint_id < 0 || constraint_id >= n_con) {
                 throw std::invalid_argument(
                         FUNC_SIGNATURE + ": "
                         "constraint index " + std::to_string(constraint_id) + " out of range in 'J' segment.");
             }
             for (long i = 0; i < count; ++i) {
-                int variable_id = (int)parser.advance_int();
-                double coefficient = parser.advance_double();
+                int variable_id = (int)parser.read_int();
+                double coefficient = parser.read_double();
                 constraint_linear_terms[constraint_id].push_back(std::make_pair(variable_id, coefficient));
             }
             break;
         } case 'G': {
-            int objective_id = (int)parser.expect_marker('G');
-            (void)objective_id;
-            long count = parser.advance_int();
+            long count = parser.read_int();
             for (long i = 0; i < count; ++i) {
-                int variable_id = (int)parser.advance_int();
-                double coefficient = parser.advance_double();
+                int variable_id = (int)parser.read_int();
+                double coefficient = parser.read_double();
                 model.objective_coefficients[variable_id] += coefficient;
             }
             break;
         } case 'b': {
-            parser.advance(); // marker, no glued value.
             for (int variable_id = 0; variable_id < n_var; ++variable_id)
                 read_bound(parser, model.variables_lower_bounds[variable_id], model.variables_upper_bounds[variable_id]);
             break;
         } case 'r': {
-            parser.advance();
             for (int constraint_id = 0; constraint_id < n_con; ++constraint_id)
                 read_bound(parser, model.constraints_lower_bounds[constraint_id], model.constraints_upper_bounds[constraint_id]);
             break;
         } case 'k': case 'K': {
-            long count = parser.expect_marker(kind);
-            for (long i = 0; i < count; ++i)
-                parser.advance();
+            for (long i = 0; i < argument; ++i)
+                parser.read_int();
             break;
         } case 'x': {
-            long count = parser.expect_marker('x');
             if (!have_x0) {
                 model.variables_initial_values.assign(n_var, 0.0);
                 have_x0 = true;
             }
-            for (long i = 0; i < count; ++i) {
-                int variable_id = (int)parser.advance_int();
-                model.variables_initial_values[variable_id] = parser.advance_double();
+            for (long i = 0; i < argument; ++i) {
+                int variable_id = (int)parser.read_int();
+                model.variables_initial_values[variable_id] = parser.read_double();
             }
             break;
         } case 'd': {
-            long count = parser.expect_marker('d');
-            for (long i = 0; i < count; ++i) {
-                parser.advance();
-                parser.advance();
+            for (long i = 0; i < argument; ++i) {
+                parser.read_int();
+                parser.read_double();
             }
             break;
         } case 'S': {
-            long count = parser.expect_marker('S');
-            (void)count;
-            long n = parser.advance_int();
-            parser.advance(); // suffix name.
+            // The suffix kind's bit 4 says whether its values are real (else integer).
+            bool real_valued = (argument & 4) != 0;
+            long n = parser.read_int();
+            parser.read_string(); // suffix name.
             for (long i = 0; i < n; ++i) {
-                parser.advance();
-                parser.advance();
+                parser.read_int();
+                if (real_valued)
+                    parser.read_double();
+                else
+                    parser.read_int();
             }
             break;
         } default:
             throw std::invalid_argument(
                     FUNC_SIGNATURE + ": "
-                    "unsupported .nl segment \"" + token + "\".");
+                    "unsupported .nl segment '" + std::string(1, kind) + "'.");
         }
     }
 
@@ -715,9 +960,13 @@ MathOptModel mathoptsolverscmake::read_nl(std::istream& in)
     mark_integer_range(header.nlvb - header.nlvbi, header.nlvb);
     mark_integer_range(header.nlvc - header.nlvci, header.nlvc);
     mark_integer_range(nlv - header.nlvoi, nlv);
-    for (int variable_id = nlv; variable_id < nlv + header.nbv; ++variable_id)
+    // Linear variables come after the nonlinear ones as: arcs, other
+    // continuous, binary, integer -- so the binary and integer ones are
+    // the last nbv + niv variables ("Hooking Your Solver to AMPL", Table 4).
+    int first_binary = n_var - header.nbv - header.niv;
+    for (int variable_id = first_binary; variable_id < first_binary + header.nbv; ++variable_id)
         model.variables_types[variable_id] = VariableType::Binary;
-    for (int variable_id = nlv + header.nbv; variable_id < nlv + header.nbv + header.niv; ++variable_id)
+    for (int variable_id = first_binary + header.nbv; variable_id < n_var; ++variable_id)
         model.variables_types[variable_id] = VariableType::Integer;
 
     return model;
@@ -745,6 +994,10 @@ void mathoptsolverscmake::write_nl(
                 FUNC_SIGNATURE + ": "
                 "model has a black-box objective or constraint function, "
                 "which has no .nl representation.");
+    }
+    if (model.has_defined_variables()) {
+        write_nl(expand_defined_variables(model), out);
+        return;
     }
 
     int n_var = model.number_of_variables();

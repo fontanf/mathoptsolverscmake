@@ -455,6 +455,102 @@ TestModel mathoptsolverscmaketest::nonlinear_operators_model()
     return TestModel{"nonlinear_operators", model, {1.0, 1.0, 2.0, std::atan(1.0)}};
 }
 
+TestModel mathoptsolverscmaketest::extra_nonlinear_operators_model()
+{
+    // minimize (10 (tanh(x0) - tanh(0.5)))^2 + (100 (log10(x1) - 1))^2
+    //        + (10 (|x2| - 2))^2 + (10 (min(x3, 3) - 1))^2 + (10 (max(x4, -1) - 1))^2
+    // s.t.     x0 + x1 + x2 + x3 + x4 <= 100
+    //          -2 <= x0 <= 2, 1 <= x1 <= 100, 0.5 <= x2 <= 3,
+    //          0 <= x3 <= 2, 0 <= x4 <= 2
+    // Each term only depends on one variable and has a unique minimum in its
+    // domain, where it is 0; in these domains, |x2| = x2, min(x3, 3) = x3
+    // and max(x4, -1) = x4, so the optimum isn't at a kink. The scale factors
+    // make each term steep enough for solvers whose objective is only
+    // accurate up to a ~1e-6 tolerance (e.g. SCIP, which turns a nonlinear
+    // objective into a constraint) to pin each variable down to ~1e-4.
+    // Optimal: x = (0.5, 10, 2, 1, 1), objective = 0.
+    MathOptModel model(5, 1, 5);
+    model.objective_direction = ObjectiveDirection::Minimize;
+
+    double lower_bounds[5] = {-2.0, 1.0, 0.5, 0.0, 0.0};
+    double upper_bounds[5] = {2.0, 100.0, 3.0, 2.0, 2.0};
+    for (int variable_id = 0; variable_id < 5; ++variable_id) {
+        model.variables_lower_bounds[variable_id] = lower_bounds[variable_id];
+        model.variables_upper_bounds[variable_id] = upper_bounds[variable_id];
+        model.elements_variables[variable_id] = variable_id;
+        model.elements_coefficients[variable_id] = 1.0;
+    }
+    model.constraints_starts[0] = 0;
+    model.constraints_upper_bounds[0] = 100.0;
+
+    auto square = [](double scale, NonlinearExpression expression)
+    {
+        return nonlinear_power(
+                nonlinear_product({nonlinear_constant(scale), expression}),
+                nonlinear_constant(2.0));
+    };
+    set_objective_nonlinear_expression(
+            model,
+            nonlinear_sum({
+                square(10.0, nonlinear_subtract(
+                        nonlinear_tanh(nonlinear_variable(0)),
+                        nonlinear_constant(std::tanh(0.5)))),
+                square(100.0, nonlinear_subtract(
+                        nonlinear_log10(nonlinear_variable(1)),
+                        nonlinear_constant(1.0))),
+                square(10.0, nonlinear_subtract(
+                        nonlinear_abs(nonlinear_variable(2)),
+                        nonlinear_constant(2.0))),
+                square(10.0, nonlinear_subtract(
+                        nonlinear_min({nonlinear_variable(3), nonlinear_constant(3.0)}),
+                        nonlinear_constant(1.0))),
+                square(10.0, nonlinear_subtract(
+                        nonlinear_max({nonlinear_variable(4), nonlinear_constant(-1.0)}),
+                        nonlinear_constant(1.0))),
+            }));
+
+    return TestModel{"extra_nonlinear_operators", model, {0.5, 10.0, 2.0, 1.0, 1.0}};
+}
+
+TestModel mathoptsolverscmaketest::defined_variables_model()
+{
+    // d0 = x0 + x1 - 3, d1 = d0^2
+    // minimize d1 + (x0 - 1)^2
+    // s.t.     d0 <= 10
+    //          -5 <= x0, x1 <= 5
+    // Optimal: x0 = 1, x1 = 2, objective = 0 (the constraint, d0 = 0, isn't
+    // active).
+    MathOptModel model(2, 1, 0);
+    model.objective_direction = ObjectiveDirection::Minimize;
+    for (int variable_id = 0; variable_id < 2; ++variable_id) {
+        model.variables_lower_bounds[variable_id] = -5.0;
+        model.variables_upper_bounds[variable_id] = 5.0;
+    }
+
+    int d0 = add_defined_variable(
+            model,
+            nonlinear_subtract(
+                nonlinear_sum({nonlinear_variable(0), nonlinear_variable(1)}),
+                nonlinear_constant(3.0)));
+    int d1 = add_defined_variable(
+            model,
+            nonlinear_power(nonlinear_defined_variable(d0), nonlinear_constant(2.0)));
+
+    set_objective_nonlinear_expression(
+            model,
+            nonlinear_sum({
+                nonlinear_defined_variable(d1),
+                nonlinear_power(
+                    nonlinear_subtract(nonlinear_variable(0), nonlinear_constant(1.0)),
+                    nonlinear_constant(2.0)),
+            }));
+
+    model.constraints_upper_bounds[0] = 10.0;
+    add_constraint_nonlinear_expression(model, 0, nonlinear_defined_variable(d0));
+
+    return TestModel{"defined_variables", model, {1.0, 2.0}};
+}
+
 TestModel mathoptsolverscmaketest::nonconvex_continuous_model()
 {
     // minimize -(x0 - 1)^2

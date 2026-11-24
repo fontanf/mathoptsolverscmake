@@ -39,6 +39,7 @@ static void knitro_check(int rc, const std::string& caller, const char* fn)
  */
 static KNExprId to_knitro_expr(
         KN_context_ptr kc,
+        const std::vector<KNExprId>& defined_expressions,
         const std::vector<char>& operators,
         const std::vector<double>& values,
         const std::vector<int>& variables,
@@ -60,6 +61,10 @@ static KNExprId to_knitro_expr(
             knitro_check(
                     KN_var_expr(kc, variables[element_id], &expr),
                     FUNC_SIGNATURE, "KN_var_expr");
+            break;
+        case 'd':
+            // Defined variables' expressions are shared, not copied.
+            expr = defined_expressions[variables[element_id]];
             break;
         case 'n': {
             KNExprId a = stk.back(); stk.pop_back();
@@ -94,6 +99,39 @@ static KNExprId to_knitro_expr(
         case 't': {
             KNExprId a = stk.back(); stk.pop_back();
             knitro_check(KN_tan_expr(kc, a, &expr), FUNC_SIGNATURE, "KN_tan_expr");
+            break;
+        }
+        case 'h': {
+            KNExprId a = stk.back(); stk.pop_back();
+            knitro_check(KN_tanh_expr(kc, a, &expr), FUNC_SIGNATURE, "KN_tanh_expr");
+            break;
+        }
+        case 'g': {
+            KNExprId a = stk.back(); stk.pop_back();
+            knitro_check(KN_log10_expr(kc, a, &expr), FUNC_SIGNATURE, "KN_log10_expr");
+            break;
+        }
+        case 'a': {
+            KNExprId a = stk.back(); stk.pop_back();
+            knitro_check(KN_abs_expr(kc, a, &expr), FUNC_SIGNATURE, "KN_abs_expr");
+            break;
+        }
+        case 'm':
+        case 'M': {
+            std::vector<KNExprId> operands(number_of_children[element_id]);
+            for (KNExprId& operand: operands) {
+                operand = stk.back();
+                stk.pop_back();
+            }
+            if (operators[element_id] == 'm') {
+                knitro_check(
+                        KN_nmin_expr(kc, operands.size(), operands.data(), &expr),
+                        FUNC_SIGNATURE, "KN_nmin_expr");
+            } else {
+                knitro_check(
+                        KN_nmax_expr(kc, operands.size(), operands.data(), &expr),
+                        FUNC_SIGNATURE, "KN_nmax_expr");
+            }
             break;
         }
         case '+': {
@@ -288,10 +326,27 @@ void mathoptsolverscmake::load(
                 FUNC_SIGNATURE, "KN_add_obj_quadratic_struct");
     }
 
+    // Defined variables, in index order (each one only references lower-indexed ones).
+    std::vector<KNExprId> defined_expressions;
+    for (int defined_variable_id = 0;
+            defined_variable_id < model.number_of_defined_variables();
+            ++defined_variable_id) {
+        defined_expressions.push_back(to_knitro_expr(
+                    knitro.kc,
+                    defined_expressions,
+                    model.defined_variables_elements_operators,
+                    model.defined_variables_elements_values,
+                    model.defined_variables_elements_variables,
+                    model.defined_variables_elements_number_of_children,
+                    model.defined_variables_starts[defined_variable_id],
+                    model.defined_variable_end(defined_variable_id)));
+    }
+
     // Nonlinear objective.
     if (!model.objective_nonlinear_elements_operators.empty()) {
         KNExprId expr = to_knitro_expr(
                 knitro.kc,
+                defined_expressions,
                 model.objective_nonlinear_elements_operators,
                 model.objective_nonlinear_elements_values,
                 model.objective_nonlinear_elements_variables,
@@ -376,6 +431,7 @@ void mathoptsolverscmake::load(
                     continue;
                 KNExprId expr = to_knitro_expr(
                         knitro.kc,
+                        defined_expressions,
                         model.nonlinear_elements_operators,
                         model.nonlinear_elements_values,
                         model.nonlinear_elements_variables,

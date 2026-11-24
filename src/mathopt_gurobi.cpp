@@ -92,6 +92,13 @@ static void add_nonlinear_constraint(
         case 'c': opcode = GRB_OPCODE_COS; break;
         case 't': opcode = GRB_OPCODE_TAN; break;
         case 'p': opcode = GRB_OPCODE_POW; break;
+        case 'g': opcode = GRB_OPCODE_LOG10; break;
+        case 'a': case 'h': case 'm': case 'M': {
+            throw std::invalid_argument(
+                    FUNC_SIGNATURE + ": "
+                    "nonlinear operator '" + std::string(1, operators[element_id]) + "' "
+                    "(abs, tanh, min and max) is not supported by Gurobi's nonlinear constraints.");
+        }
         default: {
             throw std::invalid_argument(
                     FUNC_SIGNATURE + ": "
@@ -175,6 +182,10 @@ void mathoptsolverscmake::load(
         GurobiModel& gurobi_model,
         const MathOptModel& model)
 {
+    if (model.has_defined_variables()) {
+        load(gurobi_model, expand_defined_variables(model));
+        return;
+    }
     if (model.has_black_box()) {
         throw std::invalid_argument(
                 FUNC_SIGNATURE + ": "

@@ -6,6 +6,7 @@
 #include <fstream>
 #include <iomanip>
 #include <limits>
+#include <map>
 #include <set>
 #include <sstream>
 #include <stdexcept>
@@ -27,6 +28,24 @@ enum class Section
     Rhs,
     Ranges,
     Bounds,
+    /** QUADOBJ, QMATRIX, QSECTION or QCMATRIX (see QuadraticSection). */
+    Quadratic,
+};
+
+/**
+ * Which quadratic section is being read, following HiGHS's free-format MPS
+ * reader (io/HMpsFF.cpp): QUADOBJ and QSECTION list one triangle of a
+ * symmetric matrix, QMATRIX and QCMATRIX the whole matrix (of which only
+ * the lower-triangle entries are kept). QUADOBJ, QMATRIX and QSECTION's
+ * matrix Q contributes 1/2 x'Qx (to the objective, or to its row for a
+ * QSECTION naming a constraint), and QCMATRIX's x'Qx to its row.
+ */
+enum class QuadraticSection
+{
+    Quadobj,
+    Qmatrix,
+    Qsection,
+    Qcmatrix,
 };
 
 std::string to_upper(const std::string& s)
@@ -74,13 +93,20 @@ Section section_from_keyword(const std::string& word_upper)
     return Section::None;
 }
 
+bool quadratic_section_from_keyword(
+        const std::string& word_upper,
+        QuadraticSection& quadratic_section)
+{
+    if (word_upper == "QUADOBJ") { quadratic_section = QuadraticSection::Quadobj; return true; }
+    if (word_upper == "QMATRIX") { quadratic_section = QuadraticSection::Qmatrix; return true; }
+    if (word_upper == "QSECTION") { quadratic_section = QuadraticSection::Qsection; return true; }
+    if (word_upper == "QCMATRIX") { quadratic_section = QuadraticSection::Qcmatrix; return true; }
+    return false;
+}
+
 bool is_unsupported_section_keyword(const std::string& word_upper)
 {
-    return word_upper == "QSECTION"
-        || word_upper == "QMATRIX"
-        || word_upper == "QUADOBJ"
-        || word_upper == "QCMATRIX"
-        || word_upper == "CSECTION"
+    return word_upper == "CSECTION"
         || word_upper == "SETS"
         || word_upper == "SOS"
         || word_upper == "INDICATORS"
@@ -130,6 +156,17 @@ struct MpsParseState
     std::vector<bool> row_has_rhs;
     std::vector<bool> row_has_range;
     std::vector<std::vector<std::pair<int, double>>> row_entries; // (variable_id, coefficient), parallel to model constraints.
+
+    // Quadratic section being read, and its target: -1 for the objective,
+    // a constraint index, or -2 for a free/unknown row whose entries are
+    // skipped (as HiGHS does).
+    QuadraticSection quadratic_section = QuadraticSection::Quadobj;
+    int quadratic_target = -1;
+    struct QuadraticEntry { int variable_1_id; int variable_2_id; double coefficient; };
+    std::vector<std::vector<QuadraticEntry>> row_quadratic_entries; // parallel to model constraints, once needed.
+    // Entries (i, j) of the QMATRIX/QCMATRIX section being read, checked for
+    // symmetry once the section ends.
+    std::map<std::pair<int, int>, double> full_matrix_entries;
 
     // Columns.
     std::unordered_map<std::string, int> column_ids;
@@ -411,8 +448,123 @@ struct MpsParseState
         }
     }
 
+    /** Handles a QUADOBJ/QMATRIX/QSECTION/QCMATRIX header line. */
+    void start_quadratic_section(
+            QuadraticSection section,
+            const std::vector<std::string>& tokens)
+    {
+        end_quadratic_section();
+        quadratic_section = section;
+        quadratic_target = -1;
+        if (section != QuadraticSection::Qsection && section != QuadraticSection::Qcmatrix)
+            return;
+        if (tokens.size() < 2) {
+            throw std::invalid_argument(
+                    FUNC_SIGNATURE + ": "
+                    "no row name given for \"" + tokens[0] + "\" section.");
+        }
+        auto it = row_ids.find(tokens[1]);
+        quadratic_target = (it == row_ids.end())? -2: it->second;
+    }
+
+    /** Handles a "column column value [column value]" quadratic section line. */
+    void parse_quadratic_line(const std::vector<std::string>& tokens)
+    {
+        if (quadratic_target == -2)
+            return;
+        auto column = [this](const std::string& name) {
+            auto it = column_ids.find(name);
+            if (it == column_ids.end()) {
+                throw std::invalid_argument(
+                        FUNC_SIGNATURE + ": "
+                        "unknown column \"" + name + "\" in a quadratic section.");
+            }
+            return it->second;
+        };
+        if (tokens.size() != 3 && tokens.size() != 5) {
+            throw std::invalid_argument(
+                    FUNC_SIGNATURE + ": "
+                    "malformed quadratic section line.");
+        }
+        int column_id = column(tokens[0]);
+        for (size_t pos = 1; pos + 1 < tokens.size(); pos += 2) {
+            int row_column_id = column(tokens[pos]);
+            double value = parse_number(tokens[pos + 1]);
+            if (value == 0.0)
+                continue;
+            if (quadratic_section == QuadraticSection::Qmatrix
+                    || quadratic_section == QuadraticSection::Qcmatrix) {
+                full_matrix_entries[std::make_pair(row_column_id, column_id)] += value;
+            } else {
+                add_quadratic_entry(row_column_id, column_id, value);
+            }
+        }
+    }
+
+    /**
+     * Ends the current quadratic section, if any: a QMATRIX/QCMATRIX matrix
+     * must be symmetric (HiGHS rejects a QMATRIX that isn't, with the same
+     * tolerance), and only its lower triangle is used.
+     */
+    void end_quadratic_section()
+    {
+        for (const auto& entry: full_matrix_entries) {
+            int i = entry.first.first;
+            int j = entry.first.second;
+            if (i < j)
+                continue;
+            if (i > j) {
+                auto transposed = full_matrix_entries.find(std::make_pair(j, i));
+                double transposed_value = (transposed == full_matrix_entries.end())? 0.0: transposed->second;
+                if (std::abs(entry.second - transposed_value) > 1e-10) {
+                    throw std::invalid_argument(
+                            FUNC_SIGNATURE + ": "
+                            "the matrix of a " + std::string(
+                                quadratic_section == QuadraticSection::Qmatrix? "QMATRIX": "QCMATRIX")
+                            + " section is not symmetric.");
+                }
+            }
+            add_quadratic_entry(i, j, entry.second);
+        }
+        // An upper-triangle entry without a lower-triangle twin must be 0 too.
+        for (const auto& entry: full_matrix_entries) {
+            int i = entry.first.first;
+            int j = entry.first.second;
+            if (i < j && full_matrix_entries.find(std::make_pair(j, i)) == full_matrix_entries.end()
+                    && std::abs(entry.second) > 1e-10) {
+                throw std::invalid_argument(
+                        FUNC_SIGNATURE + ": "
+                        "the matrix of a " + std::string(
+                            quadratic_section == QuadraticSection::Qmatrix? "QMATRIX": "QCMATRIX")
+                        + " section is not symmetric.");
+            }
+        }
+        full_matrix_entries.clear();
+    }
+
+    /**
+     * Adds entry (i, j) of the current section's symmetric matrix Q, given
+     * once for the pair (i, j) / (j, i): Q's contribution, x'Qx (QCMATRIX)
+     * or 1/2 x'Qx (the others), has a q_ij x_i x_j term for each of them.
+     */
+    void add_quadratic_entry(int i, int j, double value)
+    {
+        bool halved = (quadratic_section != QuadraticSection::Qcmatrix);
+        double coefficient = value * ((i == j)? 1.0: 2.0) * (halved? 0.5: 1.0);
+        if (quadratic_target == -1) {
+            model.objective_quadratic_elements_variables_1.push_back(j);
+            model.objective_quadratic_elements_variables_2.push_back(i);
+            model.objective_quadratic_elements_coefficients.push_back(coefficient);
+        } else {
+            row_quadratic_entries.resize(model.number_of_constraints());
+            row_quadratic_entries[quadratic_target].push_back({j, i, coefficient});
+        }
+    }
+
     MathOptModel finalize()
     {
+        end_quadratic_section();
+
         // Integer columns that never received a BOUNDS entry default to
         // [0, 1] (classic MPS convention).
         for (int column_id = 0; column_id < model.number_of_variables(); ++column_id) {
@@ -445,6 +597,20 @@ struct MpsParseState
             for (const auto& entry: row_entries[row_id]) {
                 model.elements_variables.push_back(entry.first);
                 model.elements_coefficients.push_back(entry.second);
+            }
+        }
+
+        // Same for the constraints' quadratic terms, if any.
+        if (!row_quadratic_entries.empty()) {
+            model.quadratic_elements_constraints_starts.resize(model.number_of_constraints());
+            for (int row_id = 0; row_id < model.number_of_constraints(); ++row_id) {
+                model.quadratic_elements_constraints_starts[row_id] =
+                    (int)model.quadratic_elements_variables_1.size();
+                for (const QuadraticEntry& entry: row_quadratic_entries[row_id]) {
+                    model.quadratic_elements_variables_1.push_back(entry.variable_1_id);
+                    model.quadratic_elements_variables_2.push_back(entry.variable_2_id);
+                    model.quadratic_elements_coefficients.push_back(entry.coefficient);
+                }
             }
         }
 
@@ -490,12 +656,19 @@ MathOptModel mathoptsolverscmake::read_mps(std::istream& in)
                     FUNC_SIGNATURE + ": "
                     "unsupported MPS section \"" + tokens[0] + "\".");
         }
+        QuadraticSection quadratic_section;
+        if (quadratic_section_from_keyword(first_upper, quadratic_section)) {
+            section = Section::Quadratic;
+            state.start_quadratic_section(quadratic_section, tokens);
+            continue;
+        }
         Section keyword = section_from_keyword(first_upper);
         // A data line's leading field (e.g. the RHS/RANGES/BOUNDS vector
         // name, conventionally "RHS") commonly coincides with a section
         // keyword; only treat it as a new section header when it actually
         // changes the section.
         if (keyword != Section::None && keyword != section) {
+            state.end_quadratic_section();
             section = keyword;
             // Gurobi-style "OBJSENSE MAX" on the header line itself.
             if (keyword == Section::Objsense && tokens.size() >= 2) {
@@ -534,6 +707,9 @@ MathOptModel mathoptsolverscmake::read_mps(std::istream& in)
             break;
         } case Section::Bounds: {
             state.parse_bounds_line(tokens);
+            break;
+        } case Section::Quadratic: {
+            state.parse_quadratic_line(tokens);
             break;
         }
         }

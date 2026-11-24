@@ -62,6 +62,8 @@ INSTANTIATE_TEST_SUITE_P(
                 nonlinear_continuous_model(),
                 nonlinear_infeasible_model(),
                 nonlinear_operators_model(),
+                extra_nonlinear_operators_model(),
+                defined_variables_model(),
                 black_box_continuous_model(),
                 black_box_infeasible_model()),
         [](const testing::TestParamInfo<TestModel>& info)

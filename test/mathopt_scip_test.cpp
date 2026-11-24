@@ -66,6 +66,8 @@ INSTANTIATE_TEST_SUITE_P(
                 nonlinear_mixed_integer_model(),
                 nonlinear_infeasible_model(),
                 nonlinear_mixed_integer_infeasible_model(),
+                extra_nonlinear_operators_model(),
+                defined_variables_model(),
                 nonlinear_operators_model(),
                 nonconvex_continuous_model(),
                 nonconvex_mixed_integer_model()),

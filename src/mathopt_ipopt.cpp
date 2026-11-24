@@ -143,6 +143,18 @@ public:
             case 's': value = std::sin(node_values_[children[0]]); break;
             case 'c': value = std::cos(node_values_[children[0]]); break;
             case 't': value = std::tan(node_values_[children[0]]); break;
+            case 'h': value = std::tanh(node_values_[children[0]]); break;
+            case 'g': value = std::log10(node_values_[children[0]]); break;
+            case 'a': value = std::abs(node_values_[children[0]]); break;
+            case 'm': case 'M': {
+                value = node_values_[children[0]];
+                for (int child_pos = 1; child_pos < number_of_children_[node_id]; ++child_pos) {
+                    double child_value = node_values_[children[child_pos]];
+                    if ((operators_[node_id] == 'm')? child_value < value: child_value > value)
+                        value = child_value;
+                }
+                break;
+            }
             case '+': {
                 value = 0.0;
                 for (int child_pos = 0; child_pos < number_of_children_[node_id]; ++child_pos)
@@ -287,6 +299,21 @@ private:
         case 's': p[0] = std::cos(a); pp[0] = -f; break;
         case 'c': p[0] = -std::sin(a); pp[0] = -f; break;
         case 't': p[0] = 1.0 + f * f; pp[0] = 2.0 * f * (1.0 + f * f); break;
+        case 'h': p[0] = 1.0 - f * f; pp[0] = -2.0 * f * (1.0 - f * f); break;
+        case 'g': p[0] = 1.0 / (a * std::log(10.0)); pp[0] = -1.0 / (a * a * std::log(10.0)); break;
+        case 'a': p[0] = (a > 0.0) - (a < 0.0); pp[0] = 0.0; break;
+        case 'm': case 'M': {
+            // The derivative is that of the (first) operand attaining the value.
+            for (int child_pos = 0; child_pos < number_of_children; ++child_pos)
+                p[child_pos] = 0.0;
+            for (int child_pos = 0; child_pos < number_of_children; ++child_pos) {
+                if (node_values_[children[child_pos]] == f) {
+                    p[child_pos] = 1.0;
+                    break;
+                }
+            }
+            break;
+        }
         case '+': {
             for (int child_pos = 0; child_pos < number_of_children; ++child_pos)
                 p[child_pos] = 1.0;
@@ -551,20 +578,22 @@ private:
 };
 
 MathOptTnlp::MathOptTnlp(
-        const MathOptModel& model,
+        const MathOptModel& input_model,
         IpoptModel& ipopt_model):
-    model_(model),
+    // The derivative code works on trees, so defined variables are expanded.
+    model_(input_model.has_defined_variables()? expand_defined_variables(input_model): input_model),
     ipopt_model_(ipopt_model),
-    sign_((model.objective_direction == ObjectiveDirection::Minimize)? 1.0: -1.0),
-    exact_hessian_(!model.has_black_box()),
-    constraints_trees_(model.number_of_constraints()),
-    tree_jacobian_positions_(model.number_of_constraints()),
-    black_box_jacobian_positions_(model.number_of_constraints()),
-    constraints_trees_hessian_positions_(model.number_of_constraints()),
-    x_(model.number_of_variables(), 0.0),
-    constraints_black_box_evaluated_(model.number_of_constraints(), false),
-    constraints_black_box_outputs_(model.number_of_constraints())
+    sign_((input_model.objective_direction == ObjectiveDirection::Minimize)? 1.0: -1.0),
+    exact_hessian_(!input_model.has_black_box()),
+    constraints_trees_(input_model.number_of_constraints()),
+    tree_jacobian_positions_(input_model.number_of_constraints()),
+    black_box_jacobian_positions_(input_model.number_of_constraints()),
+    constraints_trees_hessian_positions_(input_model.number_of_constraints()),
+    x_(input_model.number_of_variables(), 0.0),
+    constraints_black_box_evaluated_(input_model.number_of_constraints(), false),
+    constraints_black_box_outputs_(input_model.number_of_constraints())
 {
+    const MathOptModel& model = model_;
     int number_of_variables = model.number_of_variables();
 
     // Trees.

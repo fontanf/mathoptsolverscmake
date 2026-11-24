@@ -1,0 +1,68 @@
+[build-system]
+requires = ["scikit-build-core>=0.11"]
+build-backend = "scikit_build_core.build"
+
+[project]
+name = "mathoptmodel"
+dynamic = ["version"]
+description = "MathOptSolversCMake's optimization model and its MPS, LP, JSON and AMPL .nl readers/writers"
+readme = "python/README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Florian Fontan", email = "dev@florian-fontan.fr" }]
+requires-python = ">=3.12"
+dependencies = ["numpy"]
+classifiers = [
+    "Programming Language :: C++",
+    "Programming Language :: Python :: 3",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: MacOS",
+    "Operating System :: Microsoft :: Windows",
+    "Topic :: Scientific/Engineering :: Mathematics",
+]
+
+[project.urls]
+Homepage = "https://github.com/fontanf/mathoptsolverscmake"
+
+[project.optional-dependencies]
+test = ["pytest"]
+
+[tool.scikit-build]
+minimum-version = "build-system.requires"
+build-dir = "build/{wheel_tag}"
+wheel.packages = ["python/mathoptmodel"]
+# A single stable-ABI wheel per platform, for every Python >= 3.12.
+wheel.py-api = "cp312"
+cmake.build-type = "Release"
+# Only the solver-independent core library: no solver, test or app build.
+cmake.define.MATHOPTSOLVERSCMAKE_BUILD_PYTHON = "ON"
+cmake.define.MATHOPTSOLVERSCMAKE_BUILD_TESTS = "OFF"
+cmake.define.MATHOPTSOLVERSCMAKE_BUILD_APP = "OFF"
+metadata.version.provider = "scikit_build_core.metadata.regex"
+metadata.version.input = "python/mathoptmodel/_version.py"
+# Only ship what the build needs (not 'data/', build trees, local files...).
+sdist.exclude = ["*"]
+sdist.include = [
+    "/CMakeLists.txt",
+    "/LICENSE",
+    "/README.md",
+    "/pyproject.toml",
+    "/cmake/",
+    "/extern/",
+    "/include/",
+    "/src/",
+    "/python/CMakeLists.txt",
+    "/python/README.md",
+    "/python/mathoptmodel/*.py",
+    "/python/src/",
+    "/python/tests/*.py",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["python/tests"]
+
+[tool.cibuildwheel]
+build = "cp312-*"
+skip = "*-musllinux_* *-win32 *-manylinux_i686"
+test-extras = ["test"]
+test-command = "pytest {project}/python/tests"

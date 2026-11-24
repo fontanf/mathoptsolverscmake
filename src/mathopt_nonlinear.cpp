@@ -67,6 +67,11 @@ NonlinearExpression mathoptsolverscmake::nonlinear_constant(double value)
     return leaf('k', value, -1);
 }
 
+NonlinearExpression mathoptsolverscmake::nonlinear_defined_variable(int defined_variable_id)
+{
+    return leaf('d', 0.0, defined_variable_id);
+}
+
 NonlinearExpression mathoptsolverscmake::nonlinear_negate(NonlinearExpression operand)
 {
     return unary('n', std::move(operand));
@@ -102,6 +107,21 @@ NonlinearExpression mathoptsolverscmake::nonlinear_tan(NonlinearExpression opera
     return unary('t', std::move(operand));
 }
 
+NonlinearExpression mathoptsolverscmake::nonlinear_tanh(NonlinearExpression operand)
+{
+    return unary('h', std::move(operand));
+}
+
+NonlinearExpression mathoptsolverscmake::nonlinear_log10(NonlinearExpression operand)
+{
+    return unary('g', std::move(operand));
+}
+
+NonlinearExpression mathoptsolverscmake::nonlinear_abs(NonlinearExpression operand)
+{
+    return unary('a', std::move(operand));
+}
+
 NonlinearExpression mathoptsolverscmake::nonlinear_sum(std::vector<NonlinearExpression> terms)
 {
     return nary('+', std::move(terms));
@@ -133,6 +153,16 @@ NonlinearExpression mathoptsolverscmake::nonlinear_power(
     return nary('p', {std::move(base), std::move(exponent)});
 }
 
+NonlinearExpression mathoptsolverscmake::nonlinear_min(std::vector<NonlinearExpression> operands)
+{
+    return nary('m', std::move(operands));
+}
+
+NonlinearExpression mathoptsolverscmake::nonlinear_max(std::vector<NonlinearExpression> operands)
+{
+    return nary('M', std::move(operands));
+}
+
 void mathoptsolverscmake::set_objective_nonlinear_expression(
         MathOptModel& model,
         const NonlinearExpression& expression)
@@ -142,6 +172,19 @@ void mathoptsolverscmake::set_objective_nonlinear_expression(
             model.objective_nonlinear_elements_values,
             model.objective_nonlinear_elements_variables,
             model.objective_nonlinear_elements_number_of_children);
+}
+
+int mathoptsolverscmake::add_defined_variable(
+        MathOptModel& model,
+        const NonlinearExpression& expression)
+{
+    model.defined_variables_starts.push_back((int)model.defined_variables_elements_operators.size());
+    expression(
+            model.defined_variables_elements_operators,
+            model.defined_variables_elements_values,
+            model.defined_variables_elements_variables,
+            model.defined_variables_elements_number_of_children);
+    return model.number_of_defined_variables() - 1;
 }
 
 void mathoptsolverscmake::add_constraint_nonlinear_expression(
