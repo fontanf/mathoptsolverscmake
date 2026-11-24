@@ -95,9 +95,20 @@ std::string write_to_string(
         void (*writer)(const MathOptModel&, std::ostream&),
         const MathOptModel& model)
 {
+    nb::gil_scoped_release release;
     std::ostringstream out;
     writer(model, out);
     return out.str();
+}
+
+/** Write a file with the C++ writer, without holding the GIL. */
+void write_to_file(
+        void (*writer)(const MathOptModel&, const std::string&),
+        const MathOptModel& model,
+        const std::string& path)
+{
+    nb::gil_scoped_release release;
+    writer(model, path);
 }
 
 /*
@@ -787,6 +798,20 @@ NB_MODULE(_core, m)
     m.def("write_nl_string",
             [](const MathOptModel& model) { return write_to_string(write_nl, model); },
             "model"_a, "Write a model as an AMPL .nl file (text format), returned as a str.");
+
+    // Writers, to an (uncompressed) file.
+    m.def("write_mps_file",
+            [](const MathOptModel& model, const std::string& path) { write_to_file(write_mps, model, path); },
+            "model"_a, "path"_a, "Write a model to a free-format MPS file.");
+    m.def("write_lp_file",
+            [](const MathOptModel& model, const std::string& path) { write_to_file(write_lp, model, path); },
+            "model"_a, "path"_a, "Write a model to a CPLEX-style .lp file.");
+    m.def("write_json_file",
+            [](const MathOptModel& model, const std::string& path) { write_to_file(write_json, model, path); },
+            "model"_a, "path"_a, "Write a model to a MathOptSolversCMake JSON file.");
+    m.def("write_nl_file",
+            [](const MathOptModel& model, const std::string& path) { write_to_file(write_nl, model, path); },
+            "model"_a, "path"_a, "Write a model to an AMPL .nl file (text format).");
 
     m.def("dual", &dual, "model"_a, "Build the dual of a linear program.");
     m.def("expand_defined_variables", &expand_defined_variables, "model"_a,

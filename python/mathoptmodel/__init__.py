@@ -30,9 +30,13 @@ from mathoptmodel._core import (
     read_lp_bytes,
     read_mps_bytes,
     read_nl_bytes,
+    write_json_file,
     write_json_string,
+    write_lp_file,
     write_lp_string,
+    write_mps_file,
     write_mps_string,
+    write_nl_file,
     write_nl_string,
 )
 
@@ -42,6 +46,7 @@ __all__ = [
     "FORMATS", "detect_format", "dual", "expand_defined_variables", "read", "write",
     "read_json_bytes", "read_lp_bytes", "read_mps_bytes", "read_nl_bytes",
     "write_json_string", "write_lp_string", "write_mps_string", "write_nl_string",
+    "write_json_file", "write_lp_file", "write_mps_file", "write_nl_file",
 ]
 
 
@@ -80,6 +85,12 @@ _WRITERS = {
     "json": write_json_string,
     "nl": write_nl_string,
 }
+_FILE_WRITERS = {
+    "mps": write_mps_file,
+    "lp": write_lp_file,
+    "json": write_json_file,
+    "nl": write_nl_file,
+}
 _OPENERS = {".gz": gzip.open, ".bz2": bz2.open}
 
 FORMATS = tuple(_READERS)
@@ -115,6 +126,12 @@ def write(model, path, format=None):
     format = format or detect_format(path)
     if format not in _WRITERS:
         raise ValueError(f"Unrecognized model file format: {path}")
-    opener = _OPENERS.get(os.path.splitext(path.lower())[1], open)
-    with opener(path, "wt") as f:
+    opener = _OPENERS.get(os.path.splitext(path.lower())[1])
+    # An uncompressed file is written by the C++ writer directly, rather than
+    # through a str (but on Windows, only for ASCII paths, which the C++
+    # writers open with the narrow-string API).
+    if opener is None and (os.name != "nt" or path.isascii()):
+        _FILE_WRITERS[format](model, path)
+        return
+    with (opener or open)(path, "wt") as f:
         f.write(_WRITERS[format](model))

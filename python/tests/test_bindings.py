@@ -130,6 +130,19 @@ def test_write_then_read_round_trip(tmp_path, format):
     assert sorted(again.variables_types) == sorted(model.variables_types)
 
 
+@pytest.mark.parametrize("format", ["mps", "lp", "json", "nl"])
+@pytest.mark.parametrize("compression", ["", ".gz", ".bz2"])
+def test_write_file_matches_string(tmp_path, format, compression):
+    # Uncompressed files are written by the C++ writers directly, compressed
+    # ones through the string writers: both must give the same contents.
+    model = mom.read_lp_bytes(LP.encode())
+    path = tmp_path / f"model.{format}{compression}"
+    mom.write(model, path)
+    opener = {"": open, ".gz": gzip.open, ".bz2": bz2.open}[compression]
+    with opener(path, "rt") as f:
+        assert f.read() == getattr(mom, f"write_{format}_string")(model)
+
+
 def test_nonlinear_expression_tree():
     # minimize exp(x0) + x0 * x1, written as an AMPL .nl text file.
     nl = "\n".join([

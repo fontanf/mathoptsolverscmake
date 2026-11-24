@@ -160,11 +160,37 @@ public final class Model implements AutoCloseable {
 
     /** Write the model to a file, .gz-compressed if its name says so, in the given format. */
     public void write(Path path, Format format) throws IOException {
+        // An uncompressed file is written by the native library directly
+        // (on Windows, only for ASCII paths, which it opens with the
+        // narrow-string API).
+        String pathString = path.toString();
+        boolean windows = System.getProperty("os.name").toLowerCase(Locale.ROOT).contains("win");
+        if (!isGzip(path) && (!windows || StandardCharsets.US_ASCII.newEncoder().canEncode(pathString))) {
+            writeFile(pathString, format);
+            return;
+        }
         byte[] data = writeBytes(format);
         try (OutputStream out = isGzip(path)
                 ? new GZIPOutputStream(Files.newOutputStream(path))
                 : Files.newOutputStream(path)) {
             out.write(data);
+        }
+    }
+
+    private void writeFile(String path, Format format) throws IOException {
+        Objects.requireNonNull(format, "format");
+        try (Arena arena = Arena.ofConfined()) {
+            MemorySegment nativePath = arena.allocateFrom(path, StandardCharsets.UTF_8);
+            MemorySegment error = arena.allocate(Native.ERROR_SIZE);
+            int status = (int) Native.WRITE_FILE.invoke(handle(), format.code(), nativePath, error,
+                    Native.ERROR_SIZE);
+            if (status == Native.INVALID_ARGUMENT && error.getString(0).contains("unable to open file"))
+                throw new IOException(error.getString(0));
+            Native.check(status, error);
+        } catch (IOException | RuntimeException | Error e) {
+            throw e;
+        } catch (Throwable t) {
+            throw Native.rethrow(t);
         }
     }
 

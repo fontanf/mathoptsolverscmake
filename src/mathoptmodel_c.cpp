@@ -230,6 +230,28 @@ int mom_write(
     });
 }
 
+int mom_write_file(
+        const mom_model* model,
+        int format,
+        const char* path,
+        char* error_message,
+        size_t error_message_size)
+{
+    return guarded(error_message, error_message_size, [&]() {
+        check_model(model);
+        if (path == nullptr)
+            throw std::invalid_argument("path must not be null.");
+        std::string file_path(path);
+        switch (format) {
+        case MOM_FORMAT_MPS: write_mps(model->model, file_path); break;
+        case MOM_FORMAT_LP: write_lp(model->model, file_path); break;
+        case MOM_FORMAT_JSON: write_json(model->model, file_path); break;
+        case MOM_FORMAT_NL: write_nl(model->model, file_path); break;
+        default: throw std::invalid_argument("unknown format " + std::to_string(format) + ".");
+        }
+    });
+}
+
 int mom_format(
         const mom_model* model,
         int verbosity_level,
