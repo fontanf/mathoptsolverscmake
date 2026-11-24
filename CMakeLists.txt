@@ -26,6 +26,9 @@ option(MATHOPTSOLVERSCMAKE_BUILD_APP "Build the mathoptsolverscmake_solve CLI ap
 # Python bindings option (set by pyproject.toml when building the Python package).
 option(MATHOPTSOLVERSCMAKE_BUILD_PYTHON "Build the Python bindings" OFF)
 
+# C API option: the "mathoptmodel" shared library, used by the Java bindings.
+option(MATHOPTSOLVERSCMAKE_BUILD_C_API "Build the C API shared library" OFF)
+
 # Avoid FetchContent warning.
 cmake_policy(SET CMP0135 NEW)
 
@@ -35,8 +38,9 @@ set(CMAKE_CXX_STANDARD 11)
 # Enable output of compile commands during generation.
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-# The static library is linked into the Python extension module.
-if(MATHOPTSOLVERSCMAKE_BUILD_PYTHON)
+# The static library is linked into the Python extension module and into the
+# C API shared library.
+if(MATHOPTSOLVERSCMAKE_BUILD_PYTHON OR MATHOPTSOLVERSCMAKE_BUILD_C_API)
     set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 endif()
 
