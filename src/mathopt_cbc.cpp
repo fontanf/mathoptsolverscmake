@@ -53,6 +53,11 @@ void mathoptsolverscmake::load(
         CbcModel& cbc_model,
         const MathOptModel& model)
 {
+    if (model.has_semi_variables()) {
+        throw std::invalid_argument(
+                FUNC_SIGNATURE + ": "
+                "Cbc does not support semi-continuous or semi-integer variables.");
+    }
     if (!model.is_milp()) {
         throw std::invalid_argument(
                 FUNC_SIGNATURE + ": "

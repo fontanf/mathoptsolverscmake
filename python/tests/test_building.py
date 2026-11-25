@@ -243,7 +243,7 @@ def test_invalid_constraints_leave_the_model_unchanged(kwargs, message):
 def test_invalid_variables_and_objective():
     model = small_milp()
     with pytest.raises(ValueError, match="not a VariableType"):
-        model.add_variables(types=[3])
+        model.add_variables(types=[5])
     with pytest.raises(ValueError, match="number of variables is unknown"):
         model.add_variables()
     with pytest.raises(ValueError, match="3 variables"):
@@ -273,3 +273,24 @@ def test_large_batch():
     assert model.number_of_elements == m * k
     assert model.check()
     assert (model.constraints_classes == int(mom.ConstraintClass.SetPacking)).all()
+
+
+def test_semi_variables():
+    model = mom.Model()
+    model.add_variables(lower_bounds=[1.0, 2.0], upper_bounds=[10.0, 8.0],
+                        types=np.array([mom.VariableType.SemiContinuous, mom.VariableType.SemiInteger],
+                                       dtype=np.int8))
+    model.add_constraints(lower_bounds=0.5, starts=np.array([0], dtype=np.int32),
+                          variables=np.array([0, 1], dtype=np.int32), coefficients=[1.0, 1.0])
+    assert list(model.variables_types) == [int(mom.VariableType.SemiContinuous),
+                                           int(mom.VariableType.SemiInteger)]
+    assert model.check_solution([0.0, 0.0]) is False  # violates the constraint
+    assert model.check_solution([0.0, 3.0]) is True
+    assert model.check_solution([0.0, 3.5]) is False  # fractional semi-integer
+    assert model.check_solution([0.6, 0.0]) is False  # neither 0 nor in [1, 10]
+    for format in ("mps", "lp", "json"):
+        text = getattr(mom, f"write_{format}_string")(model)
+        read_back = getattr(mom, f"read_{format}_bytes")(text.encode())
+        assert list(read_back.variables_types) == list(model.variables_types), format
+    with pytest.raises(ValueError, match="semi"):
+        mom.write_nl_string(model)

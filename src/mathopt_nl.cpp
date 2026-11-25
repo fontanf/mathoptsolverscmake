@@ -1051,6 +1051,12 @@ void mathoptsolverscmake::write_nl(
         const MathOptModel& model,
         std::ostream& out)
 {
+    if (model.has_semi_variables()) {
+        throw std::invalid_argument(
+                FUNC_SIGNATURE + ": "
+                "model has semi-continuous or semi-integer variables, which "
+                ".nl format doesn't support.");
+    }
     if (model.has_black_box()) {
         throw std::invalid_argument(
                 FUNC_SIGNATURE + ": "

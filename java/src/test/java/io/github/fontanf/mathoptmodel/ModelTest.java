@@ -263,7 +263,7 @@ class ModelTest {
             assertThrowsMessage("references variable -1", () -> model.addConstraints(new Constraints(1)
                     .nonlinear(new int[] {0}, new ExpressionTrees("v", new int[] {0}, null, null))));
             assertThrowsMessage("not a VariableType", () -> model.addVariables(new Variables(1)
-                    .types(new byte[] {3})));
+                    .types(new byte[] {5})));
             assertThrowsMessage("only reference lower indices", () -> model.addDefinedVariables(
                     new DefinedVariables(new int[] {0}, new ExpressionTrees("d", new int[] {0}, new int[] {0}, null))));
             assertThrowsMessage("not a variable index", () -> model.setObjective(new Objective()

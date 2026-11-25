@@ -1,8 +1,12 @@
 #include "test_models.hpp"
+#include "semi_test_models.hpp"
 
 #include "mathoptsolverscmake/mathopt_scip.hpp"
+#include "mathoptsolverscmake/mathopt_mps.hpp"
 
 #include <gtest/gtest.h>
+
+#include <sstream>
 
 using namespace mathoptsolverscmake;
 using namespace mathoptsolverscmaketest;
@@ -76,4 +80,12 @@ INSTANTIATE_TEST_SUITE_P(
             return info.param.name;
         });
 
+}
+
+TEST(MathOptScip, SemiVariablesThrow)
+{
+    std::istringstream in(mathoptsolverscmaketest::semi_mps(false));
+    mathoptsolverscmake::MathOptModel model = mathoptsolverscmake::read_mps(in);
+    ScipModel solver_model;
+    EXPECT_THROW(load(solver_model, model), std::invalid_argument);
 }

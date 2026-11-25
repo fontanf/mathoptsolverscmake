@@ -247,7 +247,7 @@ int mathoptsolverscmake::add_variables(
                 + " entries, but the batch has " + std::to_string(n) + " variables.");
     for (std::size_t i = 0; i < n; ++i) {
         int type = (batch.types != nullptr)? batch.types[i]: (int)batch.type;
-        if (type < 0 || type > (int)VariableType::Integer)
+        if (type < 0 || type > (int)VariableType::SemiInteger)
             invalid("types[" + std::to_string(i) + "] = " + std::to_string(type)
                     + " is not a VariableType value.");
     }

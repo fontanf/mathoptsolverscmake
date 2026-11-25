@@ -170,6 +170,18 @@ std::istream& mathoptsolverscmake::operator>>(
             || token == "i"
             || token == "I") {
         variable_type = VariableType::Integer;
+    } else if (token == "semi-continuous"
+            || token == "SemiContinuous"
+            || token == "semicontinuous"
+            || token == "sc"
+            || token == "SC") {
+        variable_type = VariableType::SemiContinuous;
+    } else if (token == "semi-integer"
+            || token == "SemiInteger"
+            || token == "semiinteger"
+            || token == "si"
+            || token == "SI") {
+        variable_type = VariableType::SemiInteger;
     } else  {
         //throw std::invalid_argument(
         //        FUNC_SIGNATURE + ": "
@@ -193,6 +205,12 @@ std::ostream& mathoptsolverscmake::operator<<(
         break;
     } case VariableType::Integer: {
         os << "Integer";
+        break;
+    } case VariableType::SemiContinuous: {
+        os << "SemiContinuous";
+        break;
+    } case VariableType::SemiInteger: {
+        os << "SemiInteger";
         break;
     }
     }
@@ -1090,6 +1108,11 @@ bool MathOptModel::check_solution_variable(
 {
     bool feasible = true;
     double value = solution[variable_id];
+    // A semi-continuous or semi-integer variable may be 0, whatever its bounds.
+    if (is_semi(this->variables_types[variable_id])
+            && std::abs(value) <= this->feasibility_tolerance) {
+        return true;
+    }
     if (value < this->variables_lower_bounds[variable_id] - this->feasibility_tolerance) {
         if (verbosity_level > 0) {
             std::stringstream ss;
@@ -1115,7 +1138,7 @@ bool MathOptModel::check_solution_variable(
         feasible = false;
     }
     double fractionality = std::abs(value - std::round(value));
-    if (this->variables_types[variable_id] != VariableType::Continuous
+    if (is_integer(this->variables_types[variable_id])
             && fractionality > this->integrality_tolerance) {
         if (verbosity_level > 0) {
             std::stringstream ss;

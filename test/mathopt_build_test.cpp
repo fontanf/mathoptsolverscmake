@@ -185,7 +185,7 @@ TEST(MathOptBuild, InvalidBatchesLeaveTheModelUnchanged)
     nonlinear.nonlinear.variables = tree_variables;
     EXPECT_THROW(add_constraints(model, nonlinear), std::invalid_argument);
 
-    signed char types[] = {3};
+    signed char types[] = {5};
     VariablesBatch variables;
     variables.number = 1;
     variables.types = types;
