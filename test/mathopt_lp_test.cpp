@@ -4,6 +4,8 @@
 
 #include <limits>
 #include <sstream>
+#include <string>
+#include <vector>
 
 using namespace mathoptsolverscmake;
 
@@ -187,6 +189,54 @@ TEST(MathOptLp, QuadraticBracketThrows)
 TEST(MathOptLp, MissingFileThrows)
 {
     EXPECT_THROW(read_lp("/no/such/file.lp"), std::invalid_argument);
+}
+
+TEST(MathOptLp, KeywordAsConstraintName)
+{
+    // A section keyword followed by ':' is a constraint name (as in HiGHS's
+    // check/instances/1451.lp).
+    MathOptModel model = read(
+            "Minimize\n"
+            "  x\n"
+            "Subject to\n"
+            " end: x >= 3\n"
+            "Integer\n"
+            "  x\n"
+            "End\n");
+
+    ASSERT_EQ(model.number_of_variables(), 1);
+    EXPECT_EQ(model.variables_types[0], VariableType::Integer);
+    ASSERT_EQ(model.number_of_constraints(), 1);
+    EXPECT_EQ(model.constraint_name(0), "end");
+    EXPECT_EQ(model.constraints_lower_bounds[0], 3.0);
+    EXPECT_EQ(model.constraints_upper_bounds[0], inf);
+}
+
+TEST(MathOptLp, KeywordConstraintNamesRoundTrip)
+{
+    std::vector<std::string> names = {
+        "end", "bounds", "st", "subject", "general", "binary", "free", "minimize", "semi", "sos"};
+    MathOptModel original;
+    original.variables_names = {"x"};
+    original.variables_lower_bounds = {0.0};
+    original.variables_upper_bounds = {inf};
+    original.variables_types = {VariableType::Integer};
+    original.objective_coefficients = {1.0};
+    for (const std::string& name: names) {
+        original.constraints_names.push_back(name);
+        original.constraints_lower_bounds.push_back(1.0);
+        original.constraints_upper_bounds.push_back(inf);
+        original.constraints_starts.push_back((int)original.elements_variables.size());
+        original.elements_variables.push_back(0);
+        original.elements_coefficients.push_back(1.0);
+    }
+
+    MathOptModel round_tripped = read(write(original));
+
+    ASSERT_EQ(round_tripped.number_of_constraints(), (int)names.size());
+    for (int constraint_id = 0; constraint_id < (int)names.size(); ++constraint_id)
+        EXPECT_EQ(round_tripped.constraint_name(constraint_id), names[constraint_id]);
+    EXPECT_EQ(round_tripped.variables_types[0], VariableType::Integer);
 }
 
 TEST(MathOptLp, WriteThenReadRoundTrip)
