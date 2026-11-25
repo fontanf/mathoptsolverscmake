@@ -342,6 +342,34 @@ TEST(MathOptLp, ObjectiveOnly)
     EXPECT_EQ(model.number_of_constraints(), 0);
 }
 
+TEST(MathOptLp, ConstantInConstraintMovesToBounds)
+{
+    // As in HiGHS's check/instances/1451.lp.
+    MathOptModel model = read(
+            "Minimize\n"
+            " obj: x\n"
+            "Subject To\n"
+            " c1: x - 1 >= 2\n"
+            " c2: 3 + x + 2 <= 10\n"
+            " c3: -1 <= x + 4 - 1 <= 7\n"
+            " c4: x + 1 = 1\n"
+            "End\n");
+
+    ASSERT_EQ(model.number_of_constraints(), 4);
+    EXPECT_EQ(model.constraints_lower_bounds[0], 3.0);
+    EXPECT_EQ(model.constraints_upper_bounds[0], inf);
+    EXPECT_EQ(model.constraints_lower_bounds[1], -inf);
+    EXPECT_EQ(model.constraints_upper_bounds[1], 5.0);
+    EXPECT_EQ(model.constraints_lower_bounds[2], -4.0);
+    EXPECT_EQ(model.constraints_upper_bounds[2], 4.0);
+    EXPECT_EQ(model.constraints_lower_bounds[3], 0.0);
+    EXPECT_EQ(model.constraints_upper_bounds[3], 0.0);
+    for (int constraint_id = 0; constraint_id < 4; ++constraint_id) {
+        ASSERT_EQ(model.number_of_variables(constraint_id), 1);
+        EXPECT_EQ(model.elements_coefficients[model.constraints_starts[constraint_id]], 1.0);
+    }
+}
+
 TEST(MathOptLp, WriteThenReadRoundTrip)
 {
     MathOptModel original = read(

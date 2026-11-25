@@ -649,6 +649,10 @@ private:
             double value = parse_signed_number();
             apply_single_relop(relop, value, /* value_on_left = */ false, lower, upper);
         }
+        // A constant in the expression moves to the bounds: "x - 1 >= 2" is
+        // "x >= 3".
+        lower -= expression.constant;
+        upper -= expression.constant;
 
         model_.constraints_lower_bounds.push_back(lower);
         model_.constraints_upper_bounds.push_back(upper);
