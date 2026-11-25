@@ -41,6 +41,7 @@ jobs:
       CMAKE_FLAGS: >-
         -DCMAKE_BUILD_TYPE=Release
         -DMATHOPTSOLVERSCMAKE_BUILD_C_API=ON
+        -DMATHOPTSOLVERSCMAKE_USE_HIGHS=ON
         -DMATHOPTSOLVERSCMAKE_BUILD_TESTS=OFF
         -DMATHOPTSOLVERSCMAKE_BUILD_APP=OFF
     defaults:
@@ -58,6 +59,7 @@ jobs:
             "cmake -S . -B build_java $CMAKE_FLAGS && cmake --build build_java -j4"
           mkdir -p java/natives/${{ matrix.platform }}
           cp build_java/src/libmathoptmodel.so java/natives/${{ matrix.platform }}/
+          cp build_java/_deps/highs-src/LICENSE.txt java/natives/LICENSE-HiGHS.txt
 
       - name: Build (macOS)
         if: runner.os == 'macOS'
@@ -68,6 +70,7 @@ jobs:
           cmake --build build_java -j4
           mkdir -p java/natives/${{ matrix.platform }}
           cp build_java/src/libmathoptmodel.dylib java/natives/${{ matrix.platform }}/
+          cp build_java/_deps/highs-src/LICENSE.txt java/natives/LICENSE-HiGHS.txt
 
       # Windows: with the static MSVC runtime, so that the DLL doesn't need
       # the Visual C++ redistributable.
@@ -78,6 +81,7 @@ jobs:
           cmake --build build_java --config Release -j4
           mkdir -p java/natives/${{ matrix.platform }}
           cp build_java/src/Release/mathoptmodel.dll java/natives/${{ matrix.platform }}/
+          cp build_java/_deps/highs-src/LICENSE.txt java/natives/LICENSE-HiGHS.txt
 
       - uses: actions/setup-java@v4
         with:

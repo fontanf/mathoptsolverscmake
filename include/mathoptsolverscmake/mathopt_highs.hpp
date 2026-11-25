@@ -36,9 +36,15 @@ void write_mps(
 void solve(
         Highs& highs_model);
 
+/** Return an empty vector if HiGHS has not found any feasible solution. */
 std::vector<double> get_solution(
         const Highs& highs_model);
 
+/**
+ * Return the bound on the optimal objective value: HiGHS's MIP dual bound for
+ * a MIP; for an LP, the optimal value if HiGHS solved it to optimality, and
+ * an infinite bound otherwise.
+ */
 double get_bound(
         const Highs& highs_model);
 

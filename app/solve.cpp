@@ -4,31 +4,7 @@
 #include "mathoptsolverscmake/mathopt_lp.hpp"
 #include "mathoptsolverscmake/mathopt_mps.hpp"
 #include "mathoptsolverscmake/mathopt_nl.hpp"
-
-#ifdef CBC_FOUND
-#include "mathoptsolverscmake/mathopt_cbc.hpp"
-#endif
-#ifdef HIGHS_FOUND
-#include "mathoptsolverscmake/mathopt_highs.hpp"
-#endif
-#ifdef XPRESS_FOUND
-#include "mathoptsolverscmake/mathopt_xpress.hpp"
-#endif
-#ifdef CPLEX_FOUND
-#include "mathoptsolverscmake/mathopt_cplex.hpp"
-#endif
-#ifdef GUROBI_FOUND
-#include "mathoptsolverscmake/mathopt_gurobi.hpp"
-#endif
-#ifdef KNITRO_FOUND
-#include "mathoptsolverscmake/mathopt_knitro.hpp"
-#endif
-#ifdef IPOPT_FOUND
-#include "mathoptsolverscmake/mathopt_ipopt.hpp"
-#endif
-#ifdef SCIP_FOUND
-#include "mathoptsolverscmake/mathopt_scip.hpp"
-#endif
+#include "mathoptsolverscmake/mathopt_solve.hpp"
 
 #include <boost/program_options.hpp>
 
@@ -95,173 +71,6 @@ MathOptModel read_model(const std::string& file_path, FileFormat format)
     case FileFormat::Nl: return read_nl(file_path);
     }
     throw std::logic_error("unreachable");
-}
-
-/** The solver-specific dispatch; only Cbc, HiGHS, XPRESS, CPLEX, Gurobi, Knitro, Ipopt and SCIP have a
- * generic load()/solve()/get_solution() interface suited to "load an
- * arbitrary file and solve it" (dlib/ConicBundle/SMS++ target narrower use
- * cases -- box-constrained, convex Lagrangian relaxation, black-box-only --
- * meant for embedding in a larger algorithm, not standalone solving). */
-struct SolveResult
-{
-    bool found_solution = false;
-    std::vector<double> solution;
-    double objective_value = std::numeric_limits<double>::quiet_NaN();
-    bool has_bound = false;
-    double bound = std::numeric_limits<double>::quiet_NaN();
-};
-
-SolveResult solve_model(
-        const MathOptModel& model,
-        SolverName solver,
-        bool has_time_limit,
-        double time_limit)
-{
-    SolveResult result;
-
-    switch (solver) {
-    case SolverName::Cbc: {
-#ifdef CBC_FOUND
-        mathoptsolverscmake::CbcModel cbc_model;
-        if (has_time_limit)
-            set_time_limit(cbc_model, time_limit);
-        load(cbc_model, model);
-        solve(cbc_model);
-        result.solution = get_solution(cbc_model);
-        result.found_solution = !result.solution.empty();
-        result.bound = get_bound(cbc_model);
-        result.has_bound = true;
-#else
-        throw std::invalid_argument("solver \"Cbc\" is not available in this build.");
-#endif
-        break;
-    } case SolverName::Highs: {
-#ifdef HIGHS_FOUND
-        Highs highs;
-        if (has_time_limit)
-            set_time_limit(highs, time_limit);
-        load(highs, model);
-        solve(highs);
-        result.solution = get_solution(highs);
-        result.found_solution = !result.solution.empty();
-        result.bound = get_bound(highs);
-        result.has_bound = true;
-#else
-        throw std::invalid_argument("solver \"HiGHS\" is not available in this build.");
-#endif
-        break;
-    } case SolverName::Xpress: {
-#ifdef XPRESS_FOUND
-        XPRSprob xpress_model;
-        XPRScreateprob(&xpress_model);
-        if (has_time_limit)
-            set_time_limit(xpress_model, time_limit);
-        load(xpress_model, model);
-        solve(xpress_model);
-        // Unlike Cbc/HiGHS, XPRESS's get_solution() throws rather than
-        // returning empty when no solution is available.
-        try {
-            result.solution = get_solution(xpress_model);
-            result.found_solution = true;
-            result.bound = get_bound(xpress_model);
-            result.has_bound = true;
-        } catch (const std::exception&) {
-            result.found_solution = false;
-        }
-        XPRSdestroyprob(xpress_model);
-#else
-        throw std::invalid_argument("solver \"XPRESS\" is not available in this build.");
-#endif
-        break;
-    } case SolverName::Cplex: {
-#ifdef CPLEX_FOUND
-        CplexModel cplex_model;
-        if (has_time_limit)
-            set_time_limit(cplex_model, time_limit);
-        load(cplex_model, model);
-        solve(cplex_model);
-        result.solution = get_solution(cplex_model);
-        result.found_solution = !result.solution.empty();
-        result.bound = get_bound(cplex_model);
-        result.has_bound = true;
-#else
-        throw std::invalid_argument("solver \"CPLEX\" is not available in this build.");
-#endif
-        break;
-    } case SolverName::Gurobi: {
-#ifdef GUROBI_FOUND
-        GurobiModel gurobi_model;
-        if (has_time_limit)
-            set_time_limit(gurobi_model, time_limit);
-        load(gurobi_model, model);
-        solve(gurobi_model);
-        result.solution = get_solution(gurobi_model);
-        result.found_solution = !result.solution.empty();
-        result.bound = get_bound(gurobi_model);
-        result.has_bound = true;
-#else
-        throw std::invalid_argument("solver \"Gurobi\" is not available in this build.");
-#endif
-        break;
-    } case SolverName::Knitro: {
-#ifdef KNITRO_FOUND
-        KnitroContext knitro;
-        if (has_time_limit)
-            set_time_limit(knitro, time_limit);
-        load(knitro, model);
-        solve(knitro);
-        if (!is_infeasible(knitro)) {
-            result.solution = get_solution(knitro);
-            result.objective_value = get_solution_value(knitro);
-            result.found_solution = true;
-        }
-#else
-        throw std::invalid_argument("solver \"Knitro\" is not available in this build.");
-#endif
-        break;
-    } case SolverName::Ipopt: {
-#ifdef IPOPT_FOUND
-        IpoptModel ipopt_model;
-        if (has_time_limit)
-            set_time_limit(ipopt_model, time_limit);
-        load(ipopt_model, model);
-        solve(ipopt_model);
-        if (!is_infeasible(ipopt_model)) {
-            result.solution = get_solution(ipopt_model);
-            result.found_solution = !result.solution.empty();
-        }
-#else
-        throw std::invalid_argument("solver \"Ipopt\" is not available in this build.");
-#endif
-        break;
-    } case SolverName::Scip: {
-#ifdef SCIP_FOUND
-        ScipModel scip_model;
-        if (has_time_limit)
-            set_time_limit(scip_model, time_limit);
-        load(scip_model, model);
-        solve(scip_model);
-        result.solution = get_solution(scip_model);
-        result.found_solution = !result.solution.empty();
-        result.bound = get_bound(scip_model);
-        result.has_bound = true;
-#else
-        throw std::invalid_argument("solver \"SCIP\" is not available in this build.");
-#endif
-        break;
-    } default: {
-        std::ostringstream solver_name;
-        solver_name << solver;
-        throw std::invalid_argument(
-                "solver \"" + solver_name.str() + "\" is not supported by this tool "
-                "(only Cbc, HiGHS, XPRESS, CPLEX, Gurobi, Knitro, Ipopt and SCIP are).");
-    }
-    }
-
-    if (result.found_solution && solver != SolverName::Knitro)
-        result.objective_value = model.evaluate_objective(result.solution);
-
-    return result;
 }
 
 }
@@ -341,9 +150,13 @@ int main(int argc, char* argv[])
         std::cout << std::endl;
     }
 
-    SolveResult result;
+    SolveParameters parameters;
+    parameters.solver = solver;
+    if (has_time_limit)
+        parameters.time_limit = time_limit;
+    SolveOutput result;
     try {
-        result = solve_model(model, solver, has_time_limit, time_limit);
+        result = solve(model, parameters);
     } catch (const std::exception& e) {
         std::cerr << "Error solving the model: " << e.what() << std::endl;
         return 1;

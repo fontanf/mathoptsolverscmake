@@ -23,3 +23,11 @@ target_link_libraries(_core PRIVATE
     MathOptSolversCMake::mathopt)
 
 install(TARGETS _core LIBRARY DESTINATION mathoptmodel)
+
+# HiGHS's license, next to the bundled HiGHS.
+if(MATHOPTSOLVERSCMAKE_USE_HIGHS)
+    FetchContent_GetProperties(highs)
+    install(FILES "${highs_SOURCE_DIR}/LICENSE.txt"
+        DESTINATION mathoptmodel
+        RENAME LICENSE-HiGHS.txt)
+endif()

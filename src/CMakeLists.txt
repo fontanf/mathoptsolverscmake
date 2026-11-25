@@ -7,6 +7,7 @@ target_sources(MathOptSolversCMake_mathopt PRIVATE
     mathopt_json.cpp
     mathopt_lp.cpp
     mathopt_nl.cpp
+    mathopt_solve.cpp
     dual.cpp)
 if(MATHOPTSOLVERSCMAKE_USE_CBC)
     target_sources(MathOptSolversCMake_mathopt PRIVATE mathopt_cbc.cpp)
