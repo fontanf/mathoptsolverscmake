@@ -1,5 +1,6 @@
 #include "mathoptsolverscmake/mathopt_json.hpp"
 
+#include "number_parsing.hpp"
 #include "text_output.hpp"
 
 #include <cctype>
@@ -176,7 +177,7 @@ private:
         }
         JsonValue value;
         value.type = JsonValue::Type::Number;
-        value.number_value = std::strtod(token.c_str(), nullptr);
+        value.number_value = number_parsing::c_strtod(token.c_str(), nullptr);
         return value;
     }
 
