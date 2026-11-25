@@ -4,6 +4,7 @@
 
 #include <limits>
 #include <sstream>
+#include <string>
 
 using namespace mathoptsolverscmake;
 
@@ -503,4 +504,59 @@ TEST(MathOptMps, WriteWhitespaceNameThrows)
 
     std::ostringstream out;
     EXPECT_THROW(write_mps(model, out), std::invalid_argument);
+}
+
+TEST(MathOptMps, NanValueThrows)
+{
+    // As in HiGHS's check/instances/nan2.mps.
+    EXPECT_THROW(read(
+            "NAME          CHIP\n"
+            "ROWS\n"
+            " L ASSEMBLY\n"
+            " N INCOME\n"
+            "COLUMNS\n"
+            "    P1        ASSEMBLY      1.0        INCOME     -10.0\n"
+            "RHS\n"
+            "    RESOURCES ASSEMBLY      nan\n"
+            "ENDATA\n"), std::invalid_argument);
+}
+
+TEST(MathOptMps, MalformedNumberThrows)
+{
+    for (const char* value: {"12abc", "abc", "1.0.0", "-"}) {
+        EXPECT_THROW(read(
+                "NAME          T\n"
+                "ROWS\n"
+                " N  obj\n"
+                " L  c\n"
+                "COLUMNS\n"
+                "    x         obj       1              c         " + std::string(value) + "\n"
+                "RHS\n"
+                "    rhs       c         1\n"
+                "ENDATA\n"), std::invalid_argument) << value;
+    }
+}
+
+TEST(MathOptMps, InfiniteAndFortranNumbers)
+{
+    MathOptModel model = read(
+            "NAME          T\n"
+            "ROWS\n"
+            " N  obj\n"
+            " L  c\n"
+            "COLUMNS\n"
+            "    x         obj       1.5D0          c         2E1\n"
+            "    y         obj       1              c         1\n"
+            "RHS\n"
+            "    rhs       c         Infinity\n"
+            "BOUNDS\n"
+            " UP BND       x         inf\n"
+            " LO BND       y         -Inf\n"
+            "ENDATA\n");
+
+    EXPECT_EQ(model.objective_coefficients[0], 1.5);
+    EXPECT_EQ(model.elements_coefficients[0], 20.0);
+    EXPECT_EQ(model.constraints_upper_bounds[0], inf);
+    EXPECT_EQ(model.variables_upper_bounds[0], inf);
+    EXPECT_EQ(model.variables_lower_bounds[1], -inf);
 }
