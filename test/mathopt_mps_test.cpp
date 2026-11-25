@@ -5,6 +5,7 @@
 #include <limits>
 #include <sstream>
 #include <string>
+#include <vector>
 
 using namespace mathoptsolverscmake;
 
@@ -559,4 +560,73 @@ TEST(MathOptMps, InfiniteAndFortranNumbers)
     EXPECT_EQ(model.constraints_upper_bounds[0], inf);
     EXPECT_EQ(model.variables_upper_bounds[0], inf);
     EXPECT_EQ(model.variables_lower_bounds[1], -inf);
+}
+
+TEST(MathOptMps, NamesMatchingKeywords)
+{
+    // HiGHS's check/instances/silly-names.mps: columns named after section
+    // keywords, in indented data lines.
+    MathOptModel model = read(
+            "NAME          SILLY-NAMES\n"
+            "OBJSENSE MIN\n"
+            "ROWS\n"
+            " G  R0\n"
+            " N  COST\n"
+            "COLUMNS\n"
+            "    C0        R0           -1.0        COST       -1.0\n"
+            "    OBJSENSE  R0           -1.0        COST       -1.0\n"
+            "    RANGES    R0           -1.0        COST       -1.0\n"
+            "    RHS       R0           -1.0        COST       -1.0\n"
+            "    C1        R0           -1.0        COST       -1.0\n"
+            "RHS\n"
+            "    DEMANDS   R0           -1.0\n"
+            "ENDATA\n");
+
+    ASSERT_EQ(model.number_of_variables(), 5);
+    EXPECT_EQ(model.variable_name(1), "OBJSENSE");
+    EXPECT_EQ(model.variable_name(2), "RANGES");
+    EXPECT_EQ(model.variable_name(3), "RHS");
+    ASSERT_EQ(model.number_of_constraints(), 1);
+    EXPECT_EQ(model.number_of_variables(0), 5);
+    EXPECT_EQ(model.constraints_lower_bounds[0], -1.0);
+    EXPECT_EQ(model.objective_coefficients, (std::vector<double>{-1, -1, -1, -1, -1}));
+}
+
+TEST(MathOptMps, NamesMatchingUnsupportedSections)
+{
+    MathOptModel model = read(
+            "NAME          T\n"
+            "ROWS\n"
+            " N  obj\n"
+            " L  SOS\n"
+            "COLUMNS\n"
+            "    SETS      obj       1              SOS       1\n"
+            "    ENDATA    SOS       1\n"
+            "RHS\n"
+            "    rhs       SOS       1\n"
+            "ENDATA\n");
+
+    ASSERT_EQ(model.number_of_variables(), 2);
+    EXPECT_EQ(model.variable_name(0), "SETS");
+    EXPECT_EQ(model.variable_name(1), "ENDATA");
+    EXPECT_EQ(model.constraint_name(0), "SOS");
+    EXPECT_EQ(model.constraints_upper_bounds[0], 1.0);
+}
+
+TEST(MathOptMps, IndentedSectionHeaders)
+{
+    MathOptModel model = read(
+            "NAME          T\n"
+            "  ROWS\n"
+            " N  obj\n"
+            " L  c\n"
+            "  COLUMNS\n"
+            "    x         obj       1              c         1\n"
+            "  RHS\n"
+            "    rhs       c         4\n"
+            "  ENDATA\n");
+
+    ASSERT_EQ(model.number_of_variables(), 1);
+    ASSERT_EQ(model.number_of_constraints(), 1);
+    EXPECT_EQ(model.constraints_upper_bounds[0], 4.0);
 }
