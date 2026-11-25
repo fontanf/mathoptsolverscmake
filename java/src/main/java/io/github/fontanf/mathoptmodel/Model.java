@@ -123,13 +123,61 @@ public final class Model implements AutoCloseable {
                 () -> new IllegalArgumentException("Unrecognized model file format: " + path)));
     }
 
-    /** Read a model file, optionally .gz-compressed (from its extension), in the given format. */
+    /**
+     * Read a model file, optionally .gz-compressed (from its extension), in the given format.
+     * For an .nl file, the names come from the .col and .row files next to it, if any
+     * (see {@link #readNlNames(byte[], byte[])}).
+     */
     public static Model read(Path path, Format format) throws IOException {
         byte[] data;
         try (InputStream in = open(path)) {
             data = in.readAllBytes();
         }
-        return read(data, format);
+        Model model = read(data, format);
+        if (format == Format.NL) {
+            byte[] col = readIfExists(nlNamesPath(path, ".col"));
+            byte[] row = readIfExists(nlNamesPath(path, ".row"));
+            if (col != null || row != null)
+                model.readNlNames(col, row);
+        }
+        return model;
+    }
+
+    /**
+     * Set the names of a model read from an .nl file from the contents of the .col and .row
+     * files AMPL writes next to it (null: no such file). A file whose number of names doesn't
+     * match the model is ignored.
+     */
+    public void readNlNames(byte[] col, byte[] row) {
+        try (Arena arena = Arena.ofConfined()) {
+            MemorySegment colData = col == null ? MemorySegment.NULL : arena.allocateFrom(JAVA_BYTE, col);
+            MemorySegment rowData = row == null ? MemorySegment.NULL : arena.allocateFrom(JAVA_BYTE, row);
+            MemorySegment error = arena.allocate(Native.ERROR_SIZE);
+            int status = (int) Native.READ_NL_NAMES.invoke(handle(),
+                    colData, col == null ? 0L : (long) col.length,
+                    rowData, row == null ? 0L : (long) row.length,
+                    error, Native.ERROR_SIZE);
+            Native.check(status, error);
+        } catch (Throwable t) {
+            throw Native.rethrow(t);
+        }
+    }
+
+    /** The .col / .row file of an .nl file: "model.nl.gz" gives "model.col". */
+    private static Path nlNamesPath(Path path, String extension) {
+        String name = path.getFileName().toString();
+        String lower = name.toLowerCase(Locale.ROOT);
+        if (lower.endsWith(".gz")) {
+            name = name.substring(0, name.length() - 3);
+            lower = lower.substring(0, lower.length() - 3);
+        }
+        if (lower.endsWith(".nl"))
+            name = name.substring(0, name.length() - 3);
+        return path.resolveSibling(name + extension);
+    }
+
+    private static byte[] readIfExists(Path path) throws IOException {
+        return Files.isRegularFile(path) ? Files.readAllBytes(path) : null;
     }
 
     /**

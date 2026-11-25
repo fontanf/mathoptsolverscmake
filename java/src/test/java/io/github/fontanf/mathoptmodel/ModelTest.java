@@ -107,6 +107,29 @@ class ModelTest {
     }
 
     @Test
+    void readNlNames(@TempDir Path directory) throws IOException {
+        try (Model model = Model.read(LP.getBytes(), Format.LP)) {
+            Path path = directory.resolve("model.nl");
+            model.write(path);
+            try (Model read = Model.read(path)) {
+                assertEquals(List.of(), read.variablesNames());
+            }
+            Files.writeString(directory.resolve("model.col"), "a\nb\nc\n");
+            Files.writeString(directory.resolve("model.row"), "first\nsecond\nobj\n");
+            try (Model read = Model.read(path)) {
+                assertEquals(List.of("a", "b", "c"), read.variablesNames());
+                assertEquals(List.of("first", "second"), read.constraintsNames());
+            }
+            // A names file that doesn't match the model is ignored.
+            Files.writeString(directory.resolve("model.col"), "a\nb\n");
+            try (Model read = Model.read(path)) {
+                assertEquals(List.of(), read.variablesNames());
+                assertEquals(List.of("first", "second"), read.constraintsNames());
+            }
+        }
+    }
+
+    @Test
     void readNlStatistics(@TempDir Path directory) throws IOException {
         try (Model model = Model.read(LP.getBytes(), Format.LP)) {
             for (String name : List.of("model.nl", "model.nl.gz")) {

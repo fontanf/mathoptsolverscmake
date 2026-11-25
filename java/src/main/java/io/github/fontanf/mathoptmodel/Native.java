@@ -100,6 +100,8 @@ final class Native {
     static final MethodHandle READ_NL_STATISTICS = handle("mom_read_nl_statistics", false, JAVA_INT,
             ADDRESS, JAVA_LONG, ADDRESS, ADDRESS, JAVA_LONG);
     static final int NL_STATISTICS_SIZE = 14;
+    static final MethodHandle READ_NL_NAMES = handle("mom_read_nl_names", false, JAVA_INT,
+            ADDRESS, ADDRESS, JAVA_LONG, ADDRESS, JAVA_LONG, ADDRESS, JAVA_LONG);
     static final MethodHandle WRITE = handle("mom_write", false, JAVA_INT,
             ADDRESS, JAVA_INT, ADDRESS, ADDRESS, ADDRESS, JAVA_LONG);
     static final MethodHandle WRITE_FILE = handle("mom_write_file", false, JAVA_INT,

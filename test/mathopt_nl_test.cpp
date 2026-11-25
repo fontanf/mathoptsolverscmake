@@ -6,8 +6,12 @@
 #include <cmath>
 #include <cstdint>
 #include <cstring>
+#include <filesystem>
+#include <fstream>
 #include <limits>
 #include <sstream>
+#include <string>
+#include <vector>
 
 using namespace mathoptsolverscmake;
 
@@ -705,6 +709,85 @@ TEST(MathOptNl, NanValueThrows)
     EXPECT_THROW(read(with("nan", "0")), std::invalid_argument);
     EXPECT_THROW(read(with("3.5abc", "0")), std::invalid_argument);
     EXPECT_THROW(read(with("3.5", "nan")), std::invalid_argument);
+}
+
+namespace
+{
+
+/** max 1.5 x + 2.25 y  s.t.  c: 0.5 x + 1.75 y <= 3.5, as an .nl file. */
+std::string two_variable_nl()
+{
+    MathOptModel model;
+    model.objective_direction = ObjectiveDirection::Maximize;
+    model.variables_lower_bounds = {0.0, 0.0};
+    model.variables_upper_bounds = {2.5, 4.125};
+    model.variables_types = {VariableType::Continuous, VariableType::Continuous};
+    model.objective_coefficients = {1.5, 2.25};
+    model.constraints_lower_bounds = {-inf};
+    model.constraints_upper_bounds = {3.5};
+    model.constraints_starts = {0};
+    model.elements_variables = {0, 1};
+    model.elements_coefficients = {0.5, 1.75};
+    return write(model);
+}
+
+}
+
+TEST(MathOptNl, NamesFromColAndRowStreams)
+{
+    MathOptModel model = read(two_variable_nl());
+    EXPECT_TRUE(model.variables_names.empty());
+
+    // The .row file lists the constraints' names, then the objective's.
+    std::istringstream col("x[1]\ny[1]  \r\n");
+    std::istringstream row("capacity\nprofit\n");
+    read_nl_names(model, &col, &row);
+    EXPECT_EQ(model.variables_names, (std::vector<std::string>{"x[1]", "y[1]"}));
+    EXPECT_EQ(model.constraints_names, (std::vector<std::string>{"capacity"}));
+}
+
+TEST(MathOptNl, MismatchedNameFilesAreIgnored)
+{
+    MathOptModel model = read(two_variable_nl());
+    std::istringstream col("x\ny\nz\n");
+    std::istringstream row("\n");
+    read_nl_names(model, &col, &row);
+    EXPECT_TRUE(model.variables_names.empty());
+    EXPECT_TRUE(model.constraints_names.empty());
+
+    std::istringstream col_only("x\ny\n");
+    read_nl_names(model, &col_only, nullptr);
+    EXPECT_EQ(model.variables_names, (std::vector<std::string>{"x", "y"}));
+    EXPECT_TRUE(model.constraints_names.empty());
+}
+
+TEST(MathOptNl, NamesFilePaths)
+{
+    EXPECT_EQ(nl_col_path("dir/model.nl"), "dir/model.col");
+    EXPECT_EQ(nl_row_path("dir/model.nl"), "dir/model.row");
+    EXPECT_EQ(nl_col_path("model.NL"), "model.col");
+    EXPECT_EQ(nl_col_path("model.nl.gz"), "model.col");
+    EXPECT_EQ(nl_row_path("model.nl.bz2"), "model.row");
+    EXPECT_EQ(nl_col_path("model"), "model.col");
+}
+
+TEST(MathOptNl, ReadFileWithNames)
+{
+    std::filesystem::path directory = std::filesystem::temp_directory_path() / "mathopt_nl_test_names";
+    std::filesystem::create_directories(directory);
+    std::string nl_path = (directory / "model.nl").string();
+    { std::ofstream(nl_path, std::ios::binary) << two_variable_nl(); }
+    std::filesystem::remove(directory / "model.col");
+    std::filesystem::remove(directory / "model.row");
+
+    EXPECT_TRUE(read_nl(nl_path).variables_names.empty());
+
+    { std::ofstream(directory / "model.col") << "x\ny\n"; }
+    { std::ofstream(directory / "model.row") << "c\nobj\n"; }
+    MathOptModel model = read_nl(nl_path);
+    EXPECT_EQ(model.variable_name(1), "y");
+    EXPECT_EQ(model.constraint_name(0), "c");
+    std::filesystem::remove_all(directory);
 }
 
 TEST(MathOptNl, Statistics)

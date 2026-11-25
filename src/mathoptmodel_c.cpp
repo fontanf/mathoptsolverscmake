@@ -230,6 +230,29 @@ int mom_write(
     });
 }
 
+int mom_read_nl_names(
+        mom_model* model,
+        const char* col_data,
+        int64_t col_size,
+        const char* row_data,
+        int64_t row_size,
+        char* error_message,
+        size_t error_message_size)
+{
+    return guarded(error_message, error_message_size, [&]() {
+        if (model == nullptr)
+            throw std::invalid_argument("model must not be null.");
+        check_count(col_size, "col_size");
+        check_count(row_size, "row_size");
+        std::istringstream col(col_data != nullptr? std::string(col_data, col_data + col_size): std::string());
+        std::istringstream row(row_data != nullptr? std::string(row_data, row_data + row_size): std::string());
+        read_nl_names(
+                model->model,
+                col_data != nullptr? &col: nullptr,
+                row_data != nullptr? &row: nullptr);
+    });
+}
+
 int mom_read_nl_statistics(
         const char* data,
         int64_t size,

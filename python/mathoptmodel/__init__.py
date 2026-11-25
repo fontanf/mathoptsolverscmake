@@ -32,6 +32,7 @@ from mathoptmodel._core import (
     read_mps_bytes,
     read_nl_bytes,
     read_nl_statistics_bytes,
+    read_nl_names,
     write_json_file,
     write_json_string,
     write_lp_file,
@@ -45,9 +46,9 @@ from mathoptmodel._core import (
 __all__ = [
     "__version__",
     "ConstraintClass", "ConstraintSense", "Model", "ObjectiveDirection", "VariableType",
-    "FORMATS", "detect_format", "dual", "expand_defined_variables", "read", "write",
     "NlStatistics", "read_nl_statistics", "read_nl_statistics_bytes",
-    "read_json_bytes", "read_lp_bytes", "read_mps_bytes", "read_nl_bytes",
+    "FORMATS", "detect_format", "dual", "expand_defined_variables", "read", "write",
+    "read_json_bytes", "read_lp_bytes", "read_mps_bytes", "read_nl_bytes", "read_nl_names",
     "write_json_string", "write_lp_string", "write_mps_string", "write_nl_string",
     "write_json_file", "write_lp_file", "write_mps_file", "write_nl_file",
 ]
@@ -109,9 +110,29 @@ def detect_format(path):
     return ext if ext in _READERS else None
 
 
+def _nl_names_path(path, extension):
+    """The .col / .row file of an .nl file: "model.nl.gz" -> "model.col"."""
+    base, ext = os.path.splitext(path)
+    if ext.lower() in _OPENERS:
+        base, ext = os.path.splitext(base)
+    if ext.lower() == ".nl":
+        return base + extension
+    return path + extension
+
+
+def _read_if_exists(path):
+    try:
+        with open(path, "rb") as f:
+            return f.read()
+    except FileNotFoundError:
+        return None
+
+
 def read(path, format=None):
     """Read a model file, optionally .gz/.bz2 compressed. The format is
-    guessed from the extension unless given ("mps", "lp", "json" or "nl")."""
+    guessed from the extension unless given ("mps", "lp", "json" or "nl").
+    For an .nl file, the names come from the .col and .row files next to it,
+    if any (see read_nl_names)."""
     path = os.fspath(path)
     format = format or detect_format(path)
     if format not in _READERS:
@@ -119,7 +140,13 @@ def read(path, format=None):
     opener = _OPENERS.get(os.path.splitext(path.lower())[1], open)
     with opener(path, "rb") as f:
         data = f.read()
-    return _READERS[format](data)
+    model = _READERS[format](data)
+    if format == "nl":
+        col = _read_if_exists(_nl_names_path(path, ".col"))
+        row = _read_if_exists(_nl_names_path(path, ".row"))
+        if col is not None or row is not None:
+            read_nl_names(model, col, row)
+    return model
 
 
 def read_nl_statistics(path):
