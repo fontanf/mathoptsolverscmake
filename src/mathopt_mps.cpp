@@ -676,7 +676,12 @@ MathOptModel mathoptsolverscmake::read_mps(std::istream& in)
         if (tokens.empty())
             continue;
 
-        std::string first_upper = to_upper(tokens[0]);
+        // Section headers start in column 1, data lines are indented: a
+        // name in a data line may be a keyword (a column named "RHS"). An
+        // indented line with a single word can't be a data line, so it is
+        // still read as a header.
+        bool header = !std::isspace((unsigned char)line[0]) || tokens.size() == 1;
+        std::string first_upper = header? to_upper(tokens[0]): std::string();
         if (first_upper == "ENDATA")
             break;
         if (is_unsupported_section_keyword(first_upper)) {
