@@ -313,6 +313,35 @@ TEST(MathOptLp, KeywordConstraintNamesRoundTrip)
     EXPECT_EQ(round_tripped.variables_types[0], VariableType::Integer);
 }
 
+TEST(MathOptLp, NoConstraintsSection)
+{
+    // As in HiGHS's check/instances/qpunbounded.lp.
+    MathOptModel model = read(
+            "Maximize\n"
+            " obj: x1 + 2 x2\n"
+            "Bounds\n"
+            " 0 <= x1 <= 40\n"
+            "General\n"
+            " x2\n"
+            "End\n");
+
+    ASSERT_EQ(model.number_of_variables(), 2);
+    EXPECT_EQ(model.number_of_constraints(), 0);
+    EXPECT_EQ(model.objective_coefficients, (std::vector<double>{1.0, 2.0}));
+    EXPECT_EQ(model.variables_upper_bounds[0], 40.0);
+    EXPECT_EQ(model.variables_types[1], VariableType::Integer);
+}
+
+TEST(MathOptLp, ObjectiveOnly)
+{
+    MathOptModel model = read(
+            "Minimize\n"
+            " obj: x\n"
+            "End\n");
+    ASSERT_EQ(model.number_of_variables(), 1);
+    EXPECT_EQ(model.number_of_constraints(), 0);
+}
+
 TEST(MathOptLp, WriteThenReadRoundTrip)
 {
     MathOptModel original = read(
