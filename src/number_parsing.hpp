@@ -13,6 +13,7 @@
  */
 
 #include <clocale>
+#include <cmath>
 #include <cstdlib>
 
 #if defined(_WIN32)
@@ -38,6 +39,17 @@ inline double c_strtod(const char* text, char** end)
     static const locale_t c_locale = newlocale(LC_NUMERIC_MASK, "C", (locale_t)0);
     return strtod_l(text, end, c_locale);
 #endif
+}
+
+/**
+ * Parse a whole token as a number ("C" locale, infinities included). Return
+ * false if the token isn't entirely a number, or is NaN.
+ */
+inline bool parse_number_token(const char* token, double& value)
+{
+    char* end = nullptr;
+    value = c_strtod(token, &end);
+    return end != token && *end == '\0' && !std::isnan(value);
 }
 
 }

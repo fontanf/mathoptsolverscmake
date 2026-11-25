@@ -4,6 +4,7 @@
 #include "text_output.hpp"
 
 #include <algorithm>
+#include <cmath>
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
@@ -352,8 +353,31 @@ public:
     double read_double()
     {
         if (binary_)
-            return read_binary<double>();
-        return number_parsing::c_strtod(next_token().c_str(), nullptr);
+            return check_number(read_binary<double>());
+        return parse_number(next_token());
+    }
+
+    /** Parse a text-format number token; throws if it isn't one, or is NaN. */
+    static double parse_number(const std::string& token)
+    {
+        double value;
+        if (!number_parsing::parse_number_token(token.c_str(), value)) {
+            throw std::invalid_argument(
+                    FUNC_SIGNATURE + ": "
+                    "invalid number \"" + token + "\".");
+        }
+        return value;
+    }
+
+    /** Throws if a binary-format number is NaN. */
+    static double check_number(double value)
+    {
+        if (std::isnan(value)) {
+            throw std::invalid_argument(
+                    FUNC_SIGNATURE + ": "
+                    "invalid number NaN.");
+        }
+        return value;
     }
 
     std::string read_string()
@@ -393,7 +417,7 @@ public:
         if (binary_) {
             char kind = read_char();
             switch (kind) {
-            case 'n': value = read_binary<double>(); return 'n';
+            case 'n': value = check_number(read_binary<double>()); return 'n';
             case 's': value = read_binary<int16_t>(); return 'n';
             case 'l': value = read_binary<int32_t>(); return 'n';
             case 'v': case 'o': value = read_binary<int32_t>(); return kind;
@@ -411,7 +435,7 @@ public:
                     "expected an 'n', 'v' or 'o' expression token, got \"" + token + "\".");
         }
         value = (kind == 'n')?
-            number_parsing::c_strtod(token.c_str() + 1, nullptr):
+            parse_number(token.substr(1)):
             (double)std::strtol(token.c_str() + 1, nullptr, 10);
         return kind;
     }
