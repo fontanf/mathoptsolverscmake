@@ -2,11 +2,15 @@ package bench;
 
 import com.google.ortools.Loader;
 import com.google.ortools.linearsolver.MPConstraint;
+import com.google.ortools.linearsolver.MPConstraintProto;
+import com.google.ortools.linearsolver.MPModelProto;
 import com.google.ortools.linearsolver.MPObjective;
 import com.google.ortools.linearsolver.MPSolver;
 import com.google.ortools.linearsolver.MPVariable;
+import com.google.ortools.linearsolver.MPVariableProto;
 import com.google.ortools.modelbuilder.LinearExpr;
 import com.google.ortools.modelbuilder.ModelBuilder;
+import com.google.ortools.modelbuilder.ModelBuilderHelper;
 import com.google.ortools.modelbuilder.Variable;
 import io.github.fontanf.mathoptmodel.Constraints;
 import io.github.fontanf.mathoptmodel.Model;
@@ -176,8 +180,43 @@ public final class Bench {
         }
     }
 
+    /**
+     * OR-Tools' ModelBuilder, built through its low-level helper (ModelBuilder.getHelper()): one
+     * native call per variable attribute and per term, without Java expression objects.
+     */
+    static final class OrToolsModelBuilderHelper implements Tool {
+        @Override
+        public Object build(Data data) {
+            int n = data.n();
+            int integers = data.numberOfIntegers();
+            ModelBuilder model = new ModelBuilder();
+            ModelBuilderHelper helper = model.getHelper();
+            for (int j = 0; j < n; ++j) {
+                int variable = helper.addVar();
+                helper.setVarLowerBound(variable, 0);
+                helper.setVarUpperBound(variable, UPPER_BOUND);
+                helper.setVarIntegrality(variable, j < integers);
+                helper.setVarObjectiveCoefficient(variable, data.obj()[j]);
+            }
+            helper.setMaximize(true);
+            for (int i = 0; i < n; ++i) {
+                int constraint = helper.addLinearConstraint();
+                helper.setConstraintLowerBound(constraint, Double.NEGATIVE_INFINITY);
+                helper.setConstraintUpperBound(constraint, data.rhs()[i]);
+                for (int k = 0; k < K; ++k)
+                    helper.addConstraintTerm(constraint, data.cols()[i * K + k], data.coefs()[i * K + k]);
+            }
+            return model;
+        }
+
+        @Override
+        public void write(Object model, Path path) throws IOException {
+            Files.writeString(path, ((ModelBuilder) model).exportToLpString(false));
+        }
+    }
+
     /** OR-Tools' MPSolver (linear_solver), with the SCIP backend for the integer variables. */
-    static final class OrToolsMpSolver implements Tool {
+    static class OrToolsMpSolver implements Tool {
         @Override
         public Object build(Data data) {
             int n = data.n();
@@ -209,12 +248,42 @@ public final class Bench {
         }
     }
 
+    /** OR-Tools' MPSolver, loaded from an MPModelProto built beforehand (in the timing). */
+    static final class OrToolsMpSolverProto extends OrToolsMpSolver {
+        @Override
+        public Object build(Data data) {
+            int n = data.n();
+            int integers = data.numberOfIntegers();
+            MPModelProto.Builder proto = MPModelProto.newBuilder().setMaximize(true);
+            for (int j = 0; j < n; ++j) {
+                proto.addVariable(MPVariableProto.newBuilder().setLowerBound(0).setUpperBound(UPPER_BOUND)
+                        .setIsInteger(j < integers).setObjectiveCoefficient(data.obj()[j]));
+            }
+            for (int i = 0; i < n; ++i) {
+                MPConstraintProto.Builder constraint = MPConstraintProto.newBuilder()
+                        .setLowerBound(Double.NEGATIVE_INFINITY).setUpperBound(data.rhs()[i]);
+                for (int k = 0; k < K; ++k) {
+                    constraint.addVarIndex(data.cols()[i * K + k]);
+                    constraint.addCoefficient(data.coefs()[i * K + k]);
+                }
+                proto.addConstraint(constraint);
+            }
+            MPSolver solver = MPSolver.createSolver("SCIP");
+            String error = solver.loadModelFromProto(proto.build());
+            if (!error.isEmpty())
+                throw new IllegalStateException(error);
+            return solver;
+        }
+    }
+
     static Tool tool(String name) {
         return switch (name) {
             case "mathoptmodel-batch" -> new MathOptModelBatch();
             case "mathoptmodel-row" -> new MathOptModelRow();
             case "ortools-modelbuilder" -> new OrToolsModelBuilder();
+            case "ortools-modelbuilder-helper" -> new OrToolsModelBuilderHelper();
             case "ortools-mpsolver" -> new OrToolsMpSolver();
+            case "ortools-mpsolver-proto" -> new OrToolsMpSolverProto();
             default -> throw new IllegalArgumentException("Unknown tool " + name);
         };
     }

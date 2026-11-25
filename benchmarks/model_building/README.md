@@ -19,10 +19,17 @@ Each tool builds the model the way it's meant to be used:
 | `mathoptmodel-batch` | one `add_variables` / `add_constraints` call with all the arrays (CSR) |
 | `mathoptmodel-row` | one `add_constraints` call per constraint |
 | `pyomo` | `ConcreteModel`, an indexed `Var`, a rule-based `Constraint` with `sum(...)` expressions |
+| `pyomo-linear-expression` | the same, with `LinearExpression(linear_coefs=..., linear_vars=...)` instead of `sum(...)` |
 | `pyoptinterface-row` | `add_variable` per variable, `add_linear_constraint(ScalarAffineFunction(...))` per constraint, into HiGHS |
 | `pyoptinterface-matrix` | `add_m_variables` and `add_m_linear_constraints` with a SciPy CSR matrix, into HiGHS |
 | `ortools-modelbuilder` | OR-Tools' solver-independent `ModelBuilder`, one `addLessOrEqual(LinearExpr.weightedSum(...))` per constraint |
+| `ortools-modelbuilder-helper` | the same model through `ModelBuilder.getHelper()`: `addVar`, `addLinearConstraint`, `addConstraintTerm`... one native call per attribute and per term |
 | `ortools-mpsolver` | OR-Tools' `MPSolver` (SCIP backend, not solved), `makeConstraint` + `setCoefficient` per term |
+| `ortools-mpsolver-proto` | an `MPModelProto` built in Java, then `MPSolver.loadModelFromProto` |
+
+The `pyomo`, `ortools-modelbuilder` and `ortools-mpsolver` rows use each
+tool's usual API; the other variants of these tools are the fastest ways we
+found to build the same model with them.
 
 Timings exclude generating the data, and, for the tools that add constraints
 one at a time, converting it to the tool's input types (lists, rows) too.
