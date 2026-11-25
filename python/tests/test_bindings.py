@@ -253,3 +253,29 @@ def test_readers_ignore_locale(comma_locale, format):
     assert list(read_back.variables_upper_bounds) == [2.5, 4.125]
     assert list(read_back.constraints_upper_bounds) == [3.5]
     assert list(read_back.elements_coefficients) == [0.5, 1.75]
+
+
+def test_read_nl_names(tmp_path):
+    model = mom.Model()
+    model.add_variables(2, lower_bounds=0.0, upper_bounds=4.0, objective_coefficients=[1.0, 2.0])
+    model.add_constraints(upper_bounds=3.0, starts=np.array([0], dtype=np.int32),
+                          variables=np.array([0, 1], dtype=np.int32), coefficients=[1.0, 1.0])
+    mom.write(model, tmp_path / "model.nl")
+    assert mom.read(tmp_path / "model.nl").variables_names == []
+
+    (tmp_path / "model.col").write_text("x[1]\ny[1]\n")
+    (tmp_path / "model.row").write_text("capacity\nobj\n")
+    read_back = mom.read(tmp_path / "model.nl")
+    assert read_back.variables_names == ["x[1]", "y[1]"]
+    assert read_back.constraints_names == ["capacity"]
+
+    # Compressed .nl: the names files are next to it, uncompressed.
+    with open(tmp_path / "model.nl", "rb") as f, gzip.open(tmp_path / "other.nl.gz", "wb") as g:
+        g.write(f.read())
+    (tmp_path / "other.col").write_text("a\nb\n")
+    assert mom.read(tmp_path / "other.nl.gz").variables_names == ["a", "b"]
+
+    # A names file that doesn't match the model is ignored.
+    (tmp_path / "model.col").write_text("x\ny\nz\n")
+    assert mom.read(tmp_path / "model.nl").variables_names == []
+    assert mom.read(tmp_path / "model.nl").constraints_names == ["capacity"]

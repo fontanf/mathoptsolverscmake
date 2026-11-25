@@ -135,6 +135,20 @@ MOM_API int mom_read(
         char* error_message,
         size_t error_message_size);
 
+/**
+ * Set the names of a model read from an .nl file from the contents of the
+ * .col and .row files AMPL writes next to it (see read_nl_names() in
+ * mathopt_nl.hpp); a null 'col_data' / 'row_data' means no such file.
+ */
+MOM_API int mom_read_nl_names(
+        mom_model* model,
+        const char* col_data,
+        int64_t col_size,
+        const char* row_data,
+        int64_t row_size,
+        char* error_message,
+        size_t error_message_size);
+
 /** Write a model in the given format; release '*data' with mom_free(). */
 MOM_API int mom_write(
         const mom_model* model,

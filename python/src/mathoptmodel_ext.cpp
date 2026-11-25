@@ -787,6 +787,17 @@ NB_MODULE(_core, m)
             [](nb::bytes data) { return read_from_bytes(read_nl, data); },
             "data"_a, "Read a model from the contents of an AMPL .nl file.");
 
+    m.def("read_nl_names",
+            [](MathOptModel& model, std::optional<nb::bytes> col, std::optional<nb::bytes> row) {
+                std::istringstream col_in(col? std::string(col->c_str(), col->size()): std::string());
+                std::istringstream row_in(row? std::string(row->c_str(), row->size()): std::string());
+                read_nl_names(model, col? &col_in: nullptr, row? &row_in: nullptr);
+            },
+            "model"_a, "col"_a = nb::none(), "row"_a = nb::none(),
+            "Set the names of a model read from an .nl file from the contents of "
+            "the .col and .row files AMPL writes next to it. A file whose number of "
+            "names doesn't match the model is ignored.");
+
     // Writers, to a str.
     m.def("write_mps_string",
             [](const MathOptModel& model) { return write_to_string(write_mps, model); },

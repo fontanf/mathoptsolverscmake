@@ -4,6 +4,7 @@
 #include "text_output.hpp"
 
 #include <algorithm>
+#include <cctype>
 #include <cmath>
 #include <cstdint>
 #include <cstdlib>
@@ -14,6 +15,7 @@
 #include <sstream>
 #include <stdexcept>
 #include <utility>
+#include <vector>
 
 using namespace mathoptsolverscmake;
 
@@ -789,7 +791,84 @@ MathOptModel mathoptsolverscmake::read_nl(const std::string& file_path)
                 FUNC_SIGNATURE + ": "
                 "unable to open file \"" + file_path + "\".");
     }
-    return read_nl(file);
+    MathOptModel model = read_nl(file);
+    std::ifstream col(nl_col_path(file_path));
+    std::ifstream row(nl_row_path(file_path));
+    read_nl_names(model, col.good()? &col: nullptr, row.good()? &row: nullptr);
+    return model;
+}
+
+namespace
+{
+
+/** The non-empty lines of a stream, without their trailing whitespace. */
+std::vector<std::string> read_name_lines(std::istream& in)
+{
+    std::vector<std::string> names;
+    std::string line;
+    while (std::getline(in, line)) {
+        size_t end = line.find_last_not_of(" \t\r");
+        if (end == std::string::npos)
+            continue;
+        names.push_back(line.substr(0, end + 1));
+    }
+    return names;
+}
+
+/** The path of a sidecar file of an .nl file. */
+std::string nl_sidecar_path(const std::string& nl_path, const std::string& extension)
+{
+    auto lower = [](std::string text) {
+        for (char& c: text)
+            c = (char)std::tolower((unsigned char)c);
+        return text;
+    };
+    auto ends_with = [](const std::string& text, const std::string& suffix) {
+        return text.size() >= suffix.size()
+            && text.compare(text.size() - suffix.size(), suffix.size(), suffix) == 0;
+    };
+    std::string stub = nl_path;
+    for (const char* compression: {".gz", ".bz2"}) {
+        if (ends_with(lower(stub), compression)) {
+            stub.resize(stub.size() - std::string(compression).size());
+            break;
+        }
+    }
+    if (ends_with(lower(stub), ".nl"))
+        stub.resize(stub.size() - 3);
+    return stub + extension;
+}
+
+}
+
+std::string mathoptsolverscmake::nl_col_path(const std::string& nl_path)
+{
+    return nl_sidecar_path(nl_path, ".col");
+}
+
+std::string mathoptsolverscmake::nl_row_path(const std::string& nl_path)
+{
+    return nl_sidecar_path(nl_path, ".row");
+}
+
+void mathoptsolverscmake::read_nl_names(
+        MathOptModel& model,
+        std::istream* col,
+        std::istream* row)
+{
+    if (col != nullptr) {
+        std::vector<std::string> names = read_name_lines(*col);
+        if ((int)names.size() == model.number_of_variables())
+            model.variables_names = std::move(names);
+    }
+    if (row != nullptr) {
+        std::vector<std::string> names = read_name_lines(*row);
+        // The constraints' names, then the objectives'.
+        if ((int)names.size() >= model.number_of_constraints()) {
+            names.resize(model.number_of_constraints());
+            model.constraints_names = std::move(names);
+        }
+    }
 }
 
 MathOptModel mathoptsolverscmake::read_nl(std::istream& in)
