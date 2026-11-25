@@ -504,14 +504,12 @@ private:
         // expression.constant (the objective offset) is discarded: MathOptModel has no such field.
     }
 
+    /** The "Subject To" section, which a model without constraints may omit. */
     void parse_constraints_section()
     {
         LpSection section = peek_section_keyword();
-        if (section != LpSection::Constraints) {
-            throw std::invalid_argument(
-                    FUNC_SIGNATURE + ": "
-                    "expected \"Subject To\" after the objective.");
-        }
+        if (section != LpSection::Constraints)
+            return;
         consume_section_keyword(section);
 
         while (peek_section_keyword() == LpSection::None && !at_end())
