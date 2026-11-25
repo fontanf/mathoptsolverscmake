@@ -3,7 +3,7 @@
 This library includes:
 * CMake wrappers for mathematical optimization solvers
 * A mathematical programming modeler that supports:
-  * Coninous and integer variables
+  * Continuous, integer, semi-continuous and semi-integer variables (the last two only with HiGHS, CPLEX and Gurobi)
   * Linear structures
   * Quadratic structures
   * Nonlinear structures

@@ -1,10 +1,14 @@
 #include "test_models.hpp"
+#include "semi_test_models.hpp"
 
 #include "mathoptsolverscmake/mathopt_cbc.hpp"
+#include "mathoptsolverscmake/mathopt_mps.hpp"
 
 #include "coin/CbcEventHandler.hpp"
 
 #include <gtest/gtest.h>
+
+#include <sstream>
 
 #include <limits>
 
@@ -210,4 +214,12 @@ INSTANTIATE_TEST_SUITE_P(
             return (info.param == ObjectiveDirection::Minimize)? "Minimize": "Maximize";
         });
 
+}
+
+TEST(MathOptCbc, SemiVariablesThrow)
+{
+    std::istringstream in(mathoptsolverscmaketest::semi_mps(false));
+    mathoptsolverscmake::MathOptModel model = mathoptsolverscmake::read_mps(in);
+    mathoptsolverscmake::CbcModel solver_model;
+    EXPECT_THROW(load(solver_model, model), std::invalid_argument);
 }

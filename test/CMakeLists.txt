@@ -177,3 +177,13 @@ target_link_libraries(locale_test PRIVATE
 
 include(GoogleTest)
 gtest_discover_tests(locale_test)
+
+add_executable(semi_variables_test
+    semi_variables_test.cpp)
+target_link_libraries(semi_variables_test PRIVATE
+    MathOptSolversCMake_test_models
+    MathOptSolversCMake::mathopt
+    GTest::gtest_main)
+
+include(GoogleTest)
+gtest_discover_tests(semi_variables_test)

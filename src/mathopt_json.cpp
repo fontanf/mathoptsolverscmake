@@ -650,7 +650,9 @@ void mathoptsolverscmake::write_json(
         const std::string type_names[] = {
             "\"" + escape_json_string(to_text(VariableType::Continuous)) + "\"",
             "\"" + escape_json_string(to_text(VariableType::Binary)) + "\"",
-            "\"" + escape_json_string(to_text(VariableType::Integer)) + "\""};
+            "\"" + escape_json_string(to_text(VariableType::Integer)) + "\"",
+            "\"" + escape_json_string(to_text(VariableType::SemiContinuous)) + "\"",
+            "\"" + escape_json_string(to_text(VariableType::SemiInteger)) + "\""};
         TextOutput& types = field("variables_types");
         types << '[';
         for (size_t variable_id = 0; variable_id < model.variables_types.size(); ++variable_id) {

@@ -185,6 +185,9 @@ struct MpsParseState
     // True for an integer column until it receives any BOUNDS entry; such
     // columns default to [0, 1] (classic MPS convention, also HiGHS's).
     std::vector<bool> column_still_default_binary;
+
+    /** Columns with an SC or SI bound (semi-continuous / semi-integer). */
+    std::vector<bool> column_is_semi;
     std::vector<bool> column_has_lower;
     std::vector<bool> column_has_upper;
 
@@ -205,6 +208,7 @@ struct MpsParseState
         column_has_cost.push_back(false);
         column_is_integer.push_back(in_integer_marker_section);
         column_still_default_binary.push_back(in_integer_marker_section);
+        column_is_semi.push_back(false);
         column_has_lower.push_back(false);
         column_has_upper.push_back(false);
         return column_id;
@@ -412,7 +416,7 @@ struct MpsParseState
             return;
         }
 
-        // UP, LO, FX, LI, UI need a value.
+        // UP, LO, FX, LI, UI, SC and SI need a value.
         if (tokens.size() < 4) {
             throw std::invalid_argument(
                     FUNC_SIGNATURE + ": "
@@ -447,6 +451,17 @@ struct MpsParseState
             }
         } else if (bound_type == "UI") {
             column_is_integer[column_id] = true;
+            if (!column_has_upper[column_id]) {
+                model.variables_upper_bounds[column_id] = value;
+                column_has_upper[column_id] = true;
+            }
+        } else if (bound_type == "SC" || bound_type == "SI") {
+            // Semi-continuous / semi-integer: the value is the upper bound,
+            // and the column is 0 or between its bounds. As in HiGHS's
+            // reader, SC makes even a column of an integer marker section
+            // semi-continuous.
+            column_is_semi[column_id] = true;
+            column_is_integer[column_id] = (bound_type == "SI");
             if (!column_has_upper[column_id]) {
                 model.variables_upper_bounds[column_id] = value;
                 column_has_upper[column_id] = true;
@@ -588,7 +603,10 @@ struct MpsParseState
         // [0, 1] is Binary, otherwise Integer.
         model.variables_types.resize(model.number_of_variables());
         for (int column_id = 0; column_id < model.number_of_variables(); ++column_id) {
-            if (!column_is_integer[column_id]) {
+            if (column_is_semi[column_id]) {
+                model.variables_types[column_id] = column_is_integer[column_id]?
+                    VariableType::SemiInteger: VariableType::SemiContinuous;
+            } else if (!column_is_integer[column_id]) {
                 model.variables_types[column_id] = VariableType::Continuous;
             } else if (model.variables_lower_bounds[column_id] == 0.0
                     && model.variables_upper_bounds[column_id] == 1.0) {
@@ -847,7 +865,9 @@ void mathoptsolverscmake::write_mps(
     output << "COLUMNS\n";
     bool in_integer_marker_section = false;
     for (int variable_id = 0; variable_id < number_of_variables; ++variable_id) {
-        bool is_integer = (model.variables_types[variable_id] != VariableType::Continuous);
+        // Semi-integer columns get their integrality from their SI bound.
+        VariableType type = model.variables_types[variable_id];
+        bool is_integer = (type == VariableType::Binary || type == VariableType::Integer);
         if (is_integer != in_integer_marker_section) {
             output << "    MARKER    'MARKER'                 '"
                 << (is_integer? "INTORG": "INTEND") << "'\n";
@@ -936,13 +956,36 @@ void mathoptsolverscmake::write_mps(
     for (int variable_id = 0; variable_id < number_of_variables; ++variable_id) {
         double lower = model.variables_lower_bounds[variable_id];
         double upper = model.variables_upper_bounds[variable_id];
-        bool is_integer = (model.variables_types[variable_id] != VariableType::Continuous);
+        VariableType type = model.variables_types[variable_id];
+        bool is_integer = (type == VariableType::Binary || type == VariableType::Integer);
 
-        if (!is_integer && lower == 0.0 && upper == inf)
+        if (!is_integer && !is_semi(type) && lower == 0.0 && upper == inf)
             continue;
         if (!has_bounds) {
             output << "BOUNDS\n";
             has_bounds = true;
+        }
+
+        if (is_semi(type)) {
+            // The lower bound, then the SC / SI bound, which is the upper
+            // bound and makes the column semi-continuous / semi-integer.
+            if (lower == -inf) {
+                output << " MI BND       ";
+                variable_names.write(output, variable_id);
+                output << '\n';
+            } else if (lower != 0.0) {
+                output << " LO BND       ";
+                variable_names.write(output, variable_id);
+                output << "  ";
+                output.number(lower);
+                output << '\n';
+            }
+            output << (type == VariableType::SemiInteger? " SI BND       ": " SC BND       ");
+            variable_names.write(output, variable_id);
+            output << "  ";
+            output.number(upper);
+            output << '\n';
+            continue;
         }
 
         if (is_integer && lower == 0.0 && upper == 1.0) {

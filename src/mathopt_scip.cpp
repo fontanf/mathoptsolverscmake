@@ -372,6 +372,11 @@ void mathoptsolverscmake::load(
         ScipModel& scip_model,
         const MathOptModel& model)
 {
+    if (model.has_semi_variables()) {
+        throw std::invalid_argument(
+                FUNC_SIGNATURE + ": "
+                "SCIP does not support semi-continuous or semi-integer variables.");
+    }
     if (model.has_black_box()) {
         throw std::invalid_argument(
                 FUNC_SIGNATURE + ": "
@@ -406,6 +411,9 @@ void mathoptsolverscmake::load(
             break;
         } case VariableType::Continuous: {
             break;
+        } case VariableType::SemiContinuous:
+          case VariableType::SemiInteger: {
+            break;  // Rejected above.
         }
         }
         double objective_coefficient = model.objective_coefficients.empty()?

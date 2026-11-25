@@ -58,7 +58,26 @@ enum class VariableType
     Continuous,
     Binary,
     Integer,
+    /** Either 0, or between its lower and upper bounds. */
+    SemiContinuous,
+    /** Either 0, or an integer between its lower and upper bounds. */
+    SemiInteger,
 };
+
+/** Return true for the types whose values must be integers. */
+inline bool is_integer(VariableType type)
+{
+    return type == VariableType::Binary
+        || type == VariableType::Integer
+        || type == VariableType::SemiInteger;
+}
+
+/** Return true for the semi-continuous and semi-integer types. */
+inline bool is_semi(VariableType type)
+{
+    return type == VariableType::SemiContinuous
+        || type == VariableType::SemiInteger;
+}
 
 std::istream& operator>>(
         std::istream& in,
@@ -268,6 +287,15 @@ struct MathOptModel
     {
         for (const VariableType type: variables_types)
             if (type != VariableType::Continuous)
+                return true;
+        return false;
+    }
+
+    /** Return true if the model has semi-continuous or semi-integer variables. */
+    bool has_semi_variables() const
+    {
+        for (const VariableType type: variables_types)
+            if (is_semi(type))
                 return true;
         return false;
     }

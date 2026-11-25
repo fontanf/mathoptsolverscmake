@@ -4,7 +4,11 @@ package io.github.fontanf.mathoptmodel;
 public enum VariableType {
     CONTINUOUS,
     BINARY,
-    INTEGER;
+    INTEGER,
+    /** Either 0, or between its lower and upper bounds. */
+    SEMI_CONTINUOUS,
+    /** Either 0, or an integer between its lower and upper bounds. */
+    SEMI_INTEGER;
 
     /** The code of this type in byte arrays of variable types. */
     public byte code() {

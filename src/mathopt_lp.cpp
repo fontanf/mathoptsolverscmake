@@ -219,7 +219,7 @@ void apply_range_relop(
     }
 }
 
-enum class LpSection { None, ObjMin, ObjMax, Constraints, Bounds, General, Binary, End, Unsupported };
+enum class LpSection { None, ObjMin, ObjMax, Constraints, Bounds, General, Binary, Semi, End, Unsupported };
 
 struct QuadraticTerm
 {
@@ -259,13 +259,14 @@ public:
             } else if (section == LpSection::Binary) {
                 consume_section_keyword(section);
                 parse_typed_variable_list(VariableType::Binary);
+            } else if (section == LpSection::Semi) {
+                consume_section_keyword(section);
+                parse_typed_variable_list(VariableType::SemiContinuous);
             } else if (section == LpSection::End) {
                 break;
             } else if (section == LpSection::Unsupported) {
-                // Some .lp writers (e.g. HiGHS) always emit a "semi"
-                // section header regardless of whether there are any
-                // semi-continuous/semi-integer variables to list; only
-                // reject the section if it actually has entries.
+                // SOS sections: only reject the section if it actually has
+                // entries (some writers emit empty section headers).
                 std::string keyword_text = peek().text;
                 advance();
                 if (peek_section_keyword() == LpSection::None && !at_end()) {
@@ -278,7 +279,7 @@ public:
             } else {
                 throw std::invalid_argument(
                         FUNC_SIGNATURE + ": "
-                        "expected a section keyword (Bounds/General/Binary/End), found \"" +
+                        "expected a section keyword (Bounds/General/Binary/Semi-continuous/End), found \"" +
                         (peek().type == TokenType::Identifier? peek().text: "<symbol>") + "\".");
             }
         }
@@ -348,8 +349,9 @@ private:
                 || word == "integer" || word == "integers") return LpSection::General;
         if (word == "binary" || word == "binaries" || word == "bin") return LpSection::Binary;
         if (word == "end") return LpSection::End;
-        if (word == "sos" || word == "sos1" || word == "sos2"
-                || word == "semi-continuous" || word == "semi" || word == "semis")
+        if (word == "semi" || word == "semis")
+            return LpSection::Semi;
+        if (word == "sos" || word == "sos1" || word == "sos2")
             return LpSection::Unsupported;
         return LpSection::None;
     }
@@ -363,6 +365,12 @@ private:
             return;
         }
         advance();
+        // "Semi-continuous" tokenizes as "semi", '-', "continuous".
+        if (section == LpSection::Semi && word == "semi"
+                && peek().type == TokenType::Minus && at_identifier(1, "continuous")) {
+            advance();
+            advance();
+        }
     }
 
     int get_or_create_variable(const std::string& name)
@@ -726,9 +734,17 @@ private:
             if (peek().type != TokenType::Identifier) {
                 throw std::invalid_argument(
                         FUNC_SIGNATURE + ": "
-                        "expected a variable name in a General/Binary section.");
+                        "expected a variable name in a General/Binary/Semi-continuous section.");
             }
             int variable_id = get_or_create_variable(advance().text);
+            // A variable listed in both the General and the Semi-continuous
+            // sections is semi-integer.
+            VariableType current = model_.variables_types[variable_id];
+            if ((type == VariableType::SemiContinuous && current == VariableType::Integer)
+                    || (type == VariableType::Integer && current == VariableType::SemiContinuous)) {
+                model_.variables_types[variable_id] = VariableType::SemiInteger;
+                continue;
+            }
             model_.variables_types[variable_id] = type;
             if (type == VariableType::Binary
                     && model_.variables_upper_bounds[variable_id] == inf) {
@@ -1074,18 +1090,25 @@ void mathoptsolverscmake::write_lp(
         }
     }
 
+    // A semi-integer variable is listed in both the General and the
+    // Semi-continuous sections.
     bool has_general = false;
     bool has_binary = false;
+    bool has_semi = false;
     for (int variable_id = 0; variable_id < number_of_variables; ++variable_id) {
-        if (model.variables_types[variable_id] == VariableType::Integer)
+        VariableType type = model.variables_types[variable_id];
+        if (type == VariableType::Integer || type == VariableType::SemiInteger)
             has_general = true;
-        else if (model.variables_types[variable_id] == VariableType::Binary)
+        else if (type == VariableType::Binary)
             has_binary = true;
+        if (is_semi(type))
+            has_semi = true;
     }
     if (has_general) {
         output << "General\n";
         for (int variable_id = 0; variable_id < number_of_variables; ++variable_id) {
-            if (model.variables_types[variable_id] == VariableType::Integer) {
+            VariableType type = model.variables_types[variable_id];
+            if (type == VariableType::Integer || type == VariableType::SemiInteger) {
                 output << ' ';
                 variable_names.write(output, variable_id);
                 output << '\n';
@@ -1096,6 +1119,17 @@ void mathoptsolverscmake::write_lp(
         output << "Binary\n";
         for (int variable_id = 0; variable_id < number_of_variables; ++variable_id) {
             if (model.variables_types[variable_id] == VariableType::Binary) {
+                output << ' ';
+                variable_names.write(output, variable_id);
+                output << '\n';
+            }
+        }
+    }
+
+    if (has_semi) {
+        output << "Semi-continuous\n";
+        for (int variable_id = 0; variable_id < number_of_variables; ++variable_id) {
+            if (is_semi(model.variables_types[variable_id])) {
                 output << ' ';
                 variable_names.write(output, variable_id);
                 output << '\n';
