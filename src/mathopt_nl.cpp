@@ -116,6 +116,7 @@ struct NlHeader
     int nwv = 0, nfunc = 0, arith = 0;
     bool binary = false;
     int nbv = 0, niv = 0, nlvbi = 0, nlvci = 0, nlvoi = 0;
+    long nzc = 0, nzo = 0;
     int comb = 0, comc = 0, como = 0, comc1 = 0, como1 = 0;
 };
 
@@ -150,7 +151,8 @@ void require_zero(long value, const std::string& what)
     }
 }
 
-NlHeader read_nl_header(std::istream& in, std::string& first_data_line)
+/** Parses the 10 header lines, without checking that the model is supported. */
+NlHeader parse_nl_header(std::istream& in)
 {
     std::string line;
     if (!std::getline(in, line)) {
@@ -226,8 +228,11 @@ NlHeader read_nl_header(std::istream& in, std::string& first_data_line)
     header.nlvci = (int)l7[3];
     header.nlvoi = (int)l7[4];
 
-    std::getline(in, line); // nzc nzo: nonzero counts, informational only.
-    std::getline(in, line); // maxrownamelen maxcolnamelen: names aren't read.
+    std::getline(in, line);
+    std::vector<long> l8 = split_ints(strip_comment(line));
+    header.nzc = field(l8, 0);
+    header.nzo = field(l8, 1);
+    std::getline(in, line); // maxrownamelen maxcolnamelen.
 
     std::getline(in, line);
     std::vector<long> l10 = split_ints(strip_comment(line));
@@ -236,6 +241,12 @@ NlHeader read_nl_header(std::istream& in, std::string& first_data_line)
     header.como = (int)field(l10, 2);
     header.comc1 = (int)field(l10, 3);
     header.como1 = (int)field(l10, 4);
+    return header;
+}
+
+NlHeader read_nl_header(std::istream& in, std::string& first_data_line)
+{
+    NlHeader header = parse_nl_header(in);
 
     require_zero(header.n_lcon, "logical constraints");
     require_zero(header.n_cc + header.nlcc, "complementarity constraints");
@@ -869,6 +880,39 @@ void mathoptsolverscmake::read_nl_names(
             model.constraints_names = std::move(names);
         }
     }
+}
+
+MathOptModelStatistics mathoptsolverscmake::read_nl_statistics(const std::string& file_path)
+{
+    std::ifstream file(file_path, std::ios::in | std::ios::binary);
+    if (!file.good()) {
+        throw std::invalid_argument(
+                FUNC_SIGNATURE + ": "
+                "unable to open file \"" + file_path + "\".");
+    }
+    return read_nl_statistics(file);
+}
+
+MathOptModelStatistics mathoptsolverscmake::read_nl_statistics(std::istream& in)
+{
+    NlHeader header = parse_nl_header(in);
+    MathOptModelStatistics statistics;
+    statistics.number_of_variables = header.n_var;
+    statistics.number_of_binary_variables = header.nbv;
+    statistics.number_of_integer_variables = header.niv + header.nlvbi + header.nlvci + header.nlvoi;
+    statistics.number_of_continuous_variables = header.n_var
+        - statistics.number_of_binary_variables
+        - statistics.number_of_integer_variables;
+    statistics.number_of_constraints = header.n_con;
+    statistics.number_of_elements = header.nzc;
+    statistics.number_of_nonlinear_constraints = header.nlc;
+    statistics.number_of_objectives = header.n_obj;
+    statistics.number_of_nonlinear_objectives = header.nlo;
+    statistics.number_of_defined_variables =
+        header.comb + header.comc + header.como + header.comc1 + header.como1;
+    statistics.number_of_logical_constraints = header.n_lcon;
+    statistics.number_of_complementarity_constraints = header.n_cc + header.nlcc;
+    return statistics;
 }
 
 MathOptModel mathoptsolverscmake::read_nl(std::istream& in)

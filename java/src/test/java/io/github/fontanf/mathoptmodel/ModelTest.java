@@ -130,6 +130,28 @@ class ModelTest {
     }
 
     @Test
+    void statistics(@TempDir Path directory) throws IOException {
+        try (Model model = Model.read(LP.getBytes(), Format.LP)) {
+            ModelStatistics statistics = model.statistics();
+            assertEquals(3, statistics.numberOfVariables());
+            assertEquals(2, statistics.numberOfConstraints());
+            // .nl files' statistics come from their header, the others' from the model.
+            for (String name : List.of("model.mps", "model.lp.gz", "model.json", "model.nl", "model.nl.gz")) {
+                Path path = directory.resolve(name);
+                model.write(path);
+                ModelStatistics read = Model.readStatistics(path);
+                assertEquals(model.numberOfVariables(), read.numberOfVariables(), name);
+                assertEquals(model.numberOfConstraints(), read.numberOfConstraints(), name);
+                assertEquals(model.numberOfElements(), read.numberOfElements(), name);
+                assertEquals(1, read.numberOfContinuousVariables(), name);
+                assertEquals(1, read.numberOfBinaryVariables(), name);
+                assertEquals(1, read.numberOfIntegerVariables(), name);
+                assertEquals(1, read.numberOfObjectives(), name);
+            }
+        }
+    }
+
+    @Test
     void readErrors() {
         assertThrows(MathOptModelException.class, () -> Model.read("not an nl file".getBytes(), Format.NL));
         assertThrows(IllegalArgumentException.class, () -> Model.read(Path.of("model.txt")));

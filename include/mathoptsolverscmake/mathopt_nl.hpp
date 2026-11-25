@@ -1,6 +1,7 @@
 #pragma once
 
 #include "mathoptsolverscmake/mathopt.hpp"
+#include "mathoptsolverscmake/mathopt_statistics.hpp"
 
 #include <istream>
 #include <ostream>
@@ -43,6 +44,17 @@ MathOptModel read_nl(const std::string& file_path);
 
 /** Same as read_nl(file_path), reading from an already-open stream (without names). */
 MathOptModel read_nl(std::istream& in);
+
+/**
+ * Read the statistics of an .nl file from its header only: unlike read_nl(),
+ * without reading the rest of the file, and for any .nl file, including the
+ * ones whose models read_nl() doesn't support. See MathOptModelStatistics
+ * for how the header's counts differ from compute_statistics()'s.
+ */
+MathOptModelStatistics read_nl_statistics(const std::string& file_path);
+
+/** Same as read_nl_statistics(file_path), reading from an already-open stream. */
+MathOptModelStatistics read_nl_statistics(std::istream& in);
 
 /**
  * Set the names of a model read from an .nl file from the .col / .row

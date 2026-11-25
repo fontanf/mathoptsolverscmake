@@ -1,5 +1,6 @@
 package io.github.fontanf.mathoptmodel;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -177,6 +178,59 @@ public final class Model implements AutoCloseable {
 
     private static byte[] readIfExists(Path path) throws IOException {
         return Files.isRegularFile(path) ? Files.readAllBytes(path) : null;
+    }
+
+    /**
+     * Read the statistics of a model file, optionally .gz-compressed, in the format given by its
+     * extension. For an .nl file, they come from its header only, which is fast even for very
+     * large files, and works for any .nl file, including the ones {@link #read(Path)} doesn't
+     * support; for the other formats, from the model read.
+     */
+    public static ModelStatistics readStatistics(Path path) throws IOException {
+        Format format = Format.fromPath(path).orElseThrow(
+                () -> new IllegalArgumentException("Unrecognized model file format: " + path));
+        if (format != Format.NL) {
+            try (Model model = read(path, format)) {
+                return model.statistics();
+            }
+        }
+        // The header is the first 10 lines of the file.
+        ByteArrayOutputStream header = new ByteArrayOutputStream();
+        try (InputStream in = open(path)) {
+            int lines = 0;
+            int c;
+            while (lines < 10 && (c = in.read()) != -1) {
+                header.write(c);
+                if (c == '\n')
+                    ++lines;
+            }
+        }
+        byte[] data = header.toByteArray();
+        try (Arena arena = Arena.ofConfined()) {
+            MemorySegment input = arena.allocateFrom(JAVA_BYTE, data);
+            MemorySegment values = arena.allocate(JAVA_LONG, Native.STATISTICS_SIZE);
+            MemorySegment error = arena.allocate(Native.ERROR_SIZE);
+            int status = (int) Native.READ_NL_STATISTICS.invoke(input, (long) data.length, values, error,
+                    Native.ERROR_SIZE);
+            if (status != Native.OK)
+                throw new MathOptModelException(error.getString(0));
+            return ModelStatistics.fromValues(values.toArray(JAVA_LONG));
+        } catch (Throwable t) {
+            throw Native.rethrow(t);
+        }
+    }
+
+    /** The model's statistics: numbers of variables (by type), constraints, nonzeros... */
+    public ModelStatistics statistics() {
+        try (Arena arena = Arena.ofConfined()) {
+            MemorySegment values = arena.allocate(JAVA_LONG, Native.STATISTICS_SIZE);
+            MemorySegment error = arena.allocate(Native.ERROR_SIZE);
+            int status = (int) Native.COMPUTE_STATISTICS.invoke(handle(), values, error, Native.ERROR_SIZE);
+            Native.check(status, error);
+            return ModelStatistics.fromValues(values.toArray(JAVA_LONG));
+        } catch (Throwable t) {
+            throw Native.rethrow(t);
+        }
     }
 
     /**

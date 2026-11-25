@@ -789,3 +789,66 @@ TEST(MathOptNl, ReadFileWithNames)
     EXPECT_EQ(model.constraint_name(0), "c");
     std::filesystem::remove_all(directory);
 }
+
+TEST(MathOptNl, Statistics)
+{
+    // A nonlinear model with a binary and an integer variable.
+    MathOptModel model(4, 1, 2);
+    model.objective_direction = ObjectiveDirection::Minimize;
+    model.variables_types = {VariableType::Continuous, VariableType::Continuous,
+        VariableType::Binary, VariableType::Integer};
+    model.variables_upper_bounds = {10, 10, 1, 5};
+    model.objective_coefficients = {0, 1, 1, 1};
+    model.constraints_upper_bounds = {4};
+    model.constraints_starts = {0};
+    model.elements_variables = {1, 2};
+    model.elements_coefficients = {1, 1};
+    // Objective: exp(x0).
+    model.objective_nonlinear_elements_operators = {'e', 'v'};
+    model.objective_nonlinear_elements_values = {0, 0};
+    model.objective_nonlinear_elements_variables = {-1, 0};
+    model.objective_nonlinear_elements_number_of_children = {1, 0};
+    std::string text = write(model);
+
+    std::istringstream in(text);
+    MathOptModelStatistics statistics = read_nl_statistics(in);
+    EXPECT_EQ(statistics.number_of_variables, 4);
+    EXPECT_EQ(statistics.number_of_constraints, 1);
+    EXPECT_EQ(statistics.number_of_objectives, 1);
+    EXPECT_EQ(statistics.number_of_nonlinear_constraints, 0);
+    EXPECT_EQ(statistics.number_of_nonlinear_objectives, 1);
+    EXPECT_EQ(statistics.number_of_binary_variables, 1);
+    EXPECT_EQ(statistics.number_of_integer_variables, 1);
+    EXPECT_EQ(statistics.number_of_elements, 2);
+    EXPECT_EQ(statistics.number_of_continuous_variables, 2);
+
+    // The header alone is enough.
+    size_t header_end = 0;
+    for (int line = 0; line < 10; ++line)
+        header_end = text.find('\n', header_end) + 1;
+    std::istringstream header(text.substr(0, header_end));
+    EXPECT_EQ(read_nl_statistics(header).number_of_variables, 4);
+}
+
+TEST(MathOptNl, StatisticsOfUnsupportedModels)
+{
+    // Two objectives and a logical constraint: read_nl() rejects the model,
+    // but its statistics can still be read.
+    std::string header =
+        "g3 1 1 0\n"
+        "2 1 2 0 0 1\n"
+        "0 0\n"
+        "0 0\n"
+        "0 0 0\n"
+        "0 0 0 1\n"
+        "0 0 0 0 0\n"
+        "2 2\n"
+        "0 0\n"
+        "0 0 0 0 0\n";
+    std::istringstream in(header);
+    MathOptModelStatistics statistics = read_nl_statistics(in);
+    EXPECT_EQ(statistics.number_of_objectives, 2);
+    EXPECT_EQ(statistics.number_of_logical_constraints, 1);
+    EXPECT_EQ(statistics.number_of_elements, 2);
+    EXPECT_THROW(read(header), std::invalid_argument);
+}

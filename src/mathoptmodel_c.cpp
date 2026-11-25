@@ -6,6 +6,7 @@
 #include "mathoptsolverscmake/mathopt_lp.hpp"
 #include "mathoptsolverscmake/mathopt_json.hpp"
 #include "mathoptsolverscmake/mathopt_nl.hpp"
+#include "mathoptsolverscmake/mathopt_statistics.hpp"
 #include "mathoptsolverscmake/dual.hpp"
 
 #include <cstdlib>
@@ -250,6 +251,62 @@ int mom_read_nl_names(
                 model->model,
                 col_data != nullptr? &col: nullptr,
                 row_data != nullptr? &row: nullptr);
+    });
+}
+
+namespace
+{
+
+/** Copy statistics into a MOM_STATISTICS_SIZE array. */
+void output_statistics(const MathOptModelStatistics& statistics, int64_t* values)
+{
+    if (values == nullptr)
+        throw std::invalid_argument("values must not be null.");
+    values[MOM_STATISTICS_VARIABLES] = statistics.number_of_variables;
+    values[MOM_STATISTICS_CONTINUOUS_VARIABLES] = statistics.number_of_continuous_variables;
+    values[MOM_STATISTICS_BINARY_VARIABLES] = statistics.number_of_binary_variables;
+    values[MOM_STATISTICS_INTEGER_VARIABLES] = statistics.number_of_integer_variables;
+    values[MOM_STATISTICS_SEMI_CONTINUOUS_VARIABLES] = statistics.number_of_semi_continuous_variables;
+    values[MOM_STATISTICS_SEMI_INTEGER_VARIABLES] = statistics.number_of_semi_integer_variables;
+    values[MOM_STATISTICS_CONSTRAINTS] = statistics.number_of_constraints;
+    values[MOM_STATISTICS_ELEMENTS] = statistics.number_of_elements;
+    values[MOM_STATISTICS_QUADRATIC_CONSTRAINTS] = statistics.number_of_quadratic_constraints;
+    values[MOM_STATISTICS_NONLINEAR_CONSTRAINTS] = statistics.number_of_nonlinear_constraints;
+    values[MOM_STATISTICS_OBJECTIVES] = statistics.number_of_objectives;
+    values[MOM_STATISTICS_QUADRATIC_OBJECTIVES] = statistics.number_of_quadratic_objectives;
+    values[MOM_STATISTICS_NONLINEAR_OBJECTIVES] = statistics.number_of_nonlinear_objectives;
+    values[MOM_STATISTICS_DEFINED_VARIABLES] = statistics.number_of_defined_variables;
+    values[MOM_STATISTICS_LOGICAL_CONSTRAINTS] = statistics.number_of_logical_constraints;
+    values[MOM_STATISTICS_COMPLEMENTARITY_CONSTRAINTS] = statistics.number_of_complementarity_constraints;
+}
+
+}
+
+int mom_read_nl_statistics(
+        const char* data,
+        int64_t size,
+        int64_t* values,
+        char* error_message,
+        size_t error_message_size)
+{
+    return guarded(error_message, error_message_size, [&]() {
+        check_count(size, "size");
+        if (data == nullptr && size > 0)
+            throw std::invalid_argument("data is null.");
+        std::istringstream in(std::string(data, data + size), std::ios::in | std::ios::binary);
+        output_statistics(read_nl_statistics(in), values);
+    });
+}
+
+int mom_compute_statistics(
+        const mom_model* model,
+        int64_t* values,
+        char* error_message,
+        size_t error_message_size)
+{
+    return guarded(error_message, error_message_size, [&]() {
+        check_model(model);
+        output_statistics(compute_statistics(model->model), values);
     });
 }
 
