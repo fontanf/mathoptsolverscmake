@@ -163,6 +163,15 @@ final class Native {
             JAVA_INT, JAVA_LONG, ADDRESS, ADDRESS, ADDRESS, ADDRESS,
             ADDRESS, JAVA_LONG);
 
+    /* Solving. */
+    static final MethodHandle SOLVER_AVAILABLE = handle("mom_solver_available", true, JAVA_INT, JAVA_INT);
+    // Not critical: solving can take a long time, and must not block the
+    // garbage collector meanwhile.
+    static final MethodHandle SOLVE = handle("mom_solve", false, JAVA_INT,
+            ADDRESS, JAVA_INT, JAVA_DOUBLE, JAVA_INT,
+            ADDRESS, ADDRESS, ADDRESS, ADDRESS, ADDRESS,
+            ADDRESS, JAVA_LONG);
+
     /* Transformations. */
     static final MethodHandle DUAL = handle("mom_dual", false, JAVA_INT,
             ADDRESS, ADDRESS, ADDRESS, JAVA_LONG);

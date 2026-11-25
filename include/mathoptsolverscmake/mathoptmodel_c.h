@@ -1,9 +1,10 @@
 /**
  * C API of MathOptModel: building, reading, writing and inspecting models.
  *
- * It wraps the solver-independent part of the library (mathopt.hpp,
- * mathopt_build.hpp and the MPS / LP / JSON / .nl readers and writers) for
- * other languages, such as Java through the Foreign Function & Memory API.
+ * It wraps the model part of the library (mathopt.hpp, mathopt_build.hpp and
+ * the MPS / LP / JSON / .nl readers and writers) and solving with the
+ * solvers available in the build (mathopt_solve.hpp), for other languages,
+ * such as Java through the Foreign Function & Memory API.
  *
  * Conventions:
  * - Functions that can fail return a status (MOM_OK on success) and take a
@@ -97,6 +98,19 @@ enum
     MOM_DEFINED_VARIABLES_ELEMENTS_VALUES = 29,                   /* [double] */
     MOM_DEFINED_VARIABLES_ELEMENTS_VARIABLES = 30,                /* [int32]  */
     MOM_DEFINED_VARIABLES_ELEMENTS_NUMBER_OF_CHILDREN = 31,       /* [int32]  */
+};
+
+/** Solvers, for mom_solver_available() and mom_solve(). */
+enum
+{
+    MOM_SOLVER_CBC = 0,
+    MOM_SOLVER_HIGHS = 1,
+    MOM_SOLVER_XPRESS = 2,
+    MOM_SOLVER_CPLEX = 3,
+    MOM_SOLVER_GUROBI = 4,
+    MOM_SOLVER_KNITRO = 5,
+    MOM_SOLVER_IPOPT = 6,
+    MOM_SOLVER_SCIP = 7,
 };
 
 /** Name lists, for mom_names_size() and mom_copy_names(). */
@@ -352,6 +366,46 @@ MOM_API int mom_dual(
 MOM_API int mom_expand_defined_variables(
         const mom_model* model,
         mom_model** expanded,
+        char* error_message,
+        size_t error_message_size);
+
+/*
+ * Solving.
+ */
+
+/**
+ * Return 1 if the solver (MOM_SOLVER_*) can be used by mom_solve() in this
+ * build, 0 otherwise.
+ */
+MOM_API int mom_solver_available(int solver);
+
+/**
+ * Solve a model with a solver (MOM_SOLVER_*) available in this build; see
+ * mathopt_solve.hpp.
+ *
+ * - time_limit: in seconds, infinity (HUGE_VAL) for no limit.
+ * - verbose: 0 to keep the solver's log off the standard output.
+ *
+ * The outputs, each of which may be null:
+ * - found_solution: 1 if the solver found a feasible solution, 0 otherwise;
+ * - solution: an array of mom_number_of_variables() values, which receives
+ *   the solution if one was found (and is left unchanged otherwise);
+ * - objective_value: the objective value of the solution (NaN if none);
+ * - has_bound: 1 if the solver gives a bound (MILP solvers), 0 otherwise;
+ * - bound: the bound on the optimal objective value (NaN if none).
+ *
+ * The call returns once the solver is done, which can take a long time.
+ */
+MOM_API int mom_solve(
+        const mom_model* model,
+        int solver,
+        double time_limit,
+        int verbose,
+        int* found_solution,
+        double* solution,
+        double* objective_value,
+        int* has_bound,
+        double* bound,
         char* error_message,
         size_t error_message_size);
 

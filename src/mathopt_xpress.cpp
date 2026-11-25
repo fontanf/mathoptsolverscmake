@@ -112,6 +112,12 @@ void mathoptsolverscmake::load(
     }
 }
 
+void mathoptsolverscmake::reduce_printout(
+        XPRSprob& xpress_model)
+{
+    XPRSsetintcontrol(xpress_model, XPRS_OUTPUTLOG, 0);
+}
+
 void mathoptsolverscmake::set_time_limit(
         XPRSprob& xpress_model,
         double time_limit)

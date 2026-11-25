@@ -1,6 +1,7 @@
 /**
- * Python bindings for the solver-independent part of MathOptSolversCMake:
- * MathOptModel and the MPS / LP / JSON / .nl readers and writers.
+ * Python bindings for MathOptSolversCMake: MathOptModel, the MPS / LP / JSON /
+ * .nl readers and writers, and solving with the solvers available in the
+ * build (see mathopt_solve.hpp).
  *
  * MathOptModel's arrays are exposed as read-only NumPy views onto the C++
  * vectors (no copy); nanobind's reference_internal policy (the default for
@@ -19,6 +20,7 @@
 #include "mathoptsolverscmake/mathopt_lp.hpp"
 #include "mathoptsolverscmake/mathopt_json.hpp"
 #include "mathoptsolverscmake/mathopt_nl.hpp"
+#include "mathoptsolverscmake/mathopt_solve.hpp"
 #include "mathoptsolverscmake/dual.hpp"
 
 #include <nanobind/nanobind.h>
@@ -28,6 +30,7 @@
 #include <nanobind/stl/variant.h>
 #include <nanobind/stl/vector.h>
 
+#include <algorithm>
 #include <cstdint>
 #include <limits>
 #include <optional>
@@ -109,6 +112,31 @@ void write_to_file(
 {
     nb::gil_scoped_release release;
     writer(model, path);
+}
+
+/** Solve a model, without holding the GIL while the solver runs. */
+SolveOutput solve_py(
+        const MathOptModel& model,
+        SolverName solver,
+        double time_limit,
+        bool verbose)
+{
+    SolveParameters parameters;
+    parameters.solver = solver;
+    parameters.time_limit = time_limit;
+    parameters.verbose = verbose;
+    nb::gil_scoped_release release;
+    return solve(model, parameters);
+}
+
+/** A copy of a vector, as a NumPy array. */
+nb::ndarray<nb::numpy, double, nb::ndim<1>> to_array(const std::vector<double>& values)
+{
+    size_t n = values.size();
+    double* data = new double[n];
+    std::copy(values.begin(), values.end(), data);
+    nb::capsule owner(data, [](void* p) noexcept { delete[] static_cast<double*>(p); });
+    return nb::ndarray<nb::numpy, double, nb::ndim<1>>(data, {n}, owner);
 }
 
 /*
@@ -812,6 +840,54 @@ NB_MODULE(_core, m)
     m.def("write_nl_file",
             [](const MathOptModel& model, const std::string& path) { write_to_file(write_nl, model, path); },
             "model"_a, "path"_a, "Write a model to an AMPL .nl file (text format).");
+
+    // Solving.
+    nb::enum_<SolverName>(m, "Solver")
+        .value("Cbc", SolverName::Cbc)
+        .value("Highs", SolverName::Highs)
+        .value("Xpress", SolverName::Xpress)
+        .value("Cplex", SolverName::Cplex)
+        .value("Gurobi", SolverName::Gurobi)
+        .value("Knitro", SolverName::Knitro)
+        .value("Ipopt", SolverName::Ipopt)
+        .value("Scip", SolverName::Scip);
+
+    nb::class_<SolveOutput>(m, "SolveResult",
+            "The result of solve(): the solution found, if any, its objective value, "
+            "and the bound on the optimal objective value given by MILP solvers.")
+        .def_ro("found_solution", &SolveOutput::found_solution,
+                "True if the solver found a feasible solution.")
+        .def_prop_ro("solution",
+                [](const SolveOutput& output) { return to_array(output.solution); },
+                nb::rv_policy::move,
+                "The solution found, one value per variable (empty if none).")
+        .def_ro("objective_value", &SolveOutput::objective_value,
+                "Objective value of the solution (NaN if none).")
+        .def_ro("has_bound", &SolveOutput::has_bound,
+                "True if the solver gives a bound (MILP solvers).")
+        .def_ro("bound", &SolveOutput::bound,
+                "Bound on the optimal objective value (NaN if none).")
+        .def("__repr__",
+                [](const SolveOutput& output) {
+                    std::ostringstream os;
+                    os << "<mathoptmodel.SolveResult: ";
+                    if (output.found_solution)
+                        os << "objective value " << output.objective_value;
+                    else
+                        os << "no solution found";
+                    if (output.has_bound)
+                        os << ", bound " << output.bound;
+                    os << ">";
+                    return os.str();
+                });
+
+    m.def("available_solvers", &available_solvers,
+            "The solvers solve() can use in this build.");
+    m.def("solve_with", &solve_py,
+            "model"_a, "solver"_a,
+            "time_limit"_a = std::numeric_limits<double>::infinity(),
+            "verbose"_a = true,
+            "Solve a model with a Solver; see solve() for the arguments.");
 
     m.def("dual", &dual, "model"_a, "Build the dual of a linear program.");
     m.def("expand_defined_variables", &expand_defined_variables, "model"_a,

@@ -1,5 +1,6 @@
 #include "mathoptsolverscmake/mathopt_highs.hpp"
 
+#include <limits>
 #include <numeric>
 #include <stdexcept>
 #include <vector>
@@ -157,13 +158,24 @@ void mathoptsolverscmake::solve(
 std::vector<double> mathoptsolverscmake::get_solution(
         const Highs& highs_model)
 {
+    if (highs_model.getInfo().primal_solution_status != kSolutionStatusFeasible)
+        return {};
     return highs_model.getSolution().col_value;
 }
 
 double mathoptsolverscmake::get_bound(
         const Highs& highs_model)
 {
-    return highs_model.getInfo().mip_dual_bound;
+    const HighsLp& lp = highs_model.getLp();
+    for (HighsVarType type: lp.integrality_)
+        if (type != HighsVarType::kContinuous)
+            return highs_model.getInfo().mip_dual_bound;
+    // An LP: HiGHS doesn't set mip_dual_bound.
+    if (highs_model.getModelStatus() == HighsModelStatus::kOptimal)
+        return highs_model.getInfo().objective_function_value;
+    return (lp.sense_ == ObjSense::kMinimize)?
+        -std::numeric_limits<double>::infinity():
+        std::numeric_limits<double>::infinity();
 }
 
 int mathoptsolverscmake::get_number_of_nodes(

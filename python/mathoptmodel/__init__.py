@@ -1,11 +1,13 @@
-"""Python bindings for MathOptSolversCMake's solver-independent part: the
-MathOptModel structure and its MPS / LP / JSON / AMPL .nl readers and
-writers.
+"""Python bindings for MathOptSolversCMake: the MathOptModel structure, its
+MPS / LP / JSON / AMPL .nl readers and writers, and solving with the solvers
+available in the build.
 
     >>> import mathoptmodel as mom
     >>> model = mom.read("p0033.mps.gz")
     >>> model.number_of_variables, model.number_of_constraints
     (33, 16)
+    >>> mom.solve(model, "highs", verbose=False).objective_value
+    3089.0
 
 Models can also be built in batches of NumPy arrays: see Model.add_variables,
 Model.add_constraints, Model.add_defined_variables and Model.set_objective.
@@ -23,7 +25,10 @@ from mathoptmodel._core import (
     ConstraintSense,
     Model,
     ObjectiveDirection,
+    SolveResult,
+    Solver,
     VariableType,
+    available_solvers,
     dual,
     expand_defined_variables,
     read_json_bytes,
@@ -38,11 +43,13 @@ from mathoptmodel._core import (
     write_mps_string,
     write_nl_file,
     write_nl_string,
+    solve_with as _solve_with,
 )
 
 __all__ = [
     "__version__",
     "ConstraintClass", "ConstraintSense", "Model", "ObjectiveDirection", "VariableType",
+    "SolveResult", "Solver", "available_solvers", "solve",
     "FORMATS", "detect_format", "dual", "expand_defined_variables", "read", "write",
     "read_json_bytes", "read_lp_bytes", "read_mps_bytes", "read_nl_bytes",
     "write_json_string", "write_lp_string", "write_mps_string", "write_nl_string",
@@ -135,3 +142,28 @@ def write(model, path, format=None):
         return
     with (opener or open)(path, "wt") as f:
         f.write(_WRITERS[format](model))
+
+
+_SOLVERS = {solver.name.lower(): solver for solver in Solver}
+
+
+def solve(model, solver="highs", time_limit=None, verbose=True):
+    """Solve a model and return a SolveResult.
+
+    solver is a Solver or its name ("cbc", "highs", "xpress", "cplex",
+    "gurobi", "knitro", "ipopt" or "scip", in any case); it must be available
+    in this build (see available_solvers()). time_limit is in seconds (None
+    for no limit). With verbose=False, the solver's log is not written to the
+    standard output.
+
+    The GIL is released while the solver runs.
+    """
+    if isinstance(solver, str):
+        try:
+            solver = _SOLVERS[solver.lower()]
+        except KeyError:
+            raise ValueError(
+                f"Unknown solver {solver!r}; expected one of {', '.join(_SOLVERS)}") from None
+    if time_limit is None:
+        time_limit = float("inf")
+    return _solve_with(model, solver, float(time_limit), bool(verbose))

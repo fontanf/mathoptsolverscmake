@@ -2,10 +2,12 @@
 
 `mathoptmodel` is the Python package of
 [MathOptSolversCMake](https://github.com/fontanf/mathoptsolverscmake): Python
-bindings for the solver-independent part of the library, its
-`MathOptModel` optimization-model structure and its MPS, LP, JSON and AMPL
-`.nl` readers and writers. No solver is bundled. Requires Python 3.12 or
-newer (a single stable-ABI wheel per platform).
+bindings for its `MathOptModel` optimization-model structure, its MPS, LP,
+JSON and AMPL `.nl` readers and writers, and solving with the library's
+solvers. The wheels bundle [HiGHS](https://highs.dev) (MIT license, see
+`LICENSE-HiGHS.txt` in the package); the other solvers require building from
+source (see below). Requires Python 3.12 or newer (a single stable-ABI wheel
+per platform).
 
 ```shell
 pip install mathoptmodel
@@ -93,9 +95,43 @@ Growing a model may reallocate its arrays: views such as
 `model.variables_lower_bounds` obtained before a modification must not be used
 after it (get them again).
 
+## Solving
+
+```python
+result = mom.solve(model, "highs", time_limit=60, verbose=False)
+if result.found_solution:
+    print(result.objective_value, result.bound)
+    x = result.solution  # NumPy array, one value per variable
+```
+
+- The solver is a `mom.Solver` or its name: `"cbc"`, `"highs"`, `"xpress"`,
+  `"cplex"`, `"gurobi"`, `"knitro"`, `"ipopt"` or `"scip"`. Only the solvers
+  of the build can be used: `mom.available_solvers()` lists them (HiGHS for
+  the wheels on PyPI).
+- `result.found_solution` is false if the solver found no feasible solution
+  (an infeasible model, or a time limit reached first).
+- `result.bound` is the bound on the optimal objective value given by MILP
+  solvers (`result.has_bound`).
+- A model the solver doesn't support (for example a nonlinear model with
+  HiGHS) raises `ValueError`.
+- The GIL is released while the solver runs.
+
 ## Building from source
 
 ```shell
 pip install .
 pytest python/tests
 ```
+
+Other solvers are enabled with the CMake options of the library, for example
+Knitro (found through the `KNITRODIR` environment variable) and SCIP (built
+from source):
+
+```shell
+pip install . -C cmake.define.MATHOPTSOLVERSCMAKE_USE_KNITRO=ON \
+    -C cmake.define.MATHOPTSOLVERSCMAKE_USE_SCIP=ON
+```
+
+Commercial solvers (CPLEX, Gurobi, Knitro, Xpress) are linked dynamically:
+their library must be on the library search path at run time (for example
+`LD_LIBRARY_PATH` on Linux).

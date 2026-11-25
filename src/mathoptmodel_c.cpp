@@ -6,8 +6,10 @@
 #include "mathoptsolverscmake/mathopt_lp.hpp"
 #include "mathoptsolverscmake/mathopt_json.hpp"
 #include "mathoptsolverscmake/mathopt_nl.hpp"
+#include "mathoptsolverscmake/mathopt_solve.hpp"
 #include "mathoptsolverscmake/dual.hpp"
 
+#include <algorithm>
 #include <cstdlib>
 #include <cstring>
 #include <new>
@@ -778,5 +780,65 @@ int mom_expand_defined_variables(
             throw;
         }
         *res = output;
+    });
+}
+
+namespace
+{
+
+static_assert((int)SolverName::Cbc == MOM_SOLVER_CBC
+        && (int)SolverName::Highs == MOM_SOLVER_HIGHS
+        && (int)SolverName::Xpress == MOM_SOLVER_XPRESS
+        && (int)SolverName::Cplex == MOM_SOLVER_CPLEX
+        && (int)SolverName::Gurobi == MOM_SOLVER_GUROBI
+        && (int)SolverName::Knitro == MOM_SOLVER_KNITRO
+        && (int)SolverName::Ipopt == MOM_SOLVER_IPOPT
+        && (int)SolverName::Scip == MOM_SOLVER_SCIP,
+        "MOM_SOLVER_* values are SolverName values.");
+
+bool valid_solver(int solver)
+{
+    return solver >= MOM_SOLVER_CBC && solver <= MOM_SOLVER_SCIP;
+}
+
+}
+
+int mom_solver_available(int solver)
+{
+    return (valid_solver(solver) && is_available(static_cast<SolverName>(solver)))? 1: 0;
+}
+
+int mom_solve(
+        const mom_model* model,
+        int solver,
+        double time_limit,
+        int verbose,
+        int* found_solution,
+        double* solution,
+        double* objective_value,
+        int* has_bound,
+        double* bound,
+        char* error_message,
+        size_t error_message_size)
+{
+    return guarded(error_message, error_message_size, [&]() {
+        check_model(model);
+        if (!valid_solver(solver))
+            throw std::invalid_argument("unknown solver " + std::to_string(solver) + ".");
+        SolveParameters parameters;
+        parameters.solver = static_cast<SolverName>(solver);
+        parameters.time_limit = time_limit;
+        parameters.verbose = (verbose != 0);
+        SolveOutput output = solve(model->model, parameters);
+        if (found_solution != nullptr)
+            *found_solution = output.found_solution? 1: 0;
+        if (solution != nullptr && output.found_solution)
+            std::copy(output.solution.begin(), output.solution.end(), solution);
+        if (objective_value != nullptr)
+            *objective_value = output.objective_value;
+        if (has_bound != nullptr)
+            *has_bound = output.has_bound? 1: 0;
+        if (bound != nullptr)
+            *bound = output.bound;
     });
 }

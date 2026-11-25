@@ -773,6 +773,47 @@ public final class Model implements AutoCloseable {
     }
 
     /*
+     * Solving.
+     */
+
+    /** Solve the model with a solver available in the native library, with the default parameters. */
+    public SolveResult solve(Solver solver) {
+        return solve(solver, new SolveParameters());
+    }
+
+    /**
+     * Solve the model with a solver available in the native library (see
+     * {@link Solver#isAvailable()}).
+     *
+     * @throws IllegalArgumentException if the solver isn't available, or
+     *     doesn't support the model (for example HiGHS with a nonlinear model)
+     */
+    public SolveResult solve(Solver solver, SolveParameters parameters) {
+        Objects.requireNonNull(solver, "solver");
+        Objects.requireNonNull(parameters, "parameters");
+        int n = numberOfVariables();
+        try (Arena arena = Arena.ofConfined()) {
+            MemorySegment foundSolution = arena.allocate(JAVA_INT);
+            MemorySegment solution = arena.allocate(JAVA_DOUBLE, Math.max(n, 1));
+            MemorySegment objectiveValue = arena.allocate(JAVA_DOUBLE);
+            MemorySegment hasBound = arena.allocate(JAVA_INT);
+            MemorySegment bound = arena.allocate(JAVA_DOUBLE);
+            MemorySegment error = arena.allocate(Native.ERROR_SIZE);
+            int status = (int) Native.SOLVE.invoke(
+                    handle(), solver.ordinal(), parameters.timeLimit, parameters.verbose ? 1 : 0,
+                    foundSolution, solution, objectiveValue, hasBound, bound,
+                    error, Native.ERROR_SIZE);
+            Native.check(status, error);
+            boolean found = foundSolution.get(JAVA_INT, 0) != 0;
+            double[] values = found ? solution.asSlice(0, (long) n * Double.BYTES).toArray(JAVA_DOUBLE) : new double[0];
+            return new SolveResult(found, values, objectiveValue.get(JAVA_DOUBLE, 0),
+                    hasBound.get(JAVA_INT, 0) != 0, bound.get(JAVA_DOUBLE, 0));
+        } catch (Throwable t) {
+            throw Native.rethrow(t);
+        }
+    }
+
+    /*
      * Transformations.
      */
 

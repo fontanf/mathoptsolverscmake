@@ -14,6 +14,9 @@ void load(
         XPRSprob& xpress_model,
         const MathOptModel& model);
 
+void reduce_printout(
+        XPRSprob& xpress_model);
+
 void set_time_limit(
         XPRSprob& xpress_model,
         double time_limit);

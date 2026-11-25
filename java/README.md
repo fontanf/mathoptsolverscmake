@@ -1,9 +1,12 @@
 # mathoptmodel (Java)
 
-Java bindings for the solver-independent part of
+Java bindings for
 [MathOptSolversCMake](https://github.com/fontanf/mathoptsolverscmake): its
-`MathOptModel` optimization-model structure and its MPS, LP, JSON and AMPL
-`.nl` readers and writers. No solver is bundled.
+`MathOptModel` optimization-model structure, its MPS, LP, JSON and AMPL `.nl`
+readers and writers, and solving with the library's solvers. The bundled
+native library includes [HiGHS](https://highs.dev) (MIT license, see
+`LICENSE-HiGHS.txt` in the jar); the other solvers require building the native
+library from source (see below).
 
 They call the library's C API (`include/mathoptsolverscmake/mathoptmodel_c.h`,
 built as the `mathoptmodel` native library) through the Foreign Function &
@@ -87,6 +90,25 @@ try (Model model = new Model()) {
 - The batch classes reference the arrays they are given, without copying
   them.
 
+## Solving
+
+```java
+SolveResult result = model.solve(Solver.HIGHS, new SolveParameters().timeLimit(60).verbose(false));
+if (result.foundSolution()) {
+    System.out.println(result.objectiveValue() + " " + result.bound());
+    double[] x = result.solution();
+}
+```
+
+- Only the solvers of the native library can be used: `Solver.available()`
+  lists them (HiGHS for the jar on Maven Central).
+- `foundSolution()` is false if the solver found no feasible solution (an
+  infeasible model, or a time limit reached first).
+- `bound()` is the bound on the optimal objective value given by MILP
+  solvers (`hasBound()`).
+- A model the solver doesn't support (for example a nonlinear model with
+  HiGHS) throws `IllegalArgumentException`.
+
 A `Model` holds native memory: close it (try-with-resources) to release it
 early; otherwise it is released once the model is garbage collected. A model
 must not be used from several threads at once if one of them modifies it.
@@ -97,11 +119,19 @@ Build the native library, then run the tests against it:
 
 ```shell
 cmake -S . -B build_java -DCMAKE_BUILD_TYPE=Release -DMATHOPTSOLVERSCMAKE_BUILD_C_API=ON \
+    -DMATHOPTSOLVERSCMAKE_USE_HIGHS=ON \
     -DMATHOPTSOLVERSCMAKE_BUILD_TESTS=OFF -DMATHOPTSOLVERSCMAKE_BUILD_APP=OFF
 cmake --build build_java
 cd java
 mvn test -Dmathoptmodel.library.path=$PWD/../build_java/src/libmathoptmodel.so
 ```
+
+Other solvers are enabled with the CMake options of the library
+(`-DMATHOPTSOLVERSCMAKE_USE_KNITRO=ON`, `-DMATHOPTSOLVERSCMAKE_USE_SCIP=ON`...);
+point `mathoptmodel.library.path` to the library built. Commercial solvers
+(CPLEX, Gurobi, Knitro, Xpress) are linked dynamically: their library must be
+on the library search path at run time (for example `LD_LIBRARY_PATH` on
+Linux).
 
 To bundle native libraries in the jar, put them in
 `java/natives/<platform>/` (`linux-x86-64`, `linux-aarch64`, `macos-x86-64`,

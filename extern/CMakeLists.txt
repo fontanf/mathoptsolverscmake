@@ -343,6 +343,11 @@ endif()
 # Highs
 if(MATHOPTSOLVERSCMAKE_USE_HIGHS)
     set(BUILD_SHARED_LIBS OFF)
+    if(MATHOPTSOLVERSCMAKE_BUILD_PYTHON OR MATHOPTSOLVERSCMAKE_BUILD_C_API)
+        # The bindings read compressed files themselves: keep the HiGHS they
+        # bundle from depending on zlib.
+        set(ZLIB OFF)
+    endif()
     FetchContent_Declare(
         highs
         URL https://github.com/ERGO-Code/HiGHS/archive/refs/tags/v1.16.0.zip
