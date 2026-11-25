@@ -20,8 +20,9 @@ import data
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 
-PYTHON_TOOLS = ["mathoptmodel-batch", "mathoptmodel-row", "pyomo", "pyoptinterface-row", "pyoptinterface-matrix"]
-JAVA_TOOLS = ["mathoptmodel-batch", "mathoptmodel-row", "ortools-modelbuilder", "ortools-mpsolver"]
+PYTHON_TOOLS = ["mathoptmodel-batch", "mathoptmodel-row", "pyomo", "pyomo-linear-expression", "pyoptinterface-row", "pyoptinterface-matrix"]
+JAVA_TOOLS = ["mathoptmodel-batch", "mathoptmodel-row", "ortools-modelbuilder", "ortools-modelbuilder-helper",
+              "ortools-mpsolver", "ortools-mpsolver-proto"]
 
 
 def repetitions(n):

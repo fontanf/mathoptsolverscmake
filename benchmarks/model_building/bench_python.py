@@ -93,6 +93,39 @@ def pyomo(n, obj, cols, coefs, rhs):
     return build, write
 
 
+def pyomo_linear_expression(n, obj, cols, coefs, rhs):
+    import pyomo.environ as pyo
+    from pyomo.core.expr.numeric_expr import LinearExpression
+
+    integers = data.number_of_integers(n)
+    cols_list = cols.tolist()
+    coefs_list = coefs.tolist()
+    rhs_list = rhs.tolist()
+    obj_list = obj.tolist()
+
+    def build():
+        model = pyo.ConcreteModel()
+        model.x = pyo.Var(
+            range(n), bounds=(0, data.UPPER_BOUND),
+            within=lambda model, j: pyo.Integers if j < integers else pyo.Reals)
+        x = [model.x[j] for j in range(n)]
+        # LinearExpression takes the coefficients and variables directly,
+        # without building the expression term by term.
+        model.c = pyo.Constraint(
+            range(n),
+            rule=lambda model, i: (None, LinearExpression(
+                constant=0, linear_coefs=coefs_list[i], linear_vars=[x[j] for j in cols_list[i]]),
+                rhs_list[i]))
+        model.obj = pyo.Objective(
+            expr=LinearExpression(constant=0, linear_coefs=obj_list, linear_vars=x), sense=pyo.maximize)
+        return model
+
+    def write(model, path):
+        model.write(path, format="lp", io_options={"symbolic_solver_labels": False})
+
+    return build, write
+
+
 def _pyoptinterface_model():
     from pyoptinterface import highs
 
@@ -161,6 +194,7 @@ TOOLS = {
     "mathoptmodel-batch": mathoptmodel_batch,
     "mathoptmodel-row": mathoptmodel_row,
     "pyomo": pyomo,
+    "pyomo-linear-expression": pyomo_linear_expression,
     "pyoptinterface-row": pyoptinterface_row,
     "pyoptinterface-matrix": pyoptinterface_matrix,
 }
