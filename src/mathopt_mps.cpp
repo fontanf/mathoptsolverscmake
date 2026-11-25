@@ -67,7 +67,10 @@ std::vector<std::string> split_line(const std::string& line)
     return tokens;
 }
 
-/** Parse an MPS number, translating the Fortran 'D' exponent to 'E'. */
+/**
+ * Parse an MPS number, translating the Fortran 'D' exponent to 'E'. Throws
+ * if the word isn't a number, or is NaN.
+ */
 double parse_number(const std::string& word)
 {
     std::string w = word;
@@ -75,7 +78,13 @@ double parse_number(const std::string& word)
         if (c == 'D' || c == 'd')
             c = 'E';
     }
-    return number_parsing::c_strtod(w.c_str(), nullptr);
+    double value;
+    if (!number_parsing::parse_number_token(w.c_str(), value)) {
+        throw std::invalid_argument(
+                FUNC_SIGNATURE + ": "
+                "invalid number \"" + word + "\".");
+    }
+    return value;
 }
 
 /**
