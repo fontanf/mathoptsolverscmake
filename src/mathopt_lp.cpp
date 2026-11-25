@@ -318,10 +318,16 @@ private:
         return peek().type == TokenType::Identifier || peek().type == TokenType::Number;
     }
 
-    /** Which section keyword starts here, if any (does not consume tokens). */
+    /**
+     * Which section keyword starts here, if any (does not consume tokens).
+     * A keyword followed by ':' is a label, as in "end: x >= 1" (a constraint
+     * named "end"), not a section keyword.
+     */
     LpSection peek_section_keyword() const
     {
         if (peek().type != TokenType::Identifier)
+            return LpSection::None;
+        if (peek(1).type == TokenType::Colon)
             return LpSection::None;
         std::string word = to_lower(peek().text);
         if (word == "subject" && at_identifier(1, "to")) return LpSection::Constraints;
