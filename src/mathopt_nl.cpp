@@ -1,5 +1,6 @@
 #include "mathoptsolverscmake/mathopt_nl.hpp"
 
+#include "number_parsing.hpp"
 #include "text_output.hpp"
 
 #include <algorithm>
@@ -352,7 +353,7 @@ public:
     {
         if (binary_)
             return read_binary<double>();
-        return std::strtod(next_token().c_str(), nullptr);
+        return number_parsing::c_strtod(next_token().c_str(), nullptr);
     }
 
     std::string read_string()
@@ -410,7 +411,7 @@ public:
                     "expected an 'n', 'v' or 'o' expression token, got \"" + token + "\".");
         }
         value = (kind == 'n')?
-            std::strtod(token.c_str() + 1, nullptr):
+            number_parsing::c_strtod(token.c_str() + 1, nullptr):
             (double)std::strtol(token.c_str() + 1, nullptr, 10);
         return kind;
     }

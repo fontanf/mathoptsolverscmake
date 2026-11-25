@@ -218,3 +218,38 @@ def test_quadratic_mps_sections():
     assert model.evaluate_objective([x, y]) == pytest.approx(x + y + x * x + x * y + 2 * y * y)
     assert model.evaluate_constraint([x, y], 0) == pytest.approx(x + y + x * x + x * y + 3 * y * y)
     assert model.constraint_class(0) == mom.ConstraintClass.GeneralQuadratic
+
+
+@pytest.fixture
+def comma_locale():
+    """Set the C locale to one with a decimal comma (as the JVM, or a program
+    calling setlocale(LC_ALL, ""), does with such an environment)."""
+    import locale
+    saved = locale.setlocale(locale.LC_ALL)
+    for name in ("fr_FR.UTF-8", "fr_FR.utf8", "de_DE.UTF-8", "de_DE.utf8", "French_France.1252"):
+        try:
+            locale.setlocale(locale.LC_ALL, name)
+        except locale.Error:
+            continue
+        if locale.localeconv()["decimal_point"] == ",":
+            break
+    else:
+        locale.setlocale(locale.LC_ALL, saved)
+        pytest.skip("no locale with a decimal comma installed")
+    yield
+    locale.setlocale(locale.LC_ALL, saved)
+
+
+@pytest.mark.parametrize("format", ["mps", "lp", "json", "nl"])
+def test_readers_ignore_locale(comma_locale, format):
+    model = mom.Model()
+    model.add_variables(lower_bounds=0.0, upper_bounds=[2.5, 4.125], objective_coefficients=[1.5, 2.25])
+    model.objective_direction = mom.ObjectiveDirection.Maximize
+    model.add_constraints(upper_bounds=3.5, starts=np.array([0], dtype=np.int32),
+                          variables=np.array([0, 1], dtype=np.int32), coefficients=[0.5, 1.75])
+    text = getattr(mom, f"write_{format}_string")(model)
+    read_back = getattr(mom, f"read_{format}_bytes")(text.encode())
+    assert list(read_back.objective_coefficients) == [1.5, 2.25]
+    assert list(read_back.variables_upper_bounds) == [2.5, 4.125]
+    assert list(read_back.constraints_upper_bounds) == [3.5]
+    assert list(read_back.elements_coefficients) == [0.5, 1.75]

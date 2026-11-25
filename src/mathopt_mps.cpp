@@ -1,5 +1,6 @@
 #include "mathoptsolverscmake/mathopt_mps.hpp"
 
+#include "number_parsing.hpp"
 #include "text_output.hpp"
 
 #include <cmath>
@@ -74,7 +75,7 @@ double parse_number(const std::string& word)
         if (c == 'D' || c == 'd')
             c = 'E';
     }
-    return std::strtod(w.c_str(), nullptr);
+    return number_parsing::c_strtod(w.c_str(), nullptr);
 }
 
 /**

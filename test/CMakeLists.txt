@@ -168,3 +168,12 @@ target_compile_definitions(dual_test PRIVATE
 
 include(GoogleTest)
 gtest_discover_tests(dual_test)
+
+add_executable(locale_test
+    locale_test.cpp)
+target_link_libraries(locale_test PRIVATE
+    MathOptSolversCMake::mathopt
+    GTest::gtest_main)
+
+include(GoogleTest)
+gtest_discover_tests(locale_test)

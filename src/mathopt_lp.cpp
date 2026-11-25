@@ -1,5 +1,6 @@
 #include "mathoptsolverscmake/mathopt_lp.hpp"
 
+#include "number_parsing.hpp"
 #include "text_output.hpp"
 
 #include <cctype>
@@ -150,7 +151,7 @@ std::vector<Token> tokenize(const std::string& content)
                 }
             }
             std::string text = content.substr(start, pos - start);
-            double value = std::strtod(text.c_str(), nullptr);
+            double value = number_parsing::c_strtod(text.c_str(), nullptr);
             tokens.push_back({TokenType::Number, text, value});
             continue;
         }
