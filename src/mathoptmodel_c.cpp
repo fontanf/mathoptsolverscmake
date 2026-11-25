@@ -230,6 +230,38 @@ int mom_write(
     });
 }
 
+int mom_read_nl_statistics(
+        const char* data,
+        int64_t size,
+        int64_t* values,
+        char* error_message,
+        size_t error_message_size)
+{
+    return guarded(error_message, error_message_size, [&]() {
+        check_count(size, "size");
+        if (data == nullptr && size > 0)
+            throw std::invalid_argument("data is null.");
+        if (values == nullptr)
+            throw std::invalid_argument("values must not be null.");
+        std::istringstream in(std::string(data, data + size), std::ios::in | std::ios::binary);
+        NlStatistics statistics = read_nl_statistics(in);
+        values[MOM_NL_BINARY] = statistics.binary;
+        values[MOM_NL_NUMBER_OF_VARIABLES] = statistics.number_of_variables;
+        values[MOM_NL_NUMBER_OF_CONSTRAINTS] = statistics.number_of_constraints;
+        values[MOM_NL_NUMBER_OF_OBJECTIVES] = statistics.number_of_objectives;
+        values[MOM_NL_NUMBER_OF_NONLINEAR_CONSTRAINTS] = statistics.number_of_nonlinear_constraints;
+        values[MOM_NL_NUMBER_OF_NONLINEAR_OBJECTIVES] = statistics.number_of_nonlinear_objectives;
+        values[MOM_NL_NUMBER_OF_NONLINEAR_VARIABLES] = statistics.number_of_nonlinear_variables;
+        values[MOM_NL_NUMBER_OF_BINARY_VARIABLES] = statistics.number_of_binary_variables;
+        values[MOM_NL_NUMBER_OF_INTEGER_VARIABLES] = statistics.number_of_integer_variables;
+        values[MOM_NL_NUMBER_OF_ELEMENTS] = statistics.number_of_elements;
+        values[MOM_NL_NUMBER_OF_OBJECTIVE_ELEMENTS] = statistics.number_of_objective_elements;
+        values[MOM_NL_NUMBER_OF_DEFINED_VARIABLES] = statistics.number_of_defined_variables;
+        values[MOM_NL_NUMBER_OF_LOGICAL_CONSTRAINTS] = statistics.number_of_logical_constraints;
+        values[MOM_NL_NUMBER_OF_COMPLEMENTARITY_CONSTRAINTS] = statistics.number_of_complementarity_constraints;
+    });
+}
+
 int mom_write_file(
         const mom_model* model,
         int format,

@@ -1,5 +1,6 @@
 package io.github.fontanf.mathoptmodel;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -129,6 +130,42 @@ public final class Model implements AutoCloseable {
             data = in.readAllBytes();
         }
         return read(data, format);
+    }
+
+    /**
+     * Read the statistics of an .nl file, optionally .gz-compressed, from its header only: fast
+     * even for very large files, and available for any .nl file, including the ones
+     * {@link #read(Path)} doesn't support.
+     */
+    public static NlStatistics readNlStatistics(Path path) throws IOException {
+        // The header is the first 10 lines of the file.
+        ByteArrayOutputStream header = new ByteArrayOutputStream();
+        try (InputStream in = open(path)) {
+            int lines = 0;
+            int c;
+            while (lines < 10 && (c = in.read()) != -1) {
+                header.write(c);
+                if (c == '\n')
+                    ++lines;
+            }
+        }
+        return readNlStatistics(header.toByteArray());
+    }
+
+    /** Read the statistics of an .nl file from the beginning of its contents (its header). */
+    public static NlStatistics readNlStatistics(byte[] data) {
+        try (Arena arena = Arena.ofConfined()) {
+            MemorySegment input = arena.allocateFrom(JAVA_BYTE, data);
+            MemorySegment values = arena.allocate(JAVA_LONG, Native.NL_STATISTICS_SIZE);
+            MemorySegment error = arena.allocate(Native.ERROR_SIZE);
+            int status = (int) Native.READ_NL_STATISTICS.invoke(input, (long) data.length, values, error,
+                    Native.ERROR_SIZE);
+            if (status != Native.OK)
+                throw new MathOptModelException(error.getString(0));
+            return NlStatistics.fromValues(values.toArray(JAVA_LONG));
+        } catch (Throwable t) {
+            throw Native.rethrow(t);
+        }
     }
 
     /**

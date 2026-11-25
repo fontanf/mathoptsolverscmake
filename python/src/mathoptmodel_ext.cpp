@@ -787,6 +787,35 @@ NB_MODULE(_core, m)
             [](nb::bytes data) { return read_from_bytes(read_nl, data); },
             "data"_a, "Read a model from the contents of an AMPL .nl file.");
 
+    nb::class_<NlStatistics>(m, "NlStatistics",
+            "Statistics of an .nl file, from its header (see read_nl_statistics()).")
+        .def_ro("binary", &NlStatistics::binary)
+        .def_ro("number_of_variables", &NlStatistics::number_of_variables)
+        .def_ro("number_of_constraints", &NlStatistics::number_of_constraints)
+        .def_ro("number_of_objectives", &NlStatistics::number_of_objectives)
+        .def_ro("number_of_nonlinear_constraints", &NlStatistics::number_of_nonlinear_constraints)
+        .def_ro("number_of_nonlinear_objectives", &NlStatistics::number_of_nonlinear_objectives)
+        .def_ro("number_of_nonlinear_variables", &NlStatistics::number_of_nonlinear_variables)
+        .def_ro("number_of_binary_variables", &NlStatistics::number_of_binary_variables)
+        .def_ro("number_of_integer_variables", &NlStatistics::number_of_integer_variables)
+        .def_ro("number_of_elements", &NlStatistics::number_of_elements)
+        .def_ro("number_of_objective_elements", &NlStatistics::number_of_objective_elements)
+        .def_ro("number_of_defined_variables", &NlStatistics::number_of_defined_variables)
+        .def_ro("number_of_logical_constraints", &NlStatistics::number_of_logical_constraints)
+        .def_ro("number_of_complementarity_constraints", &NlStatistics::number_of_complementarity_constraints)
+        .def("__repr__",
+                [](const NlStatistics& statistics) {
+                    return "<mathoptmodel.NlStatistics: "
+                        + std::to_string(statistics.number_of_variables) + " variables, "
+                        + std::to_string(statistics.number_of_constraints) + " constraints>";
+                });
+    m.def("read_nl_statistics_bytes",
+            [](nb::bytes data) {
+                std::istringstream in(std::string(data.c_str(), data.size()), std::ios::in | std::ios::binary);
+                return read_nl_statistics(in);
+            },
+            "data"_a, "Read the statistics of an .nl file from the beginning of its contents (its header).");
+
     // Writers, to a str.
     m.def("write_mps_string",
             [](const MathOptModel& model) { return write_to_string(write_mps, model); },
