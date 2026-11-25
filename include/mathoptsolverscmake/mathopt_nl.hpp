@@ -32,16 +32,41 @@ namespace mathoptsolverscmake
  * ('d'); initial primal values ('x') populate variables_initial_values
  * (a variable not covered by a sparse 'x' segment defaults to 0).
  *
- * Variable/constraint names are not part of .nl's core structure (AMPL
- * writes those to separate .col/.row files) and are never read; the
- * model's variables_names/constraints_names are left empty. Black-box
- * functions have no .nl representation and are of course never read
- * either.
+ * Variable/constraint names are not part of .nl's core structure: AMPL
+ * writes them to separate .col/.row files, next to the .nl file. read_nl()
+ * reads them if they exist (see read_nl_names()); read_nl(std::istream&)
+ * doesn't, and leaves the model's variables_names/constraints_names empty.
+ * Black-box functions have no .nl representation and are of course never
+ * read either.
  */
 MathOptModel read_nl(const std::string& file_path);
 
-/** Same as read_nl(file_path), reading from an already-open stream. */
+/** Same as read_nl(file_path), reading from an already-open stream (without names). */
 MathOptModel read_nl(std::istream& in);
+
+/**
+ * Set the names of a model read from an .nl file from the .col / .row
+ * files AMPL writes next to it ("model.nl", "model.col", "model.row"):
+ * .col has one variable name per line, .row one constraint name per line,
+ * followed by the objectives' names. Either stream may be null.
+ *
+ * A file whose number of names doesn't match the model (fewer constraint
+ * names than constraints, or a number of variable names other than the
+ * number of variables) is ignored, as names don't change the model: it may
+ * be left over from another version of the model.
+ */
+void read_nl_names(
+        MathOptModel& model,
+        std::istream* col,
+        std::istream* row);
+
+/**
+ * The paths of the .col and .row files of an .nl file: its path with its
+ * ".nl" extension (in any case; ignoring a trailing ".gz" or ".bz2")
+ * replaced by ".col" and ".row".
+ */
+std::string nl_col_path(const std::string& nl_path);
+std::string nl_row_path(const std::string& nl_path);
 
 /**
  * Write a MathOptModel as an AMPL .nl file (ASCII "g" format).
