@@ -22,7 +22,7 @@ from mathoptmodel._core import (
     ConstraintClass,
     ConstraintSense,
     Model,
-    NlStatistics,
+    ModelStatistics,
     ObjectiveDirection,
     VariableType,
     dual,
@@ -46,7 +46,7 @@ from mathoptmodel._core import (
 __all__ = [
     "__version__",
     "ConstraintClass", "ConstraintSense", "Model", "ObjectiveDirection", "VariableType",
-    "NlStatistics", "read_nl_statistics", "read_nl_statistics_bytes",
+    "ModelStatistics", "read_statistics", "read_nl_statistics_bytes",
     "FORMATS", "detect_format", "dual", "expand_defined_variables", "read", "write",
     "read_json_bytes", "read_lp_bytes", "read_mps_bytes", "read_nl_bytes", "read_nl_names",
     "write_json_string", "write_lp_string", "write_mps_string", "write_nl_string",
@@ -149,11 +149,16 @@ def read(path, format=None):
     return model
 
 
-def read_nl_statistics(path):
-    """Read the statistics of an .nl file (optionally .gz/.bz2 compressed)
-    from its header only: fast even for very large files, and available for
-    any .nl file, including the ones read() doesn't support."""
+def read_statistics(path, format=None):
+    """Read the statistics of a model file, optionally .gz/.bz2 compressed
+    (see ModelStatistics). For an .nl file, they come from its header only,
+    which is fast even for very large files, and works for any .nl file,
+    including the ones read() doesn't support; for the other formats, from
+    the model read."""
     path = os.fspath(path)
+    format = format or detect_format(path)
+    if format != "nl":
+        return read(path, format).statistics()
     opener = _OPENERS.get(os.path.splitext(path.lower())[1], open)
     with opener(path, "rb") as f:
         header = b"".join(f.readline() for _ in range(10))

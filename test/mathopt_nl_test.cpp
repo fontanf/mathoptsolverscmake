@@ -811,18 +811,16 @@ TEST(MathOptNl, Statistics)
     std::string text = write(model);
 
     std::istringstream in(text);
-    NlStatistics statistics = read_nl_statistics(in);
-    EXPECT_FALSE(statistics.binary);
+    MathOptModelStatistics statistics = read_nl_statistics(in);
     EXPECT_EQ(statistics.number_of_variables, 4);
     EXPECT_EQ(statistics.number_of_constraints, 1);
     EXPECT_EQ(statistics.number_of_objectives, 1);
     EXPECT_EQ(statistics.number_of_nonlinear_constraints, 0);
     EXPECT_EQ(statistics.number_of_nonlinear_objectives, 1);
-    EXPECT_EQ(statistics.number_of_nonlinear_variables, 1);
     EXPECT_EQ(statistics.number_of_binary_variables, 1);
     EXPECT_EQ(statistics.number_of_integer_variables, 1);
     EXPECT_EQ(statistics.number_of_elements, 2);
-    EXPECT_EQ(statistics.number_of_objective_elements, 3);  // The linear terms written by write_nl().
+    EXPECT_EQ(statistics.number_of_continuous_variables, 2);
 
     // The header alone is enough.
     size_t header_end = 0;
@@ -848,7 +846,7 @@ TEST(MathOptNl, StatisticsOfUnsupportedModels)
         "0 0\n"
         "0 0 0 0 0\n";
     std::istringstream in(header);
-    NlStatistics statistics = read_nl_statistics(in);
+    MathOptModelStatistics statistics = read_nl_statistics(in);
     EXPECT_EQ(statistics.number_of_objectives, 2);
     EXPECT_EQ(statistics.number_of_logical_constraints, 1);
     EXPECT_EQ(statistics.number_of_elements, 2);

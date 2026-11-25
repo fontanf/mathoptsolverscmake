@@ -255,23 +255,25 @@ def test_readers_ignore_locale(comma_locale, format):
     assert list(read_back.elements_coefficients) == [0.5, 1.75]
 
 
-def test_read_nl_statistics(tmp_path):
+def test_statistics(tmp_path):
     model = mom.Model()
     model.add_variables(3, lower_bounds=0.0, upper_bounds=[4.0, 1.0, 5.0],
                         types=np.array([0, 1, 2], dtype=np.int8), objective_coefficients=1.0)
     model.add_constraints(upper_bounds=[3.0, 6.0], starts=np.array([0, 2], dtype=np.int32),
                           variables=np.array([0, 1, 1, 2], dtype=np.int32), coefficients=[1.0] * 4)
-    mom.write(model, tmp_path / "model.nl")
-    mom.write(model, tmp_path / "model.nl.gz")
-    for name in ("model.nl", "model.nl.gz"):
-        statistics = mom.read_nl_statistics(tmp_path / name)
-        assert isinstance(statistics, mom.NlStatistics)
-        assert not statistics.binary
-        assert (statistics.number_of_variables, statistics.number_of_constraints) == (3, 2)
-        assert (statistics.number_of_binary_variables, statistics.number_of_integer_variables) == (1, 1)
-        assert statistics.number_of_elements == 4
-        assert statistics.number_of_nonlinear_constraints == 0
+    statistics = model.statistics()
+    assert isinstance(statistics, mom.ModelStatistics)
     assert "3 variables, 2 constraints" in repr(statistics)
+    # .nl files' statistics come from their header, the others' from the model.
+    for name in ("model.mps", "model.lp.gz", "model.json", "model.nl", "model.nl.gz"):
+        mom.write(model, tmp_path / name)
+        statistics = mom.read_statistics(tmp_path / name)
+        assert (statistics.number_of_variables, statistics.number_of_constraints) == (3, 2), name
+        assert statistics.number_of_continuous_variables == 1, name
+        assert (statistics.number_of_binary_variables, statistics.number_of_integer_variables) == (1, 1), name
+        assert statistics.number_of_elements == 4, name
+        assert statistics.number_of_objectives == 1, name
+        assert statistics.number_of_nonlinear_constraints == 0, name
 
 
 def test_read_nl_names(tmp_path):

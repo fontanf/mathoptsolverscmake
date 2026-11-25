@@ -130,18 +130,23 @@ class ModelTest {
     }
 
     @Test
-    void readNlStatistics(@TempDir Path directory) throws IOException {
+    void statistics(@TempDir Path directory) throws IOException {
         try (Model model = Model.read(LP.getBytes(), Format.LP)) {
-            for (String name : List.of("model.nl", "model.nl.gz")) {
+            ModelStatistics statistics = model.statistics();
+            assertEquals(3, statistics.numberOfVariables());
+            assertEquals(2, statistics.numberOfConstraints());
+            // .nl files' statistics come from their header, the others' from the model.
+            for (String name : List.of("model.mps", "model.lp.gz", "model.json", "model.nl", "model.nl.gz")) {
                 Path path = directory.resolve(name);
                 model.write(path);
-                NlStatistics statistics = Model.readNlStatistics(path);
-                assertFalse(statistics.binary());
-                assertEquals(model.numberOfVariables(), statistics.numberOfVariables(), name);
-                assertEquals(model.numberOfConstraints(), statistics.numberOfConstraints(), name);
-                assertEquals(model.numberOfElements(), statistics.numberOfElements(), name);
-                assertEquals(1, statistics.numberOfBinaryVariables(), name);
-                assertEquals(1, statistics.numberOfIntegerVariables(), name);
+                ModelStatistics read = Model.readStatistics(path);
+                assertEquals(model.numberOfVariables(), read.numberOfVariables(), name);
+                assertEquals(model.numberOfConstraints(), read.numberOfConstraints(), name);
+                assertEquals(model.numberOfElements(), read.numberOfElements(), name);
+                assertEquals(1, read.numberOfContinuousVariables(), name);
+                assertEquals(1, read.numberOfBinaryVariables(), name);
+                assertEquals(1, read.numberOfIntegerVariables(), name);
+                assertEquals(1, read.numberOfObjectives(), name);
             }
         }
     }

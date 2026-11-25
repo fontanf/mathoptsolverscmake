@@ -1,6 +1,7 @@
 #pragma once
 
 #include "mathoptsolverscmake/mathopt.hpp"
+#include "mathoptsolverscmake/mathopt_statistics.hpp"
 
 #include <istream>
 #include <ostream>
@@ -45,40 +46,15 @@ MathOptModel read_nl(const std::string& file_path);
 MathOptModel read_nl(std::istream& in);
 
 /**
- * Statistics of an .nl file, from its header: unlike read_nl(), they're
- * available without reading the rest of the file, and for any .nl file,
- * including the ones whose models read_nl() doesn't support.
+ * Read the statistics of an .nl file from its header only: unlike read_nl(),
+ * without reading the rest of the file, and for any .nl file, including the
+ * ones whose models read_nl() doesn't support. See MathOptModelStatistics
+ * for how the header's counts differ from compute_statistics()'s.
  */
-struct NlStatistics
-{
-    /** True for the binary ("b") encoding, false for the text ("g") one. */
-    bool binary = false;
-
-    int number_of_variables = 0;
-    int number_of_constraints = 0;
-    int number_of_objectives = 0;
-    int number_of_nonlinear_constraints = 0;
-    int number_of_nonlinear_objectives = 0;
-    /** Variables appearing nonlinearly in a constraint or an objective. */
-    int number_of_nonlinear_variables = 0;
-    int number_of_binary_variables = 0;
-    /** Integer variables (binary ones excluded). */
-    int number_of_integer_variables = 0;
-    /** Nonzeros of the constraints' Jacobian. */
-    long number_of_elements = 0;
-    /** Nonzeros of the objectives' gradients. */
-    long number_of_objective_elements = 0;
-    /** Common subexpressions (MathOptModel's defined variables). */
-    int number_of_defined_variables = 0;
-    int number_of_logical_constraints = 0;
-    int number_of_complementarity_constraints = 0;
-};
-
-/** Read the statistics of an .nl file from its header only. */
-NlStatistics read_nl_statistics(const std::string& file_path);
+MathOptModelStatistics read_nl_statistics(const std::string& file_path);
 
 /** Same as read_nl_statistics(file_path), reading from an already-open stream. */
-NlStatistics read_nl_statistics(std::istream& in);
+MathOptModelStatistics read_nl_statistics(std::istream& in);
 
 /**
  * Set the names of a model read from an .nl file from the .col / .row

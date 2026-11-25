@@ -882,7 +882,7 @@ void mathoptsolverscmake::read_nl_names(
     }
 }
 
-NlStatistics mathoptsolverscmake::read_nl_statistics(const std::string& file_path)
+MathOptModelStatistics mathoptsolverscmake::read_nl_statistics(const std::string& file_path)
 {
     std::ifstream file(file_path, std::ios::in | std::ios::binary);
     if (!file.good()) {
@@ -893,21 +893,21 @@ NlStatistics mathoptsolverscmake::read_nl_statistics(const std::string& file_pat
     return read_nl_statistics(file);
 }
 
-NlStatistics mathoptsolverscmake::read_nl_statistics(std::istream& in)
+MathOptModelStatistics mathoptsolverscmake::read_nl_statistics(std::istream& in)
 {
     NlHeader header = parse_nl_header(in);
-    NlStatistics statistics;
-    statistics.binary = header.binary;
+    MathOptModelStatistics statistics;
     statistics.number_of_variables = header.n_var;
-    statistics.number_of_constraints = header.n_con;
-    statistics.number_of_objectives = header.n_obj;
-    statistics.number_of_nonlinear_constraints = header.nlc;
-    statistics.number_of_nonlinear_objectives = header.nlo;
-    statistics.number_of_nonlinear_variables = std::max(header.nlvc, header.nlvo);
     statistics.number_of_binary_variables = header.nbv;
     statistics.number_of_integer_variables = header.niv + header.nlvbi + header.nlvci + header.nlvoi;
+    statistics.number_of_continuous_variables = header.n_var
+        - statistics.number_of_binary_variables
+        - statistics.number_of_integer_variables;
+    statistics.number_of_constraints = header.n_con;
     statistics.number_of_elements = header.nzc;
-    statistics.number_of_objective_elements = header.nzo;
+    statistics.number_of_nonlinear_constraints = header.nlc;
+    statistics.number_of_objectives = header.n_obj;
+    statistics.number_of_nonlinear_objectives = header.nlo;
     statistics.number_of_defined_variables =
         header.comb + header.comc + header.como + header.comc1 + header.como1;
     statistics.number_of_logical_constraints = header.n_lcon;

@@ -19,6 +19,7 @@
 #include "mathoptsolverscmake/mathopt_lp.hpp"
 #include "mathoptsolverscmake/mathopt_json.hpp"
 #include "mathoptsolverscmake/mathopt_nl.hpp"
+#include "mathoptsolverscmake/mathopt_statistics.hpp"
 #include "mathoptsolverscmake/dual.hpp"
 
 #include <nanobind/nanobind.h>
@@ -745,6 +746,9 @@ NB_MODULE(_core, m)
         .def_prop_ro("defined_variables_elements_number_of_children",
                 view_member<int, &MathOptModel::defined_variables_elements_number_of_children>)
 
+        .def("statistics", &compute_statistics,
+                "The model's statistics: numbers of variables (by type), constraints, nonzeros...")
+
         // Model kind.
         .def("has_non_continuous_variables", &MathOptModel::has_non_continuous_variables)
         .def("has_defined_variables", &MathOptModel::has_defined_variables)
@@ -798,25 +802,28 @@ NB_MODULE(_core, m)
             "the .col and .row files AMPL writes next to it. A file whose number of "
             "names doesn't match the model is ignored.");
 
-    nb::class_<NlStatistics>(m, "NlStatistics",
-            "Statistics of an .nl file, from its header (see read_nl_statistics()).")
-        .def_ro("binary", &NlStatistics::binary)
-        .def_ro("number_of_variables", &NlStatistics::number_of_variables)
-        .def_ro("number_of_constraints", &NlStatistics::number_of_constraints)
-        .def_ro("number_of_objectives", &NlStatistics::number_of_objectives)
-        .def_ro("number_of_nonlinear_constraints", &NlStatistics::number_of_nonlinear_constraints)
-        .def_ro("number_of_nonlinear_objectives", &NlStatistics::number_of_nonlinear_objectives)
-        .def_ro("number_of_nonlinear_variables", &NlStatistics::number_of_nonlinear_variables)
-        .def_ro("number_of_binary_variables", &NlStatistics::number_of_binary_variables)
-        .def_ro("number_of_integer_variables", &NlStatistics::number_of_integer_variables)
-        .def_ro("number_of_elements", &NlStatistics::number_of_elements)
-        .def_ro("number_of_objective_elements", &NlStatistics::number_of_objective_elements)
-        .def_ro("number_of_defined_variables", &NlStatistics::number_of_defined_variables)
-        .def_ro("number_of_logical_constraints", &NlStatistics::number_of_logical_constraints)
-        .def_ro("number_of_complementarity_constraints", &NlStatistics::number_of_complementarity_constraints)
+    nb::class_<MathOptModelStatistics>(m, "ModelStatistics",
+            "Statistics of a model: numbers of variables (by type), constraints, nonzeros... "
+            "(see MathOptModelStatistics in mathopt_statistics.hpp).")
+        .def_ro("number_of_variables", &MathOptModelStatistics::number_of_variables)
+        .def_ro("number_of_continuous_variables", &MathOptModelStatistics::number_of_continuous_variables)
+        .def_ro("number_of_binary_variables", &MathOptModelStatistics::number_of_binary_variables)
+        .def_ro("number_of_integer_variables", &MathOptModelStatistics::number_of_integer_variables)
+        .def_ro("number_of_semi_continuous_variables", &MathOptModelStatistics::number_of_semi_continuous_variables)
+        .def_ro("number_of_semi_integer_variables", &MathOptModelStatistics::number_of_semi_integer_variables)
+        .def_ro("number_of_constraints", &MathOptModelStatistics::number_of_constraints)
+        .def_ro("number_of_elements", &MathOptModelStatistics::number_of_elements)
+        .def_ro("number_of_quadratic_constraints", &MathOptModelStatistics::number_of_quadratic_constraints)
+        .def_ro("number_of_nonlinear_constraints", &MathOptModelStatistics::number_of_nonlinear_constraints)
+        .def_ro("number_of_objectives", &MathOptModelStatistics::number_of_objectives)
+        .def_ro("number_of_quadratic_objectives", &MathOptModelStatistics::number_of_quadratic_objectives)
+        .def_ro("number_of_nonlinear_objectives", &MathOptModelStatistics::number_of_nonlinear_objectives)
+        .def_ro("number_of_defined_variables", &MathOptModelStatistics::number_of_defined_variables)
+        .def_ro("number_of_logical_constraints", &MathOptModelStatistics::number_of_logical_constraints)
+        .def_ro("number_of_complementarity_constraints", &MathOptModelStatistics::number_of_complementarity_constraints)
         .def("__repr__",
-                [](const NlStatistics& statistics) {
-                    return "<mathoptmodel.NlStatistics: "
+                [](const MathOptModelStatistics& statistics) {
+                    return "<mathoptmodel.ModelStatistics: "
                         + std::to_string(statistics.number_of_variables) + " variables, "
                         + std::to_string(statistics.number_of_constraints) + " constraints>";
                 });

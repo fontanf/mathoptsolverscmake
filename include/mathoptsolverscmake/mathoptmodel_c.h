@@ -99,24 +99,30 @@ enum
     MOM_DEFINED_VARIABLES_ELEMENTS_NUMBER_OF_CHILDREN = 31,       /* [int32]  */
 };
 
-/** Statistics of an .nl file, for mom_read_nl_statistics() (see NlStatistics in mathopt_nl.hpp). */
+/**
+ * Model statistics, for mom_read_nl_statistics() and mom_compute_statistics():
+ * the indices of an array of MOM_STATISTICS_SIZE values (see
+ * MathOptModelStatistics in mathopt_statistics.hpp).
+ */
 enum
 {
-    MOM_NL_BINARY = 0,
-    MOM_NL_NUMBER_OF_VARIABLES = 1,
-    MOM_NL_NUMBER_OF_CONSTRAINTS = 2,
-    MOM_NL_NUMBER_OF_OBJECTIVES = 3,
-    MOM_NL_NUMBER_OF_NONLINEAR_CONSTRAINTS = 4,
-    MOM_NL_NUMBER_OF_NONLINEAR_OBJECTIVES = 5,
-    MOM_NL_NUMBER_OF_NONLINEAR_VARIABLES = 6,
-    MOM_NL_NUMBER_OF_BINARY_VARIABLES = 7,
-    MOM_NL_NUMBER_OF_INTEGER_VARIABLES = 8,
-    MOM_NL_NUMBER_OF_ELEMENTS = 9,
-    MOM_NL_NUMBER_OF_OBJECTIVE_ELEMENTS = 10,
-    MOM_NL_NUMBER_OF_DEFINED_VARIABLES = 11,
-    MOM_NL_NUMBER_OF_LOGICAL_CONSTRAINTS = 12,
-    MOM_NL_NUMBER_OF_COMPLEMENTARITY_CONSTRAINTS = 13,
-    MOM_NL_STATISTICS_SIZE = 14,
+    MOM_STATISTICS_VARIABLES = 0,
+    MOM_STATISTICS_CONTINUOUS_VARIABLES = 1,
+    MOM_STATISTICS_BINARY_VARIABLES = 2,
+    MOM_STATISTICS_INTEGER_VARIABLES = 3,
+    MOM_STATISTICS_SEMI_CONTINUOUS_VARIABLES = 4,
+    MOM_STATISTICS_SEMI_INTEGER_VARIABLES = 5,
+    MOM_STATISTICS_CONSTRAINTS = 6,
+    MOM_STATISTICS_ELEMENTS = 7,
+    MOM_STATISTICS_QUADRATIC_CONSTRAINTS = 8,
+    MOM_STATISTICS_NONLINEAR_CONSTRAINTS = 9,
+    MOM_STATISTICS_OBJECTIVES = 10,
+    MOM_STATISTICS_QUADRATIC_OBJECTIVES = 11,
+    MOM_STATISTICS_NONLINEAR_OBJECTIVES = 12,
+    MOM_STATISTICS_DEFINED_VARIABLES = 13,
+    MOM_STATISTICS_LOGICAL_CONSTRAINTS = 14,
+    MOM_STATISTICS_COMPLEMENTARITY_CONSTRAINTS = 15,
+    MOM_STATISTICS_SIZE = 16,
 };
 
 /** Name lists, for mom_names_size() and mom_copy_names(). */
@@ -171,13 +177,22 @@ MOM_API int mom_read_nl_names(
 
 /**
  * Read the statistics of an .nl file from its header (the beginning of the
- * file is enough), into 'values', an array of MOM_NL_STATISTICS_SIZE
- * entries indexed by the MOM_NL_* constants (MOM_NL_BINARY: 1 for the binary
- * encoding, 0 for the text one).
+ * file is enough), into 'values', an array of MOM_STATISTICS_SIZE entries
+ * indexed by the MOM_STATISTICS_* constants (see read_nl_statistics()).
  */
 MOM_API int mom_read_nl_statistics(
         const char* data,
         int64_t size,
+        int64_t* values,
+        char* error_message,
+        size_t error_message_size);
+
+/**
+ * Compute the statistics of a model, into 'values', an array of
+ * MOM_STATISTICS_SIZE entries indexed by the MOM_STATISTICS_* constants.
+ */
+MOM_API int mom_compute_statistics(
+        const mom_model* model,
         int64_t* values,
         char* error_message,
         size_t error_message_size);
