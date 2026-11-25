@@ -227,6 +227,46 @@ MOM_API int mom_format(
         char* error_message,
         size_t error_message_size);
 
+/** Expressions, for mom_format_expression() and mom_degree(). */
+enum
+{
+    /** A constraint's expression; 'id' is the constraint's index. */
+    MOM_EXPRESSION_CONSTRAINT = 0,
+    /** The objective's expression; 'id' is ignored. */
+    MOM_EXPRESSION_OBJECTIVE = 1,
+    /** A defined variable's expression; 'id' is the defined variable's index. */
+    MOM_EXPRESSION_DEFINED_VARIABLE = 2,
+};
+
+/**
+ * Format an expression (MOM_EXPRESSION_*) in infix notation, without the
+ * constraint's name and bounds (see format_constraint_expression() in
+ * mathopt.hpp); defined variables are expanded if 'expand_defined_variables'
+ * is non-zero. Release '*data' with mom_free().
+ */
+MOM_API int mom_format_expression(
+        const mom_model* model,
+        int kind,
+        int32_t id,
+        int expand_defined_variables,
+        char** data,
+        int64_t* size,
+        char* error_message,
+        size_t error_message_size);
+
+/**
+ * The degree of an expression (MOM_EXPRESSION_*, not a defined variable) as
+ * a polynomial, infinity if it isn't one (see constraint_degree() in
+ * mathopt.hpp).
+ */
+MOM_API int mom_degree(
+        const mom_model* model,
+        int kind,
+        int32_t id,
+        double* degree,
+        char* error_message,
+        size_t error_message_size);
+
 /** Format a constraint; release '*data' with mom_free(). */
 MOM_API int mom_format_constraint(
         const mom_model* model,

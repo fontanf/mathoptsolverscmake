@@ -196,3 +196,12 @@ target_link_libraries(mathopt_statistics_test PRIVATE
 
 include(GoogleTest)
 gtest_discover_tests(mathopt_statistics_test)
+
+add_executable(mathopt_expressions_test
+    mathopt_expressions_test.cpp)
+target_link_libraries(mathopt_expressions_test PRIVATE
+    MathOptSolversCMake::mathopt
+    GTest::gtest_main)
+
+include(GoogleTest)
+gtest_discover_tests(mathopt_expressions_test)

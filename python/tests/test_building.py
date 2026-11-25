@@ -294,3 +294,19 @@ def test_semi_variables():
         assert list(read_back.variables_types) == list(model.variables_types), format
     with pytest.raises(ValueError, match="semi"):
         mom.write_nl_string(model)
+
+
+def test_format_expressions():
+    model = mom.Model()
+    model.add_variables(2, lower_bounds=0.0, upper_bounds=4.0, objective_coefficients=[1.0, -2.0])
+    # 2 x0 + exp(x1) <= 3
+    model.add_constraints(upper_bounds=3.0, starts=np.array([0], dtype=np.int32),
+                          variables=np.array([0], dtype=np.int32), coefficients=[2.0],
+                          nonlinear_starts=np.array([0], dtype=np.int32), nonlinear_operators=b"ev",
+                          nonlinear_variables=np.array([-1, 1], dtype=np.int32),
+                          nonlinear_number_of_children=np.array([1, 0], dtype=np.int32))
+    assert model.format_constraint_expression(0) == "2 * x0 + exp(x1)"
+    assert model.format_constraint(0) == "c0: 2 * x0 + exp(x1) <= 3\n"
+    assert model.format_objective_expression() == "x0 - 2 * x1"
+    assert model.constraint_degree(0) == math.inf
+    assert model.objective_degree() == 1

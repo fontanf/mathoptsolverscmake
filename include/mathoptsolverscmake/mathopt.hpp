@@ -225,10 +225,43 @@ struct MathOptModel
     /** Find the type of a constraint. */
     ConstraintClass constraint_class(int constraint_id) const;
 
-    /** Format a single constraint. */
+    /**
+     * Format a single constraint: its name, expression and finite bounds,
+     * for example "c1: 2 * x0 + x1 * x2 <= 4".
+     */
     std::ostream& format_constraint(
             std::ostream& os,
             int constraint_id) const;
+
+    /**
+     * The expression of a constraint, without its name and bounds, in infix
+     * notation: its linear terms (without the zero ones), quadratic terms,
+     * expression tree and black-box function ("g<id>(x)"). Defined variables
+     * appear as "d<id>", or, with 'expand_defined_variables', as their
+     * expressions.
+     */
+    std::string format_constraint_expression(
+            int constraint_id,
+            bool expand_defined_variables = false) const;
+
+    /** The expression of the objective (see format_constraint_expression()). */
+    std::string format_objective_expression(
+            bool expand_defined_variables = false) const;
+
+    /** The expression of a defined variable (see format_constraint_expression()). */
+    std::string format_defined_variable_expression(
+            int defined_variable_id,
+            bool expand_defined_variables = false) const;
+
+    /**
+     * The degree of a constraint's expression as a polynomial (0 for a
+     * constant one, 2 for a quadratic one), or infinity if it isn't a
+     * polynomial (exp, division by a variable, black-box function...).
+     */
+    double constraint_degree(int constraint_id) const;
+
+    /** The degree of the objective (see constraint_degree()). */
+    double objective_degree() const;
 
     /** Format the model. */
     std::ostream& format(
