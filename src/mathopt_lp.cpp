@@ -30,7 +30,7 @@ std::string to_lower(const std::string& s)
 /**
  * Characters allowed in a name in addition to letters and digits. Doesn't
  * include anything the tokenizer treats specially elsewhere (whitespace,
- * '+-*:<>=', '[]' for the quadratic-bracket check, '\' for line comments
+ * '+-*:<>=', '[]^/' for quadratic terms, '\' for line comments
  * and the slash-star block comment marker), so there is no ambiguity in
  * allowing them here; real MPS
  * files sometimes carry names built from row/column indices that use
@@ -66,7 +66,7 @@ bool is_identifier_char(char c)
  * stream rather than line by line.
  */
 
-enum class TokenType { End, Identifier, Number, Plus, Minus, Star, Colon, Le, Ge, Eq };
+enum class TokenType { End, Identifier, Number, Plus, Minus, Star, Colon, Le, Ge, Eq, LBracket, RBracket, Caret, Slash };
 
 struct Token
 {
@@ -123,11 +123,10 @@ std::vector<Token> tokenize(const std::string& content)
             tokens.push_back({TokenType::Eq, "", 0.0});
             continue;
         }
-        if (c == '[' || c == ']') {
-            throw std::invalid_argument(
-                    FUNC_SIGNATURE + ": "
-                    "quadratic terms ('[' ... ']') in .lp format are not supported.");
-        }
+        if (c == '[') { tokens.push_back({TokenType::LBracket, "", 0.0}); ++pos; continue; }
+        if (c == ']') { tokens.push_back({TokenType::RBracket, "", 0.0}); ++pos; continue; }
+        if (c == '^') { tokens.push_back({TokenType::Caret, "", 0.0}); ++pos; continue; }
+        if (c == '/') { tokens.push_back({TokenType::Slash, "", 0.0}); ++pos; continue; }
         if (std::isdigit((unsigned char)c) || (c == '.' && pos + 1 < size && std::isdigit((unsigned char)content[pos + 1]))) {
             size_t start = pos;
             while (pos < size && std::isdigit((unsigned char)content[pos]))
@@ -222,9 +221,17 @@ void apply_range_relop(
 
 enum class LpSection { None, ObjMin, ObjMax, Constraints, Bounds, General, Binary, End, Unsupported };
 
+struct QuadraticTerm
+{
+    int variable_1_id;
+    int variable_2_id;
+    double coefficient;
+};
+
 struct ParsedExpression
 {
     std::vector<std::pair<int, double>> terms; // variable_id -> coefficient, deduplicated.
+    std::vector<QuadraticTerm> quadratic_terms; // coefficient * x[variable_1_id] * x[variable_2_id].
     double constant = 0.0;
 };
 
@@ -439,6 +446,11 @@ private:
             }
             first_term = false;
 
+            if (peek().type == TokenType::LBracket) {
+                parse_quadratic_block(sign, expression);
+                continue;
+            }
+
             double coefficient = sign;
             bool has_explicit_coefficient = false;
             if (peek().type == TokenType::Number) {
@@ -478,6 +490,91 @@ private:
         return expression;
     }
 
+    /**
+     * Parses "[ terms ] [/ divisor]", the quadratic part of an expression,
+     * each term being "[coefficient] x ^ 2" or "[coefficient] x * y", and
+     * adds its terms, multiplied by 'sign' and divided by the divisor, to
+     * 'expression'. CPLEX's format writes the objective's quadratic part as
+     * "[ ... ] / 2" and the constraints' without a divisor.
+     */
+    void parse_quadratic_block(double sign, ParsedExpression& expression)
+    {
+        advance(); // '['
+        std::vector<QuadraticTerm> terms;
+        bool first_term = true;
+        while (peek().type != TokenType::RBracket) {
+            if (at_end()) {
+                throw std::invalid_argument(
+                        FUNC_SIGNATURE + ": "
+                        "missing ']' at the end of quadratic terms.");
+            }
+            double term_sign = 1.0;
+            if (peek().type == TokenType::Plus) {
+                advance();
+            } else if (peek().type == TokenType::Minus) {
+                term_sign = -1.0;
+                advance();
+            } else if (!first_term) {
+                throw std::invalid_argument(
+                        FUNC_SIGNATURE + ": "
+                        "expected '+' or '-' between quadratic terms.");
+            }
+            first_term = false;
+
+            double coefficient = term_sign;
+            if (peek().type == TokenType::Number) {
+                coefficient = term_sign * advance().value;
+                if (peek().type == TokenType::Star)
+                    advance();
+            }
+            int variable_1_id = parse_quadratic_variable();
+            int variable_2_id = variable_1_id;
+            if (peek().type == TokenType::Caret) {
+                advance();
+                if (peek().type != TokenType::Number || peek().value != 2.0) {
+                    throw std::invalid_argument(
+                            FUNC_SIGNATURE + ": "
+                            "only squares (\"^ 2\") are supported in quadratic terms.");
+                }
+                advance();
+            } else if (peek().type == TokenType::Star) {
+                advance();
+                variable_2_id = parse_quadratic_variable();
+            } else {
+                throw std::invalid_argument(
+                        FUNC_SIGNATURE + ": "
+                        "expected \"^ 2\" or \"* variable\" in a quadratic term.");
+            }
+            terms.push_back({variable_1_id, variable_2_id, coefficient});
+        }
+        advance(); // ']'
+
+        double divisor = 1.0;
+        if (peek().type == TokenType::Slash) {
+            advance();
+            if (peek().type != TokenType::Number || peek().value == 0.0) {
+                throw std::invalid_argument(
+                        FUNC_SIGNATURE + ": "
+                        "expected a non-zero number after '/'.");
+            }
+            divisor = advance().value;
+        }
+        for (QuadraticTerm& term: terms) {
+            term.coefficient *= sign / divisor;
+            expression.quadratic_terms.push_back(term);
+        }
+    }
+
+    int parse_quadratic_variable()
+    {
+        if (peek().type != TokenType::Identifier) {
+            throw std::invalid_argument(
+                    FUNC_SIGNATURE + ": "
+                    "expected a variable name in a quadratic term.");
+        }
+        return get_or_create_variable(advance().text);
+    }
+
     void parse_objective()
     {
         LpSection section = peek_section_keyword();
@@ -501,6 +598,11 @@ private:
         ParsedExpression expression = parse_linear_expression(/* stop_at_relop = */ false);
         for (const auto& term: expression.terms)
             model_.objective_coefficients[term.first] += term.second;
+        for (const QuadraticTerm& term: expression.quadratic_terms) {
+            model_.objective_quadratic_elements_variables_1.push_back(term.variable_1_id);
+            model_.objective_quadratic_elements_variables_2.push_back(term.variable_2_id);
+            model_.objective_quadratic_elements_coefficients.push_back(term.coefficient);
+        }
         // expression.constant (the objective offset) is discarded: MathOptModel has no such field.
     }
 
@@ -556,6 +658,13 @@ private:
         for (const auto& term: expression.terms) {
             model_.elements_variables.push_back(term.first);
             model_.elements_coefficients.push_back(term.second);
+        }
+        model_.quadratic_elements_constraints_starts.push_back(
+                (int)model_.quadratic_elements_variables_1.size());
+        for (const QuadraticTerm& term: expression.quadratic_terms) {
+            model_.quadratic_elements_variables_1.push_back(term.variable_1_id);
+            model_.quadratic_elements_variables_2.push_back(term.variable_2_id);
+            model_.quadratic_elements_coefficients.push_back(term.coefficient);
         }
         constraint_labels_.push_back(label);
     }
@@ -628,6 +737,11 @@ private:
 
     MathOptModel finalize()
     {
+        // The constraints' quadratic starts are only kept if some constraint
+        // has quadratic terms.
+        if (model_.quadratic_elements_variables_1.empty())
+            model_.quadratic_elements_constraints_starts.clear();
+
         bool any_label = false;
         for (const std::string& label: constraint_labels_)
             if (!label.empty())
@@ -699,11 +813,10 @@ void write_value(TextOutput& out, double value)
         out.number(value);
 }
 
-void write_term(
+/** The sign and coefficient of a term: " +", " -", " +2" or " -2". */
+void write_coefficient(
         TextOutput& out,
-        double coefficient,
-        const Names& names,
-        int variable_id)
+        double coefficient)
 {
     out << ' ';
     if (coefficient == 1.0) {
@@ -717,8 +830,49 @@ void write_term(
         out << '-';
         out.number(-coefficient);
     }
+}
+
+void write_term(
+        TextOutput& out,
+        double coefficient,
+        const Names& names,
+        int variable_id)
+{
+    write_coefficient(out, coefficient);
     out << ' ';
     names.write(out, variable_id);
+}
+
+/**
+ * Quadratic terms, "[ c x ^ 2 + c x * y ... ]", with their coefficients
+ * multiplied by 'factor' (2 for the objective, written as "[ ... ] / 2").
+ */
+void write_quadratic_terms(
+        TextOutput& out,
+        const Names& names,
+        const std::vector<int>& variables_1,
+        const std::vector<int>& variables_2,
+        const std::vector<double>& coefficients,
+        int start,
+        int end,
+        double factor)
+{
+    out << " + [";
+    for (int element_id = start; element_id < end; ++element_id) {
+        double coefficient = coefficients[element_id];
+        if (coefficient == 0.0)
+            continue;
+        write_coefficient(out, coefficient * factor);
+        out << ' ';
+        names.write(out, variables_1[element_id]);
+        if (variables_1[element_id] == variables_2[element_id]) {
+            out << " ^ 2";
+        } else {
+            out << " * ";
+            names.write(out, variables_2[element_id]);
+        }
+    }
+    out << " ]";
 }
 
 void write_expression(
@@ -775,11 +929,11 @@ void mathoptsolverscmake::write_lp(
         const MathOptModel& model,
         std::ostream& out)
 {
-    if (!model.is_milp()) {
+    if (model.has_nonlinear() || model.has_black_box()) {
         throw std::invalid_argument(
                 FUNC_SIGNATURE + ": "
-                "model is not an MILP; .lp format only supports linear / "
-                "mixed-integer-linear models.");
+                "model has nonlinear terms; .lp format only supports linear "
+                "and quadratic models.");
     }
 
     int number_of_variables = model.number_of_variables();
@@ -807,6 +961,18 @@ void mathoptsolverscmake::write_lp(
         if (coefficient != 0.0)
             write_term(output, coefficient, variable_names, variable_id);
     }
+    if (!model.objective_quadratic_elements_coefficients.empty()) {
+        write_quadratic_terms(
+                output,
+                variable_names,
+                model.objective_quadratic_elements_variables_1,
+                model.objective_quadratic_elements_variables_2,
+                model.objective_quadratic_elements_coefficients,
+                0,
+                (int)model.objective_quadratic_elements_coefficients.size(),
+                2.0);
+        output << " / 2";
+    }
     output << "\n";
 
     output << "Subject To\n";
@@ -829,6 +995,21 @@ void mathoptsolverscmake::write_lp(
                 variable_names,
                 model.constraints_starts[constraint_id],
                 model.constraint_end(constraint_id));
+        if (!model.quadratic_elements_constraints_starts.empty()) {
+            int start = model.quadratic_elements_constraints_starts[constraint_id];
+            int end = model.quadratic_constraint_end(constraint_id);
+            if (start < end) {
+                write_quadratic_terms(
+                        output,
+                        variable_names,
+                        model.quadratic_elements_variables_1,
+                        model.quadratic_elements_variables_2,
+                        model.quadratic_elements_coefficients,
+                        start,
+                        end,
+                        1.0);
+            }
+        }
 
         switch (sense) {
         case ConstraintSense::LessThanOrEqualTo: {
