@@ -374,7 +374,7 @@ int add_variables_py(
         merge_count(count, names->size(), "names");
     if (!count)
         invalid("the number of variables is unknown: give 'number' or an array.");
-    if (!types.array.given && (types.scalar < 0 || types.scalar > (int8_t)VariableType::Integer))
+    if (!types.array.given && (types.scalar < 0 || types.scalar > (int8_t)VariableType::SemiInteger))
         invalid("types = " + std::to_string(types.scalar) + " is not a VariableType value.");
 
     VariablesBatch batch;
@@ -553,7 +553,9 @@ NB_MODULE(_core, m)
     nb::enum_<VariableType>(m, "VariableType", nb::is_arithmetic())
         .value("Continuous", VariableType::Continuous)
         .value("Binary", VariableType::Binary)
-        .value("Integer", VariableType::Integer);
+        .value("Integer", VariableType::Integer)
+        .value("SemiContinuous", VariableType::SemiContinuous)
+        .value("SemiInteger", VariableType::SemiInteger);
 
     nb::enum_<ConstraintSense>(m, "ConstraintSense", nb::is_arithmetic())
         .value("LessThanOrEqualTo", ConstraintSense::LessThanOrEqualTo)

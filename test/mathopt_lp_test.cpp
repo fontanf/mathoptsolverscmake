@@ -4,6 +4,8 @@
 
 #include <limits>
 #include <sstream>
+#include <string>
+#include <vector>
 
 using namespace mathoptsolverscmake;
 
@@ -172,21 +174,200 @@ TEST(MathOptLp, UnsupportedSectionThrows)
             std::invalid_argument);
 }
 
-TEST(MathOptLp, QuadraticBracketThrows)
+TEST(MathOptLp, QuadraticObjectiveAndConstraints)
 {
-    EXPECT_THROW(
-            read(
-                    "Minimize\n"
-                    " obj: [ x0 * x0 ]\n"
-                    "Subject To\n"
-                    " c1: x0 <= 10\n"
-                    "End\n"),
-            std::invalid_argument);
+    // min x + 1/2 [ 2 x^2 + 2 x y ] = x + x^2 + x y
+    // s.t. c1: x + y >= 1
+    //      q1: y + [ x^2 + 3 x y - y^2 ] <= 4
+    MathOptModel model = read(
+            "Minimize\n"
+            " obj: x + [ 2 x ^ 2 + 2 x * y ] / 2\n"
+            "Subject To\n"
+            " c1: x + y >= 1\n"
+            " q1: y + [ x^2 + 3 x * y - y ^ 2 ] <= 4\n"
+            "End\n");
+
+    ASSERT_EQ(model.number_of_variables(), 2);
+    ASSERT_EQ(model.number_of_constraints(), 2);
+    EXPECT_EQ(model.objective_coefficients, (std::vector<double>{1.0, 0.0}));
+    EXPECT_EQ(model.objective_quadratic_elements_variables_1, (std::vector<int>{0, 0}));
+    EXPECT_EQ(model.objective_quadratic_elements_variables_2, (std::vector<int>{0, 1}));
+    EXPECT_EQ(model.objective_quadratic_elements_coefficients, (std::vector<double>{1.0, 1.0}));
+    EXPECT_EQ(model.quadratic_elements_constraints_starts, (std::vector<int>{0, 0}));
+    EXPECT_EQ(model.quadratic_elements_variables_1, (std::vector<int>{0, 0, 1}));
+    EXPECT_EQ(model.quadratic_elements_variables_2, (std::vector<int>{0, 1, 1}));
+    EXPECT_EQ(model.quadratic_elements_coefficients, (std::vector<double>{1.0, 3.0, -1.0}));
+    EXPECT_EQ(model.number_of_variables(1), 1);
+    EXPECT_EQ(model.constraints_upper_bounds[1], 4.0);
+    EXPECT_TRUE(model.check());
+
+    // At x = 1, y = 2: objective 1 + 1 + 2 = 4; q1's body 2 + 1 + 6 - 4 = 5.
+    EXPECT_EQ(model.evaluate_objective({1.0, 2.0}), 4.0);
+    EXPECT_EQ(model.evaluate_constraint({1.0, 2.0}, 1), 5.0);
+}
+
+TEST(MathOptLp, LinearModelHasNoQuadraticStarts)
+{
+    MathOptModel model = read(
+            "Minimize\n"
+            " obj: x\n"
+            "Subject To\n"
+            " c1: x >= 1\n"
+            "End\n");
+    EXPECT_FALSE(model.has_quadratic());
+    EXPECT_TRUE(model.quadratic_elements_constraints_starts.empty());
+}
+
+TEST(MathOptLp, MalformedQuadraticTermsThrow)
+{
+    for (const char* objective: {
+            "[ x ^ 3 ] / 2", "[ x y ] / 2", "[ x * 2 ] / 2", "[ x ^ 2 / 2", "[ x ^ 2 ] / 0", "[ x ^ 2 x ^ 2 ]"}) {
+        EXPECT_THROW(read(
+                "Minimize\n"
+                " obj: " + std::string(objective) + "\n"
+                "Subject To\n"
+                " c1: x >= 1\n"
+                "End\n"), std::invalid_argument) << objective;
+    }
+}
+
+TEST(MathOptLp, QuadraticRoundTrip)
+{
+    MathOptModel original = read(
+            "Maximize\n"
+            " obj: 2 x - [ 3 x ^ 2 - 2 x * y + 0.5 y ^ 2 ] / 2\n"
+            "Subject To\n"
+            " c1: x + y <= 4\n"
+            " q1: [ x ^ 2 + y ^ 2 ] <= 9\n"
+            " c2: x - y >= -1\n"
+            " q2: -2 <= x + [ - x * y ] <= 3\n"
+            "End\n");
+
+    std::string text = write(original);
+    MathOptModel round_tripped = read(text);
+
+    EXPECT_EQ(round_tripped.objective_coefficients, original.objective_coefficients);
+    EXPECT_EQ(round_tripped.objective_quadratic_elements_variables_1, original.objective_quadratic_elements_variables_1);
+    EXPECT_EQ(round_tripped.objective_quadratic_elements_variables_2, original.objective_quadratic_elements_variables_2);
+    EXPECT_EQ(round_tripped.objective_quadratic_elements_coefficients, original.objective_quadratic_elements_coefficients);
+    EXPECT_EQ(round_tripped.quadratic_elements_constraints_starts, original.quadratic_elements_constraints_starts);
+    EXPECT_EQ(round_tripped.quadratic_elements_variables_1, original.quadratic_elements_variables_1);
+    EXPECT_EQ(round_tripped.quadratic_elements_variables_2, original.quadratic_elements_variables_2);
+    EXPECT_EQ(round_tripped.quadratic_elements_coefficients, original.quadratic_elements_coefficients);
+    EXPECT_EQ(round_tripped.constraints_lower_bounds, original.constraints_lower_bounds);
+    EXPECT_EQ(round_tripped.constraints_upper_bounds, original.constraints_upper_bounds);
+    EXPECT_NE(text.find("obj: +2 x + [ -3 x ^ 2 +2 x * y -0.5 y ^ 2 ] / 2"), std::string::npos) << text;
+    EXPECT_NE(text.find("q1: + [ + x ^ 2 + y ^ 2 ] <=9"), std::string::npos) << text;
 }
 
 TEST(MathOptLp, MissingFileThrows)
 {
     EXPECT_THROW(read_lp("/no/such/file.lp"), std::invalid_argument);
+}
+
+TEST(MathOptLp, KeywordAsConstraintName)
+{
+    // A section keyword followed by ':' is a constraint name (as in HiGHS's
+    // check/instances/1451.lp).
+    MathOptModel model = read(
+            "Minimize\n"
+            "  x\n"
+            "Subject to\n"
+            " end: x >= 3\n"
+            "Integer\n"
+            "  x\n"
+            "End\n");
+
+    ASSERT_EQ(model.number_of_variables(), 1);
+    EXPECT_EQ(model.variables_types[0], VariableType::Integer);
+    ASSERT_EQ(model.number_of_constraints(), 1);
+    EXPECT_EQ(model.constraint_name(0), "end");
+    EXPECT_EQ(model.constraints_lower_bounds[0], 3.0);
+    EXPECT_EQ(model.constraints_upper_bounds[0], inf);
+}
+
+TEST(MathOptLp, KeywordConstraintNamesRoundTrip)
+{
+    std::vector<std::string> names = {
+        "end", "bounds", "st", "subject", "general", "binary", "free", "minimize", "semi", "sos"};
+    MathOptModel original;
+    original.variables_names = {"x"};
+    original.variables_lower_bounds = {0.0};
+    original.variables_upper_bounds = {inf};
+    original.variables_types = {VariableType::Integer};
+    original.objective_coefficients = {1.0};
+    for (const std::string& name: names) {
+        original.constraints_names.push_back(name);
+        original.constraints_lower_bounds.push_back(1.0);
+        original.constraints_upper_bounds.push_back(inf);
+        original.constraints_starts.push_back((int)original.elements_variables.size());
+        original.elements_variables.push_back(0);
+        original.elements_coefficients.push_back(1.0);
+    }
+
+    MathOptModel round_tripped = read(write(original));
+
+    ASSERT_EQ(round_tripped.number_of_constraints(), (int)names.size());
+    for (int constraint_id = 0; constraint_id < (int)names.size(); ++constraint_id)
+        EXPECT_EQ(round_tripped.constraint_name(constraint_id), names[constraint_id]);
+    EXPECT_EQ(round_tripped.variables_types[0], VariableType::Integer);
+}
+
+TEST(MathOptLp, NoConstraintsSection)
+{
+    // As in HiGHS's check/instances/qpunbounded.lp.
+    MathOptModel model = read(
+            "Maximize\n"
+            " obj: x1 + 2 x2\n"
+            "Bounds\n"
+            " 0 <= x1 <= 40\n"
+            "General\n"
+            " x2\n"
+            "End\n");
+
+    ASSERT_EQ(model.number_of_variables(), 2);
+    EXPECT_EQ(model.number_of_constraints(), 0);
+    EXPECT_EQ(model.objective_coefficients, (std::vector<double>{1.0, 2.0}));
+    EXPECT_EQ(model.variables_upper_bounds[0], 40.0);
+    EXPECT_EQ(model.variables_types[1], VariableType::Integer);
+}
+
+TEST(MathOptLp, ObjectiveOnly)
+{
+    MathOptModel model = read(
+            "Minimize\n"
+            " obj: x\n"
+            "End\n");
+    ASSERT_EQ(model.number_of_variables(), 1);
+    EXPECT_EQ(model.number_of_constraints(), 0);
+}
+
+TEST(MathOptLp, ConstantInConstraintMovesToBounds)
+{
+    // As in HiGHS's check/instances/1451.lp.
+    MathOptModel model = read(
+            "Minimize\n"
+            " obj: x\n"
+            "Subject To\n"
+            " c1: x - 1 >= 2\n"
+            " c2: 3 + x + 2 <= 10\n"
+            " c3: -1 <= x + 4 - 1 <= 7\n"
+            " c4: x + 1 = 1\n"
+            "End\n");
+
+    ASSERT_EQ(model.number_of_constraints(), 4);
+    EXPECT_EQ(model.constraints_lower_bounds[0], 3.0);
+    EXPECT_EQ(model.constraints_upper_bounds[0], inf);
+    EXPECT_EQ(model.constraints_lower_bounds[1], -inf);
+    EXPECT_EQ(model.constraints_upper_bounds[1], 5.0);
+    EXPECT_EQ(model.constraints_lower_bounds[2], -4.0);
+    EXPECT_EQ(model.constraints_upper_bounds[2], 4.0);
+    EXPECT_EQ(model.constraints_lower_bounds[3], 0.0);
+    EXPECT_EQ(model.constraints_upper_bounds[3], 0.0);
+    for (int constraint_id = 0; constraint_id < 4; ++constraint_id) {
+        ASSERT_EQ(model.number_of_variables(constraint_id), 1);
+        EXPECT_EQ(model.elements_coefficients[model.constraints_starts[constraint_id]], 1.0);
+    }
 }
 
 TEST(MathOptLp, WriteThenReadRoundTrip)
@@ -267,13 +448,15 @@ TEST(MathOptLp, WriteIntegerAndBinaryRoundTrip)
     EXPECT_EQ(round_tripped.variables_upper_bounds[2], 1.0);
 }
 
-TEST(MathOptLp, WriteNonMilpThrows)
+TEST(MathOptLp, WriteNonlinearThrows)
 {
+    // Objective: exp(x0).
     MathOptModel model(1, 0, 0);
     model.objective_direction = ObjectiveDirection::Minimize;
-    model.objective_quadratic_elements_variables_1.push_back(0);
-    model.objective_quadratic_elements_variables_2.push_back(0);
-    model.objective_quadratic_elements_coefficients.push_back(1.0);
+    model.objective_nonlinear_elements_operators = {'e', 'v'};
+    model.objective_nonlinear_elements_values = {0.0, 0.0};
+    model.objective_nonlinear_elements_variables = {-1, 0};
+    model.objective_nonlinear_elements_number_of_children = {1, 0};
 
     std::ostringstream out;
     EXPECT_THROW(write_lp(model, out), std::invalid_argument);

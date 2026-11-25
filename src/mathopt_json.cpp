@@ -1,5 +1,6 @@
 #include "mathoptsolverscmake/mathopt_json.hpp"
 
+#include "number_parsing.hpp"
 #include "text_output.hpp"
 
 #include <cctype>
@@ -176,7 +177,7 @@ private:
         }
         JsonValue value;
         value.type = JsonValue::Type::Number;
-        value.number_value = std::strtod(token.c_str(), nullptr);
+        value.number_value = number_parsing::c_strtod(token.c_str(), nullptr);
         return value;
     }
 
@@ -649,7 +650,9 @@ void mathoptsolverscmake::write_json(
         const std::string type_names[] = {
             "\"" + escape_json_string(to_text(VariableType::Continuous)) + "\"",
             "\"" + escape_json_string(to_text(VariableType::Binary)) + "\"",
-            "\"" + escape_json_string(to_text(VariableType::Integer)) + "\""};
+            "\"" + escape_json_string(to_text(VariableType::Integer)) + "\"",
+            "\"" + escape_json_string(to_text(VariableType::SemiContinuous)) + "\"",
+            "\"" + escape_json_string(to_text(VariableType::SemiInteger)) + "\""};
         TextOutput& types = field("variables_types");
         types << '[';
         for (size_t variable_id = 0; variable_id < model.variables_types.size(); ++variable_id) {

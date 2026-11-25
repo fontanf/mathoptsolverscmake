@@ -243,6 +243,11 @@ void mathoptsolverscmake::load(
         KnitroContext& knitro,
         const MathOptModel& model)
 {
+    if (model.has_semi_variables()) {
+        throw std::invalid_argument(
+                FUNC_SIGNATURE + ": "
+                "Knitro does not support semi-continuous or semi-integer variables.");
+    }
     // Variables.
     knitro_check(
             KN_add_vars(knitro.kc, model.number_of_variables(), NULL),

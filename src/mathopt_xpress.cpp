@@ -11,6 +11,11 @@ void mathoptsolverscmake::load(
         XPRSprob& xpress_model,
         const MathOptModel& model)
 {
+    if (model.has_semi_variables()) {
+        throw std::invalid_argument(
+                FUNC_SIGNATURE + ": "
+                "semi-continuous and semi-integer variables are not supported with XPRESS yet.");
+    }
     if (!model.is_milp()) {
         throw std::invalid_argument(
                 FUNC_SIGNATURE + ": "
@@ -97,6 +102,9 @@ void mathoptsolverscmake::load(
         case VariableType::Integer:
             variables_types[variable_id] = 'I';
             break;
+        case VariableType::SemiContinuous:
+        case VariableType::SemiInteger:
+            break;  // Rejected above.
         }
     }
     status = XPRSchgcoltype(

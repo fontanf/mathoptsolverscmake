@@ -169,6 +169,25 @@ target_compile_definitions(dual_test PRIVATE
 include(GoogleTest)
 gtest_discover_tests(dual_test)
 
+add_executable(locale_test
+    locale_test.cpp)
+target_link_libraries(locale_test PRIVATE
+    MathOptSolversCMake::mathopt
+    GTest::gtest_main)
+
+include(GoogleTest)
+gtest_discover_tests(locale_test)
+
+add_executable(semi_variables_test
+    semi_variables_test.cpp)
+target_link_libraries(semi_variables_test PRIVATE
+    MathOptSolversCMake_test_models
+    MathOptSolversCMake::mathopt
+    GTest::gtest_main)
+
+include(GoogleTest)
+gtest_discover_tests(semi_variables_test)
+
 add_executable(mathopt_solve_test
     mathopt_solve_test.cpp)
 target_link_libraries(mathopt_solve_test PRIVATE

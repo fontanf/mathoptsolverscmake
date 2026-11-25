@@ -235,6 +235,8 @@ void mathoptsolverscmake::load(
             case VariableType::Continuous: types[variable_id] = GRB_CONTINUOUS; break;
             case VariableType::Binary: types[variable_id] = GRB_BINARY; break;
             case VariableType::Integer: types[variable_id] = GRB_INTEGER; break;
+            case VariableType::SemiContinuous: types[variable_id] = GRB_SEMICONT; break;
+            case VariableType::SemiInteger: types[variable_id] = GRB_SEMIINT; break;
             }
             names[variable_id] = model.variable_name(variable_id);
             names_ptrs[variable_id] = const_cast<char*>(names[variable_id].c_str());

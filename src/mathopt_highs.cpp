@@ -60,6 +60,12 @@ void mathoptsolverscmake::load(
         case VariableType::Integer:
             variables_types[variable_id] = HighsVarType::kInteger;
             break;
+        case VariableType::SemiContinuous:
+            variables_types[variable_id] = HighsVarType::kSemiContinuous;
+            break;
+        case VariableType::SemiInteger:
+            variables_types[variable_id] = HighsVarType::kSemiInteger;
+            break;
         }
     }
     highs_model.changeColsIntegrality(

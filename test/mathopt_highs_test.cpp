@@ -1,6 +1,9 @@
 #include "test_models.hpp"
+#include "semi_test_models.hpp"
 
 #include "mathoptsolverscmake/mathopt_highs.hpp"
+#include "mathoptsolverscmake/mathopt_lp.hpp"
+#include "mathoptsolverscmake/mathopt_mps.hpp"
 
 #include <gtest/gtest.h>
 
@@ -113,3 +116,26 @@ INSTANTIATE_TEST_SUITE_P(
         {
             return info.param.name;
         });
+
+TEST(MathOptHighs, SemiVariables)
+{
+    // HiGHS's semi-continuous and semi-integer models, read from MPS and LP.
+    for (bool semi_integer: {false, true}) {
+        for (bool lp: {false, true}) {
+            std::istringstream in(lp? semi_lp(semi_integer): semi_mps(semi_integer));
+            MathOptModel model = lp? read_lp(in): read_mps(in);
+            Highs highs_model;
+            reduce_printout(highs_model);
+            load(highs_model, model);
+            solve(highs_model);
+            std::vector<double> solution = get_solution(highs_model);
+            ASSERT_EQ(solution.size(), 4u);
+            double expected = semi_integer? SEMI_INTEGER_OPTIMUM: SEMI_CONTINUOUS_OPTIMUM;
+            EXPECT_NEAR(model.evaluate_objective(solution), expected, 1e-4)
+                << (semi_integer? "semi-integer": "semi-continuous") << (lp? " lp": " mps");
+            model.feasibility_tolerance = 1e-6;
+            model.integrality_tolerance = 1e-6;
+            EXPECT_TRUE(model.check_solution(solution));
+        }
+    }
+}

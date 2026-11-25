@@ -586,7 +586,7 @@ int mom_add_variables(
     return guarded(error_message, error_message_size, [&]() {
         check_model(model);
         check_count(number, "number");
-        if (types == nullptr && (type < 0 || type > (int8_t)VariableType::Integer))
+        if (types == nullptr && (type < 0 || type > (int8_t)VariableType::SemiInteger))
             throw std::invalid_argument("type = " + std::to_string(type) + " is not a VariableType value.");
         std::vector<std::string> names;
         bool has_names = input_names(number, names_data, names_offsets, names);

@@ -661,3 +661,48 @@ TEST(MathOptNl, WriteBlackBoxThrows)
     std::ostringstream out;
     EXPECT_THROW(write_nl(model, out), std::invalid_argument);
 }
+
+TEST(MathOptNl, NanValueThrows)
+{
+    std::string header =
+        "g0\n"
+        "2 1 1 0 0\n"
+        "0 0\n"
+        "0 0\n"
+        "0 0 0\n"
+        "0 0\n"
+        "0 0 0 0 0\n"
+        "2 2\n"
+        "0 0\n"
+        "0 0 0 0 0\n";
+    std::string body =
+        "b\n"
+        "0 0 2.5\n"
+        "0 0 4.125\n"
+        "r\n"
+        "1 RHS\n"
+        "C0\n"
+        "nVALUE\n"
+        "O0 0\n"
+        "n0\n"
+        "k1\n"
+        "1\n"
+        "J0 2\n"
+        "0 0.5\n"
+        "1 1.75\n"
+        "G0 2\n"
+        "0 1.5\n"
+        "1 2.25\n";
+    auto with = [&](const std::string& rhs, const std::string& value) {
+        std::string text = body;
+        text.replace(text.find("RHS"), 3, rhs);
+        text.replace(text.find("VALUE"), 5, value);
+        return header + text;
+    };
+
+    MathOptModel model = read(with("3.5", "0"));
+    EXPECT_EQ(model.constraints_upper_bounds[0], 3.5);
+    EXPECT_THROW(read(with("nan", "0")), std::invalid_argument);
+    EXPECT_THROW(read(with("3.5abc", "0")), std::invalid_argument);
+    EXPECT_THROW(read(with("3.5", "nan")), std::invalid_argument);
+}
