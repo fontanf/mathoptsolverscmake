@@ -366,6 +366,55 @@ int mom_format_constraint(
     });
 }
 
+int mom_format_expression(
+        const mom_model* model,
+        int kind,
+        int32_t id,
+        int expand_defined_variables,
+        char** data,
+        int64_t* size,
+        char* error_message,
+        size_t error_message_size)
+{
+    return guarded(error_message, error_message_size, [&]() {
+        check_model(model);
+        bool expand = (expand_defined_variables != 0);
+        switch (kind) {
+        case MOM_EXPRESSION_CONSTRAINT:
+            output_string(model->model.format_constraint_expression(id, expand), data, size);
+            break;
+        case MOM_EXPRESSION_OBJECTIVE:
+            output_string(model->model.format_objective_expression(expand), data, size);
+            break;
+        case MOM_EXPRESSION_DEFINED_VARIABLE:
+            output_string(model->model.format_defined_variable_expression(id, expand), data, size);
+            break;
+        default:
+            throw std::invalid_argument("unknown expression kind " + std::to_string(kind) + ".");
+        }
+    });
+}
+
+int mom_degree(
+        const mom_model* model,
+        int kind,
+        int32_t id,
+        double* degree,
+        char* error_message,
+        size_t error_message_size)
+{
+    return guarded(error_message, error_message_size, [&]() {
+        check_model(model);
+        if (degree == nullptr)
+            throw std::invalid_argument("degree must not be null.");
+        switch (kind) {
+        case MOM_EXPRESSION_CONSTRAINT: *degree = model->model.constraint_degree(id); break;
+        case MOM_EXPRESSION_OBJECTIVE: *degree = model->model.objective_degree(); break;
+        default: throw std::invalid_argument("unsupported expression kind " + std::to_string(kind) + ".");
+        }
+    });
+}
+
 /*
  * Inspection.
  */

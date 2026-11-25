@@ -152,6 +152,18 @@ class ModelTest {
     }
 
     @Test
+    void formatExpressions() {
+        try (Model model = Model.read(LP.getBytes(), Format.LP)) {
+            assertEquals("x + y + z", model.formatConstraintExpression(0, false));
+            assertEquals("c1: x + y + z <= 10\n", model.formatConstraint(0));
+            assertEquals("x + 2 * y + 3 * z", model.formatObjectiveExpression(false));
+            assertEquals(1.0, model.constraintDegree(0));
+            assertEquals(1.0, model.objectiveDegree());
+            assertThrows(IllegalArgumentException.class, () -> model.formatConstraintExpression(5, false));
+        }
+    }
+
+    @Test
     void readErrors() {
         assertThrows(MathOptModelException.class, () -> Model.read("not an nl file".getBytes(), Format.NL));
         assertThrows(IllegalArgumentException.class, () -> Model.read(Path.of("model.txt")));

@@ -344,6 +344,61 @@ public final class Model implements AutoCloseable {
         }
     }
 
+    /**
+     * The expression of a constraint, without its name and bounds, in infix notation. Defined
+     * variables appear as {@code d<id>}, or, with {@code expandDefinedVariables}, as their
+     * expressions.
+     */
+    public String formatConstraintExpression(int constraintId, boolean expandDefinedVariables) {
+        return formatExpression(Native.EXPRESSION_CONSTRAINT, constraintId, expandDefinedVariables);
+    }
+
+    /** The expression of the objective, in infix notation. */
+    public String formatObjectiveExpression(boolean expandDefinedVariables) {
+        return formatExpression(Native.EXPRESSION_OBJECTIVE, 0, expandDefinedVariables);
+    }
+
+    /** The expression of a defined variable, in infix notation. */
+    public String formatDefinedVariableExpression(int definedVariableId, boolean expandDefinedVariables) {
+        return formatExpression(Native.EXPRESSION_DEFINED_VARIABLE, definedVariableId, expandDefinedVariables);
+    }
+
+    private String formatExpression(int kind, int id, boolean expandDefinedVariables) {
+        try (Arena arena = Arena.ofConfined()) {
+            MemorySegment data = arena.allocate(ADDRESS);
+            MemorySegment size = arena.allocate(JAVA_LONG);
+            MemorySegment error = arena.allocate(Native.ERROR_SIZE);
+            int status = (int) Native.FORMAT_EXPRESSION.invoke(handle(), kind, id, expandDefinedVariables ? 1 : 0,
+                    data, size, error, Native.ERROR_SIZE);
+            Native.check(status, error);
+            return new String(takeBytes(data, size), StandardCharsets.UTF_8);
+        } catch (Throwable t) {
+            throw Native.rethrow(t);
+        }
+    }
+
+    /** The degree of a constraint's expression as a polynomial ({@code Double.POSITIVE_INFINITY} if it isn't one). */
+    public double constraintDegree(int constraintId) {
+        return degree(Native.EXPRESSION_CONSTRAINT, constraintId);
+    }
+
+    /** The degree of the objective as a polynomial ({@code Double.POSITIVE_INFINITY} if it isn't one). */
+    public double objectiveDegree() {
+        return degree(Native.EXPRESSION_OBJECTIVE, 0);
+    }
+
+    private double degree(int kind, int id) {
+        try (Arena arena = Arena.ofConfined()) {
+            MemorySegment degree = arena.allocate(JAVA_DOUBLE);
+            MemorySegment error = arena.allocate(Native.ERROR_SIZE);
+            int status = (int) Native.DEGREE.invoke(handle(), kind, id, degree, error, Native.ERROR_SIZE);
+            Native.check(status, error);
+            return degree.get(JAVA_DOUBLE, 0);
+        } catch (Throwable t) {
+            throw Native.rethrow(t);
+        }
+    }
+
     /** Copy and free a buffer returned by the library through {@code char** data, int64_t* size}. */
     private static byte[] takeBytes(MemorySegment dataPointer, MemorySegment sizePointer) throws Throwable {
         long size = sizePointer.get(JAVA_LONG, 0);

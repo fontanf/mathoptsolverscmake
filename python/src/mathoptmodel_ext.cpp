@@ -671,6 +671,21 @@ NB_MODULE(_core, m)
         .def("constraint_class", &MathOptModel::constraint_class, "constraint_id"_a)
         .def_prop_ro("constraints_classes", constraints_classes_array, nb::rv_policy::move,
                 "Constraint classes as an int8 array of ConstraintClass values.")
+        .def("format_constraint_expression", &MathOptModel::format_constraint_expression,
+                "constraint_id"_a, "expand_defined_variables"_a = false,
+                "The expression of a constraint, without its name and bounds, in infix notation. "
+                "Defined variables appear as d<id>, or, with expand_defined_variables, as their "
+                "expressions.")
+        .def("format_objective_expression", &MathOptModel::format_objective_expression,
+                "expand_defined_variables"_a = false,
+                "The expression of the objective, in infix notation.")
+        .def("format_defined_variable_expression", &MathOptModel::format_defined_variable_expression,
+                "defined_variable_id"_a, "expand_defined_variables"_a = false,
+                "The expression of a defined variable, in infix notation.")
+        .def("constraint_degree", &MathOptModel::constraint_degree, "constraint_id"_a,
+                "The degree of a constraint's expression as a polynomial (inf if it isn't one).")
+        .def("objective_degree", &MathOptModel::objective_degree,
+                "The degree of the objective as a polynomial (inf if it isn't one).")
         .def("constraint_end", &MathOptModel::constraint_end, "constraint_id"_a)
         .def("quadratic_constraint_end", &MathOptModel::quadratic_constraint_end, "constraint_id"_a)
         .def("nonlinear_constraint_end", &MathOptModel::nonlinear_constraint_end, "constraint_id"_a)

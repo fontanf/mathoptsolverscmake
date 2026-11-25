@@ -112,6 +112,13 @@ final class Native {
             ADDRESS, JAVA_INT, ADDRESS, ADDRESS, ADDRESS, JAVA_LONG);
     static final MethodHandle FORMAT_CONSTRAINT = handle("mom_format_constraint", false, JAVA_INT,
             ADDRESS, JAVA_INT, ADDRESS, ADDRESS, ADDRESS, JAVA_LONG);
+    static final MethodHandle FORMAT_EXPRESSION = handle("mom_format_expression", false, JAVA_INT,
+            ADDRESS, JAVA_INT, JAVA_INT, JAVA_INT, ADDRESS, ADDRESS, ADDRESS, JAVA_LONG);
+    static final MethodHandle DEGREE = handle("mom_degree", false, JAVA_INT,
+            ADDRESS, JAVA_INT, JAVA_INT, ADDRESS, ADDRESS, JAVA_LONG);
+    static final int EXPRESSION_CONSTRAINT = 0;
+    static final int EXPRESSION_OBJECTIVE = 1;
+    static final int EXPRESSION_DEFINED_VARIABLE = 2;
 
     /* Inspection. */
     static final MethodHandle NUMBER_OF_VARIABLES = handle("mom_number_of_variables", true, JAVA_INT, ADDRESS);
