@@ -10,6 +10,7 @@
 #include <filesystem>
 #include <fstream>
 #include <sstream>
+#include <thread>
 
 using namespace mathoptsolverscmake;
 using namespace mathoptsolverscmaketest;
@@ -116,6 +117,76 @@ INSTANTIATE_TEST_SUITE_P(
         {
             return info.param.name;
         });
+
+namespace
+{
+
+/**
+ * Run 'function' in a new thread, so that it starts without any HiGHS
+ * scheduler, HiGHS keeping one scheduler per thread.
+ */
+template<typename Function>
+void run_in_new_thread(Function function)
+{
+    std::thread thread(function);
+    thread.join();
+}
+
+}
+
+TEST(MathOptHighs, SolveLeavesNoMultiThreadedScheduler)
+{
+    // After a solve with several threads, a solve with a single thread in the
+    // same thread must not fail (HiGHS returns an error when the 'threads'
+    // option differs from the size of the scheduler of the thread).
+    run_in_new_thread([]()
+    {
+        TestModel test_model = linear_mixed_integer_model();
+        Highs highs_model;
+        reduce_printout(highs_model);
+        highs_model.setOptionValue("threads", 2);
+        load(highs_model, test_model.model);
+        solve(highs_model);
+        EXPECT_EQ(highs_model.getModelStatus(), HighsModelStatus::kOptimal);
+        // The solution remains available after the scheduler reset.
+        std::vector<double> solution = get_solution(highs_model);
+        ASSERT_EQ(solution.size(), test_model.optimal_solution.size());
+        EXPECT_NEAR(
+                test_model.model.evaluate_objective(solution),
+                test_model.model.evaluate_objective(test_model.optimal_solution),
+                1e-4);
+
+        Highs single_thread_highs_model;
+        reduce_printout(single_thread_highs_model);
+        single_thread_highs_model.setOptionValue("threads", 1);
+        load(single_thread_highs_model, test_model.model);
+        EXPECT_EQ(single_thread_highs_model.run(), HighsStatus::kOk);
+        EXPECT_EQ(single_thread_highs_model.getModelStatus(), HighsModelStatus::kOptimal);
+    });
+}
+
+TEST(MathOptHighs, SolveDoesNotReuseSingleThreadScheduler)
+{
+    // After a solve with a single thread outside 'solve', which leaves a
+    // single-thread scheduler in the thread, a solve with several threads
+    // must not fail.
+    run_in_new_thread([]()
+    {
+        TestModel test_model = linear_mixed_integer_model();
+        Highs single_thread_highs_model;
+        reduce_printout(single_thread_highs_model);
+        single_thread_highs_model.setOptionValue("threads", 1);
+        load(single_thread_highs_model, test_model.model);
+        ASSERT_EQ(single_thread_highs_model.run(), HighsStatus::kOk);
+
+        Highs highs_model;
+        reduce_printout(highs_model);
+        highs_model.setOptionValue("threads", 2);
+        load(highs_model, test_model.model);
+        solve(highs_model);
+        EXPECT_EQ(highs_model.getModelStatus(), HighsModelStatus::kOptimal);
+    });
+}
 
 TEST(MathOptHighs, SemiVariables)
 {
