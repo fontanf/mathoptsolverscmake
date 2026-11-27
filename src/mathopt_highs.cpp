@@ -157,7 +157,34 @@ void mathoptsolverscmake::write_mps(
 void mathoptsolverscmake::solve(
         Highs& highs_model)
 {
+    // HiGHS keeps one task scheduler per calling thread, created by the first
+    // solve in that thread with the number of threads of its 'threads'
+    // option, and kept until the thread exits. A later solve in the same
+    // thread with another nonzero 'threads' value returns an error without
+    // solving. And when a thread holding a scheduler with worker threads
+    // exits, HiGHS detaches the workers, which crashes the process on
+    // glibc < 2.43 (https://github.com/ERGO-Code/HiGHS/issues/3826).
+    //
+    // So, unless the solve uses a single thread (its scheduler has no worker
+    // threads), reset the scheduler of the calling thread before the solve,
+    // so that it doesn't conflict with a scheduler left by a previous solve,
+    // and after it, so that no worker threads are left behind; 'true' waits
+    // for the workers to end, joining them rather than detaching them. The
+    // solution and the information of the model remain available.
+    //
+    // This must not be called while another HiGHS solve is in progress in
+    // the same thread (for example, from a HiGHS callback).
+    //
+    // 'resetGlobalScheduler' rather than 'resetThreadScheduler', which
+    // replaces it, since the latter doesn't exist in HiGHS 1.13.
+    HighsInt threads = 0;
+    highs_model.getOptionValue("threads", threads);
+    bool reset_scheduler = (threads != 1);
+    if (reset_scheduler)
+        Highs::resetGlobalScheduler(true);
     HighsStatus return_status = highs_model.run();
+    if (reset_scheduler)
+        Highs::resetGlobalScheduler(true);
 }
 
 std::vector<double> mathoptsolverscmake::get_solution(
